@@ -32,3 +32,5 @@
 *.app
 /log
 *.dblite
+.sconsign.dblite
+.sconsign.dblite
