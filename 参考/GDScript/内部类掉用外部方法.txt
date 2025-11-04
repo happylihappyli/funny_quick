@@ -1,0 +1,33 @@
+# Main.gd
+extends Node
+
+class_name Main
+
+var score: int = 0
+
+# 内部类
+class InnerClass:
+    var outer_ref: Main  # 保存外部类的引用
+    
+    func _init(outer: Main):
+        outer_ref = outer  # 通过构造函数传入外部类实例
+    
+    func call_outer_method() -> void:
+        # 通过引用调用外部类方法
+        outer_ref.increase_score(10)
+        outer_ref.display_message("Called from inner class")
+    
+    func get_outer_data() -> int:
+        return outer_ref.score  # 访问外部类属性
+
+# 外部类方法
+func increase_score(amount: int) -> void:
+    score += amount
+    print("Score increased to: ", score)
+
+func display_message(msg: String) -> void:
+    print("Message: ", msg)
+
+func _ready():
+    var inner = InnerClass.new(self)  # 传递当前实例的引用
+    inner.call_outer_method()

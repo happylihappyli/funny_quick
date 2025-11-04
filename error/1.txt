@@ -1,0 +1,5 @@
+提示 Error ， Could not register hotkey!
+
+
+提示:
+Cannot set keyboard hook! Please try runing the program manually. Error Code 0

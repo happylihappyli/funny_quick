@@ -1,0 +1,259 @@
+[17:03:20.385] Program started
+[17:03:20.387] Window class registered successfully
+[17:03:20.394] Window created successfully
+[17:03:20.415] Hotkey Ctrl+Alt+Q registered successfully
+[17:03:20.415] Starting message loop
+[20:53:40.798] Program started
+[20:53:40.801] Window class registered successfully
+[20:53:40.806] Window created successfully
+[20:53:40.825] Hotkey Ctrl+Alt+Q registered successfully
+[20:53:40.825] Starting message loop
+[20:54:33.186] WM_DESTROY: Exiting program
+[20:54:33.190] Exiting, unregistering hotkey
+[09:53:45.978] Program started
+[09:53:45.980] Window class registered successfully
+[09:53:45.985] Window created successfully
+[09:53:46.001] Hotkey Ctrl+Alt+Q registered successfully
+[09:53:46.002] Starting message loop
+[09:53:48.485] WM_DESTROY: Exiting program
+[09:53:48.490] Exiting, unregistering hotkey
+[09:57:09.280] Program started
+[09:57:09.283] Window class registered successfully
+[09:57:09.287] Window created successfully
+[09:57:09.307] Hotkey Ctrl+Alt+Q registered successfully
+[09:57:09.307] Starting message loop
+[09:57:48.017] WM_DESTROY: Exiting program
+[09:57:48.023] Exiting, unregistering hotkey
+[10:32:07.336] Program started
+[10:32:07.339] Window class registered successfully
+[10:32:07.344] Window created successfully
+[10:32:07.367] Hotkey Ctrl+Alt+Q registered successfully
+[10:32:07.367] Starting message loop
+[10:32:37.070] WM_DESTROY: Exiting program
+[10:32:37.075] Exiting, unregistering hotkey
+[10:32:42.882] Program started
+[10:32:42.885] Window class registered successfully
+[10:32:42.891] Window created successfully
+[10:32:42.912] Hotkey Ctrl+Alt+Q registered successfully
+[10:32:42.912] Starting message loop
+[10:32:46.093] WM_DESTROY: Exiting program
+[10:32:46.100] Exiting, unregistering hotkey
+[11:23:48.881] Program started
+[11:23:48.884] Window class registered successfully
+[11:23:48.887] Window created successfully
+[11:23:48.912] Hotkey Ctrl+Alt+Q registered successfully
+[11:23:48.912] Starting message loop
+[11:39:21.559] Program started
+[11:39:21.562] Window class registered successfully
+[11:39:21.567] Window created successfully
+[11:39:21.591] Hotkey Ctrl+Alt+Q registered successfully
+[11:39:21.591] Starting message loop
+[13:26:13.340] Program started
+[13:26:13.343] Window class registered successfully
+[13:26:13.347] Window created successfully
+[13:26:13.370] Hotkey Ctrl+Alt+Q registered successfully
+[13:26:13.370] Starting message loop
+[13:29:33.799] WM_DESTROY: Exiting program
+[13:29:33.805] Exiting, unregistering hotkey
+[13:46:46.144] Program started
+[13:46:46.146] Window class registered successfully
+[13:46:46.152] Window created successfully
+[13:46:46.171] Hotkey Ctrl+Alt+Q registered successfully
+[13:46:46.171] Starting message loop
+[13:47:17.470] WM_DESTROY: Exiting program
+[13:47:17.476] Exiting, unregistering hotkey
+[13:55:39.949] Program started
+[13:55:39.951] Window class registered successfully
+[13:55:39.958] Window created successfully
+[13:55:39.983] Hotkey Ctrl+Alt+Q registered successfully
+[13:55:39.983] Starting message loop
+[13:59:33.720] Program started
+[13:59:33.723] Window class registered successfully
+[13:59:33.730] Window created successfully
+[13:59:33.748] Hotkey Ctrl+Alt+Q registered successfully
+[13:59:33.748] Starting message loop
+[14:02:11.285] Program started
+[14:02:11.287] Window class registered successfully
+[14:02:11.292] Window created successfully
+[14:02:11.316] Hotkey Ctrl+Alt+Q registered successfully
+[14:02:11.316] Starting message loop
+[14:28:46.352] Program started
+[14:28:46.354] Window class registered successfully
+[14:28:46.358] Window created successfully
+[14:28:46.385] Hotkey Ctrl+Alt+Q registered successfully
+[14:28:46.385] Starting message loop
+[14:30:25.872] WM_DESTROY: Exiting program
+[14:30:25.884] Exiting, unregistering hotkey
+[14:32:22.132] Program started
+[14:32:22.134] Window class registered successfully
+[14:32:22.138] Window created successfully
+[14:32:22.159] Hotkey Ctrl+Alt+Q registered successfully
+[14:32:22.159] Starting message loop
+[15:18:22.541] Program started
+[15:18:22.544] Window class registered successfully
+[15:18:22.549] Window created successfully
+[15:18:22.573] Hotkey Ctrl+Alt+Q registered successfully
+[15:18:22.573] Starting message loop
+[15:19:16.382] WM_DESTROY: Exiting program
+[15:19:16.386] Exiting, unregistering hotkey
+[15:44:27.052] Program started
+[15:44:27.055] Window class registered successfully
+[15:44:27.059] Window created successfully
+[15:44:27.083] Hotkey Ctrl+Alt+Q registered successfully
+[15:44:27.084] Starting message loop
+[15:44:33.999] Enter key pressed, executing first item
+[15:44:38.198] Enter key pressed, executing first item
+[15:46:45.611] Program started
+[15:46:45.613] Window class registered successfully
+[15:46:45.619] Window created successfully
+[15:46:45.638] WM_SETFOCUS received - normal focus behavior allowed
+[15:46:45.640] WM_COMMAND received: Control ID=1001, Notification=256
+[15:46:45.640]   Edit control EN_RETURN notification (Enter key pressed)
+[15:46:45.640]   Item count in listbox: 0
+[15:46:45.642] Hotkey Ctrl+Alt+Q registered successfully
+[15:46:45.642] Starting message loop
+[15:46:48.802] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:48.803]   Edit control unknown notification: 1024
+[15:46:48.803]   Ignoring other edit control notifications
+[15:46:48.803] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:48.803]   Edit control EN_CHANGE notification
+[15:46:49.466] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:49.467]   Edit control unknown notification: 1024
+[15:46:49.467]   Ignoring other edit control notifications
+[15:46:49.468] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:49.468]   Edit control EN_CHANGE notification
+[15:46:49.682] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:49.683]   Edit control unknown notification: 1024
+[15:46:49.683]   Ignoring other edit control notifications
+[15:46:49.683] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:49.683]   Edit control EN_CHANGE notification
+[15:46:49.850] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:49.850]   Edit control unknown notification: 1024
+[15:46:49.850]   Ignoring other edit control notifications
+[15:46:49.851] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:49.851]   Edit control EN_CHANGE notification
+[15:46:49.938] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:49.938]   Edit control unknown notification: 1024
+[15:46:49.938]   Ignoring other edit control notifications
+[15:46:49.939] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:49.940]   Edit control EN_CHANGE notification
+[15:46:50.123] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:50.123]   Edit control unknown notification: 1024
+[15:46:50.123]   Ignoring other edit control notifications
+[15:46:50.125] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:50.125]   Edit control EN_CHANGE notification
+[15:46:50.202] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:46:50.202]   Edit control unknown notification: 1024
+[15:46:50.203]   Ignoring other edit control notifications
+[15:46:50.203] WM_COMMAND received: Control ID=1001, Notification=768
+[15:46:50.203]   Edit control EN_CHANGE notification
+[15:46:54.042] WM_COMMAND received: Control ID=1001, Notification=512
+[15:46:54.042]   Edit control unknown notification: 512
+[15:46:54.043]   Ignoring other edit control notifications
+[15:46:54.043] WM_COMMAND received: Control ID=1002, Notification=4
+[15:46:54.160] WM_COMMAND received: Control ID=1002, Notification=1
+[15:46:55.566] WM_COMMAND received: Control ID=1002, Notification=5
+[15:46:55.567] WM_COMMAND received: Control ID=1001, Notification=256
+[15:46:55.567]   Edit control EN_RETURN notification (Enter key pressed)
+[15:46:55.567]   Item count in listbox: 1
+[15:46:55.567]   Forced selection of first item
+[15:46:55.568]   Executing first item
+[15:46:56.399] WM_COMMAND received: Control ID=1001, Notification=512
+[15:46:56.399]   Edit control unknown notification: 512
+[15:46:56.399]   Ignoring other edit control notifications
+[15:46:58.184] WM_SETFOCUS received - normal focus behavior allowed
+[15:46:59.165] WM_COMMAND received: Control ID=1001, Notification=256
+[15:46:59.165]   Edit control EN_RETURN notification (Enter key pressed)
+[15:46:59.166]   Item count in listbox: 1
+[15:46:59.166]   Forced selection of first item
+[15:46:59.166]   Executing first item
+[15:46:59.688] WM_COMMAND received: Control ID=1001, Notification=512
+[15:46:59.688]   Edit control unknown notification: 512
+[15:46:59.688]   Ignoring other edit control notifications
+[15:47:01.431] WM_SETFOCUS received - normal focus behavior allowed
+[15:47:02.474] WM_COMMAND received: Control ID=1001, Notification=256
+[15:47:02.474]   Edit control EN_RETURN notification (Enter key pressed)
+[15:47:02.475]   Item count in listbox: 1
+[15:47:02.475]   Forced selection of first item
+[15:47:02.475]   Executing first item
+[15:47:02.999] WM_COMMAND received: Control ID=1001, Notification=512
+[15:47:02.999]   Edit control unknown notification: 512
+[15:47:02.999]   Ignoring other edit control notifications
+[15:47:04.382] WM_SETFOCUS received - normal focus behavior allowed
+[15:47:06.476] WM_DESTROY: Exiting program
+[15:47:06.481] Exiting, unregistering hotkey
+[15:51:46.100] Program started
+[15:51:46.102] Window class registered successfully
+[15:51:46.108] Window created successfully
+[15:51:46.125] WM_SETFOCUS received - normal focus behavior allowed
+[15:51:46.126] WM_COMMAND received: Control ID=1001, Notification=256
+[15:51:46.126]   Edit control EN_RETURN notification (Enter key pressed)
+[15:51:46.127]   Item count in listbox: 0
+[15:51:46.127] Hotkey Ctrl+Alt+Q registered successfully
+[15:51:46.127] Starting message loop
+[15:51:47.748] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:51:47.748]   Edit control unknown notification: 1024
+[15:51:47.748]   Ignoring other edit control notifications
+[15:51:47.749] WM_COMMAND received: Control ID=1001, Notification=768
+[15:51:47.749]   Edit control EN_CHANGE notification
+[15:51:47.926] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:51:47.926]   Edit control unknown notification: 1024
+[15:51:47.927]   Ignoring other edit control notifications
+[15:51:47.927] WM_COMMAND received: Control ID=1001, Notification=768
+[15:51:47.927]   Edit control EN_CHANGE notification
+[15:51:48.069] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:51:48.069]   Edit control unknown notification: 1024
+[15:51:48.069]   Ignoring other edit control notifications
+[15:51:48.069] WM_COMMAND received: Control ID=1001, Notification=768
+[15:51:48.069]   Edit control EN_CHANGE notification
+[15:51:48.252] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:51:48.254]   Edit control unknown notification: 1024
+[15:51:48.254]   Ignoring other edit control notifications
+[15:51:48.255] WM_COMMAND received: Control ID=1001, Notification=768
+[15:51:48.255]   Edit control EN_CHANGE notification
+[15:51:49.421] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:51:49.421]   Edit control unknown notification: 1024
+[15:51:49.422]   Ignoring other edit control notifications
+[15:51:49.422] WM_COMMAND received: Control ID=1001, Notification=768
+[15:51:49.422]   Edit control EN_CHANGE notification
+[15:51:49.621] WM_COMMAND received: Control ID=1001, Notification=1024
+[15:51:49.621]   Edit control unknown notification: 1024
+[15:51:49.622]   Ignoring other edit control notifications
+[15:51:49.622] WM_COMMAND received: Control ID=1001, Notification=768
+[15:51:49.623]   Edit control EN_CHANGE notification
+[15:51:51.751] WM_COMMAND received: Control ID=1001, Notification=512
+[15:51:51.751]   Edit control unknown notification: 512
+[15:51:51.751]   Ignoring other edit control notifications
+[15:51:51.752] WM_COMMAND received: Control ID=1002, Notification=4
+[15:51:51.848] WM_COMMAND received: Control ID=1002, Notification=1
+[15:51:52.655] WM_COMMAND received: Control ID=1002, Notification=5
+[15:51:52.656] WM_COMMAND received: Control ID=1001, Notification=256
+[15:51:52.656]   Edit control EN_RETURN notification (Enter key pressed)
+[15:51:52.656]   Item count in listbox: 1
+[15:51:52.656]   Forced selection of first item
+[15:51:52.656]   Executing first item
+[15:51:53.504] WM_COMMAND received: Control ID=1001, Notification=512
+[15:51:53.504]   Edit control unknown notification: 512
+[15:51:53.505]   Ignoring other edit control notifications
+[15:51:54.967] WM_SETFOCUS received - normal focus behavior allowed
+[15:51:55.699] WM_COMMAND received: Control ID=1001, Notification=256
+[15:51:55.700]   Edit control EN_RETURN notification (Enter key pressed)
+[15:51:55.700]   Item count in listbox: 1
+[15:51:55.700]   Forced selection of first item
+[15:51:55.700]   Executing first item
+[15:51:56.221] WM_COMMAND received: Control ID=1001, Notification=512
+[15:51:56.222]   Edit control unknown notification: 512
+[15:51:56.222]   Ignoring other edit control notifications
+[15:51:57.671] WM_SETFOCUS received - normal focus behavior allowed
+[15:52:03.921] WM_SETFOCUS received - normal focus behavior allowed
+[15:52:05.175] WM_COMMAND received: Control ID=1001, Notification=256
+[15:52:05.176]   Edit control EN_RETURN notification (Enter key pressed)
+[15:52:05.176]   Item count in listbox: 1
+[15:52:05.176]   Forced selection of first item
+[15:52:05.176]   Executing first item
+[15:52:05.784] WM_COMMAND received: Control ID=1001, Notification=512
+[15:52:05.784]   Edit control unknown notification: 512
+[15:52:05.784]   Ignoring other edit control notifications
+[15:52:07.169] WM_SETFOCUS received - normal focus behavior allowed
+[15:52:08.402] WM_DESTROY: Exiting program
+[15:52:08.406] Exiting, unregistering hotkey

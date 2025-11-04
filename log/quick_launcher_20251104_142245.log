@@ -1,0 +1,34 @@
+﻿[2025-11-04 14:22:45.785] Program started
+[2025-11-04 14:22:45.789] Window class registered successfully
+[2025-11-04 14:22:45.795] Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
+[2025-11-04 14:22:45.795] Edit control subclassing successful
+[2025-11-04 14:22:45.796] Window created successfully
+[2025-11-04 14:22:45.806] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:45.806]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:45.807] WM_COMMAND received: Control ID=1001, Notification=256
+[2025-11-04 14:22:45.807]   Edit control EN_RETURN notification - processing
+[2025-11-04 14:22:45.808]   EN_RETURN: 回车键被忽略 (焦点变化导致)
+[2025-11-04 14:22:45.808] Set focus to edit control after window creation
+[2025-11-04 14:22:45.808] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:45.808] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:45.808] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:45.808] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.809] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.810] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.810] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.810] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:45.810] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:45.810] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.810] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.810] Displayed default search results after window creation
+[2025-11-04 14:22:45.810] Hotkey registration failed with error: 1409
+[2025-11-04 14:22:45.811] Ctrl+F1 hotkey registration failed with error: 1409
+[2025-11-04 14:22:45.811] Starting message loop
+[2025-11-04 14:22:48.824] WM_COMMAND received: Control ID=1001, Notification=512
+[2025-11-04 14:22:48.824]   Edit control unknown notification: 512

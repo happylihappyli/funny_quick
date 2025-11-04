@@ -1,0 +1,298 @@
+﻿[2025-11-04 14:22:32.700] Program started
+[2025-11-04 14:22:32.704] Window class registered successfully
+[2025-11-04 14:22:32.710] Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
+[2025-11-04 14:22:32.712] Edit control subclassing successful
+[2025-11-04 14:22:32.713] Window created successfully
+[2025-11-04 14:22:32.730] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:32.730]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:32.735] WM_COMMAND received: Control ID=1001, Notification=256
+[2025-11-04 14:22:32.735]   Edit control EN_RETURN notification - processing
+[2025-11-04 14:22:32.735]   EN_RETURN: 回车键被忽略 (焦点变化导致)
+[2025-11-04 14:22:32.737] Set focus to edit control after window creation
+[2025-11-04 14:22:32.737] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:32.737] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:32.737] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:32.737] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.738] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.738] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.738] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.738] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.738] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:32.738] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.739] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:32.739] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:32.740] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:32.740] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:32.740] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:32.741] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.741] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:32.741] Displayed default search results after window creation
+[2025-11-04 14:22:32.741] Hotkey Ctrl+Alt+Q registered successfully
+[2025-11-04 14:22:32.741] Hotkey Ctrl+F1 registered successfully
+[2025-11-04 14:22:32.741] Starting message loop
+[2025-11-04 14:22:36.674] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:36.674]   Edit control unknown notification: 1024
+[2025-11-04 14:22:36.675] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:36.675]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:36.675]   EN_CHANGE: 输入字符: 'b'
+[2025-11-04 14:22:36.675] SearchAndDisplayResults: 搜索查询 'b'
+[2025-11-04 14:22:36.675] SearchAndDisplayResults: 在 14 个快捷方式中搜索匹配项
+[2025-11-04 14:22:36.676] SearchAndDisplayResults: 找到前缀匹配 'Blender 4.5'
+[2025-11-04 14:22:36.676] SearchAndDisplayResults: 找到子字符串匹配 'funny_explorer.bat - 蹇嵎鏂瑰紡'
+[2025-11-04 14:22:36.676] SearchAndDisplayResults: 找到子字符串匹配 'Webots'
+[2025-11-04 14:22:36.676] SearchAndDisplayResults: 找到前缀匹配 'Baidu'
+[2025-11-04 14:22:36.676] SearchAndDisplayResults: 找到 4 个匹配项
+[2025-11-04 14:22:36.805] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:36.805]   Edit control unknown notification: 1024
+[2025-11-04 14:22:36.806] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:36.806]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:36.806]   EN_CHANGE: 输入字符: 'bl'
+[2025-11-04 14:22:36.806] SearchAndDisplayResults: 搜索查询 'bl'
+[2025-11-04 14:22:36.806] SearchAndDisplayResults: 在 14 个快捷方式中搜索匹配项
+[2025-11-04 14:22:36.808] SearchAndDisplayResults: 找到前缀匹配 'Blender 4.5'
+[2025-11-04 14:22:36.808] SearchAndDisplayResults: 找到 1 个匹配项
+[2025-11-04 14:22:36.934] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:36.934]   Edit control unknown notification: 1024
+[2025-11-04 14:22:36.934] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:36.935]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:36.935]   EN_CHANGE: 输入字符: 'ble'
+[2025-11-04 14:22:36.935] SearchAndDisplayResults: 搜索查询 'ble'
+[2025-11-04 14:22:36.935] SearchAndDisplayResults: 在 14 个快捷方式中搜索匹配项
+[2025-11-04 14:22:36.935] SearchAndDisplayResults: 找到前缀匹配 'Blender 4.5'
+[2025-11-04 14:22:36.935] SearchAndDisplayResults: 找到 1 个匹配项
+[2025-11-04 14:22:37.077] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:37.077]   Edit control unknown notification: 1024
+[2025-11-04 14:22:37.078] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:37.078]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:37.078]   EN_CHANGE: 输入字符: 'blen'
+[2025-11-04 14:22:37.078] SearchAndDisplayResults: 搜索查询 'blen'
+[2025-11-04 14:22:37.079] SearchAndDisplayResults: 在 14 个快捷方式中搜索匹配项
+[2025-11-04 14:22:37.079] SearchAndDisplayResults: 找到前缀匹配 'Blender 4.5'
+[2025-11-04 14:22:37.079] SearchAndDisplayResults: 找到 1 个匹配项
+[2025-11-04 14:22:37.213] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:37.214]   Edit control unknown notification: 1024
+[2025-11-04 14:22:37.215] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:37.215]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:37.215]   EN_CHANGE: 输入字符: 'blend'
+[2025-11-04 14:22:37.215] SearchAndDisplayResults: 搜索查询 'blend'
+[2025-11-04 14:22:37.215] SearchAndDisplayResults: 在 14 个快捷方式中搜索匹配项
+[2025-11-04 14:22:37.216] SearchAndDisplayResults: 找到前缀匹配 'Blender 4.5'
+[2025-11-04 14:22:37.216] SearchAndDisplayResults: 找到 1 个匹配项
+[2025-11-04 14:22:37.662] EditSubclassProc: WM_KEYDOWN with VK_RETURN received
+[2025-11-04 14:22:37.662]   EditSubclassProc: Current edit text: 'blend'
+[2025-11-04 14:22:37.663]   EditSubclassProc: Listbox item count: 1
+[2025-11-04 14:22:37.663]   EditSubclassProc: Force selecting first item
+[2025-11-04 14:22:37.664]   EditSubclassProc: First item text: 'APP: Blender 4.5'
+[2025-11-04 14:22:37.664]   EditSubclassProc: Search results not empty, executing first item
+[2025-11-04 14:22:37.664] ExecuteSelectedItem: 执行项目 'Blender 4.5' (路径: 'C:\Users\admin\Desktop\Blender 4.5.lnk', 类型: 2, 使用次数: 0)
+[2025-11-04 14:22:37.664] ExecuteSelectedItem: 执行应用程序
+[2025-11-04 14:22:38.297] ExecuteSelectedItem: ShellExecuteW 返回值: 42
+[2025-11-04 14:22:38.298] ExecuteSelectedItem: 更新使用次数为 1
+[2025-11-04 14:22:38.298] ExecuteSelectedItem: 执行成功
+[2025-11-04 14:22:38.631] WM_COMMAND received: Control ID=1001, Notification=512
+[2025-11-04 14:22:38.632]   Edit control unknown notification: 512
+[2025-11-04 14:22:40.723] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:40.724]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:44.576] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:44.576]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:45.399] ShowLauncherWindow called - START
+[2025-11-04 14:22:45.399] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:45.399]   Edit control unknown notification: 1024
+[2025-11-04 14:22:45.400] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:45.400]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:45.400]   EN_CHANGE: 输入字符: ''
+[2025-11-04 14:22:45.400] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:45.401] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:45.402] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:45.402] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:45.402] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.403] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.403] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.404] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.404] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.404] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.404] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.404] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.405] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.405] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:45.405] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:45.405] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.406] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.406] Cleared search box before showing window
+[2025-11-04 14:22:45.414] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:45.414]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:45.418] Window shown and brought to foreground
+[2025-11-04 14:22:45.427] SetEnglishInputMethod: 成功切换到英文输入法
+[2025-11-04 14:22:45.427] Setting focus to edit control
+[2025-11-04 14:22:45.429] WM_COMMAND received: Control ID=1001, Notification=256
+[2025-11-04 14:22:45.429]   Edit control EN_RETURN notification - processing
+[2025-11-04 14:22:45.429]   EN_RETURN: 回车键被忽略 (焦点变化导致)
+[2025-11-04 14:22:45.429] Displaying default search results
+[2025-11-04 14:22:45.429] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:45.429] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:45.429] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:45.429] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.430] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.431] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.431] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:45.431] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:45.431] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:45.431] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.431] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:45.431] ShowLauncherWindow finished - END
+[2025-11-04 14:22:45.432] Ctrl+F1 pressed: Window positioned to desktop for visibility
+[2025-11-04 14:22:45.797] WM_COMMAND received: Control ID=1001, Notification=512
+[2025-11-04 14:22:45.797]   Edit control unknown notification: 512
+[2025-11-04 14:22:50.323] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:50.323]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:53.117] ShowLauncherWindow called - START
+[2025-11-04 14:22:53.117] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:53.118]   Edit control unknown notification: 1024
+[2025-11-04 14:22:53.118] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:53.118]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:53.118]   EN_CHANGE: 输入字符: ''
+[2025-11-04 14:22:53.118] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:53.118] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:53.118] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:53.119] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.120] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.120] Cleared search box before showing window
+[2025-11-04 14:22:53.123] Window shown and brought to foreground
+[2025-11-04 14:22:53.123] SetEnglishInputMethod: 已经是英文输入法
+[2025-11-04 14:22:53.123] Setting focus to edit control
+[2025-11-04 14:22:53.124] Displaying default search results
+[2025-11-04 14:22:53.124] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:53.124] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:53.124] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:53.124] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:53.124] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.125] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.126] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:53.126] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:53.126] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:53.126] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.127] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:53.127] ShowLauncherWindow finished - END
+[2025-11-04 14:22:53.130] Ctrl+F1 pressed: Window positioned to desktop for visibility
+[2025-11-04 14:22:55.162] ShowLauncherWindow called - START
+[2025-11-04 14:22:55.162] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:55.163]   Edit control unknown notification: 1024
+[2025-11-04 14:22:55.163] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:55.163]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:55.163]   EN_CHANGE: 输入字符: ''
+[2025-11-04 14:22:55.164] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:55.164] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:55.164] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:55.164] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:55.164] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.165] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.165] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.165] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.165] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.165] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.165] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.166] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.166] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.166] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:55.166] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:55.167] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.167] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.167] Cleared search box before showing window
+[2025-11-04 14:22:55.172] Window shown and brought to foreground
+[2025-11-04 14:22:55.172] SetEnglishInputMethod: 已经是英文输入法
+[2025-11-04 14:22:55.173] Setting focus to edit control
+[2025-11-04 14:22:55.173] Displaying default search results
+[2025-11-04 14:22:55.173] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:55.174] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:55.174] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:55.174] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:55.174] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.174] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.175] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:55.176] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:55.176] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:55.176] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.176] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:55.176] ShowLauncherWindow finished - END
+[2025-11-04 14:22:55.177] Ctrl+F1 pressed: Window positioned to desktop for visibility
+[2025-11-04 14:22:56.232] ShowLauncherWindow called - START
+[2025-11-04 14:22:56.232] WM_COMMAND received: Control ID=1001, Notification=1024
+[2025-11-04 14:22:56.232]   Edit control unknown notification: 1024
+[2025-11-04 14:22:56.233] WM_COMMAND received: Control ID=1001, Notification=768
+[2025-11-04 14:22:56.233]   Edit control EN_CHANGE notification - processing search
+[2025-11-04 14:22:56.233]   EN_CHANGE: 输入字符: ''
+[2025-11-04 14:22:56.233] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:56.233] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:56.233] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:56.234] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:56.234] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.234] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.234] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.234] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.234] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.235] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.235] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.235] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.235] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.236] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:56.236] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:56.236] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.236] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.236] Cleared search box before showing window
+[2025-11-04 14:22:56.241] Window shown and brought to foreground
+[2025-11-04 14:22:56.241] SetEnglishInputMethod: 已经是英文输入法
+[2025-11-04 14:22:56.242] Setting focus to edit control
+[2025-11-04 14:22:56.242] Displaying default search results
+[2025-11-04 14:22:56.242] SearchAndDisplayResults: 搜索查询 ''
+[2025-11-04 14:22:56.242] SearchAndDisplayResults: 查询为空，显示最常用的项目
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 显示 14 个最常用项目
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 添加项目 'Blender 4.5' (类型: 2, 使用次数: 1)
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 添加项目 'funny_explorer.bat - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 添加项目 'percipio-viewer.2.6.1.exe - 蹇嵎鏂瑰紡' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 添加项目 'Trae' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 添加项目 'Webots' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.243] SearchAndDisplayResults: 添加项目 'Desktop' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.244] SearchAndDisplayResults: 添加项目 'Show Desktop' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.244] SearchAndDisplayResults: 添加项目 'Start Menu' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.244] SearchAndDisplayResults: 添加项目 'Downloads' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.244] SearchAndDisplayResults: 添加项目 'Documents' (类型: 0, 使用次数: 0)
+[2025-11-04 14:22:56.244] SearchAndDisplayResults: 添加项目 'Google' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:56.245] SearchAndDisplayResults: 添加项目 'Baidu' (类型: 1, 使用次数: 0)
+[2025-11-04 14:22:56.245] SearchAndDisplayResults: 添加项目 'Explorer' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.245] SearchAndDisplayResults: 添加项目 'Notepad' (类型: 2, 使用次数: 0)
+[2025-11-04 14:22:56.245] ShowLauncherWindow finished - END
+[2025-11-04 14:22:56.246] Ctrl+F1 pressed: Window positioned to desktop for visibility
+[2025-11-04 14:22:57.525] WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+[2025-11-04 14:22:57.526]   Setting ignore flag for next EN_RETURN due to focus change
+[2025-11-04 14:22:59.364] WM_DESTROY: Exiting program
+[2025-11-04 14:22:59.377] Exiting, unregistering hotkey
