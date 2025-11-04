@@ -27,6 +27,10 @@ bool g_ignoreNextReturn = false;
 // Subclassing procedure pointer for edit control
 WNDPROC g_originalEditProc = NULL;
 
+// System tray icon data
+NOTIFYICONDATA g_trayIconData = {0};
+bool g_trayIconAdded = false;
+
 // Edit control subclassing procedure declaration
 LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
@@ -36,6 +40,9 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
+#define WM_TRAY_MESSAGE (WM_USER + 1)
+#define ID_TRAY_EXIT 1003
+#define ID_TRAY_SHOW 1004
 
 // Types
 struct ShortcutItem {
@@ -135,6 +142,9 @@ void ShowLauncherWindow();
 void HideLauncherWindow();
 void AddDesktopShortcuts();
 void SetEnglishInputMethod();
+void AddTrayIcon();
+void RemoveTrayIcon();
+void ShowTrayMenu();
 
 // Show launcher window
 void ShowLauncherWindow()
@@ -780,6 +790,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             LogToFile("WM_DESTROY: Exiting program");
             UnregisterHotKey(hwnd, HOTKEY_ID);
             UnregisterHotKey(hwnd, HOTKEY_ID_CTRL_F1);
+            UnregisterHotKey(hwnd, HOTKEY_ID_CTRL_F2);
             g_shortcuts.clear();
             PostQuitMessage(0);
             return 0;
