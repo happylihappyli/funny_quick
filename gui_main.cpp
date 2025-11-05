@@ -10,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include <shlobj.h>
+#include <strsafe.h>
 
 // Define notification codes if not defined
 #ifndef EN_RETURN
@@ -24,6 +25,11 @@ HWND g_hListBox = NULL;
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
 
+// 系统托盘相关变量
+NOTIFYICONDATA g_notifyIconData = {0};
+bool g_trayIconAdded = false;
+HMENU g_trayMenu = NULL;
+
 // Subclassing procedure pointer for edit control
 WNDPROC g_originalEditProc = NULL;
 
@@ -36,6 +42,11 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
+
+// 系统托盘相关常量
+#define WM_TRAYICON (WM_USER + 1)
+#define ID_TRAY_SHOW 1003
+#define ID_TRAY_EXIT 1004
 
 // Types
 struct ShortcutItem {
@@ -136,6 +147,12 @@ void HideLauncherWindow();
 void AddDesktopShortcuts();
 void SetEnglishInputMethod();
 
+// 系统托盘相关函数声明
+void AddTrayIcon();
+void RemoveTrayIcon();
+void CreateTrayMenu();
+void HandleTrayMessage(LPARAM lParam);
+
 // Show launcher window
 void ShowLauncherWindow()
 {
@@ -205,6 +222,123 @@ void SetEnglishInputMethod()
     else
     {
         LogToFile("SetEnglishInputMethod: 获取输入法上下文失败");
+    }
+}
+
+// 添加系统托盘图标
+void AddTrayIcon()
+{
+    // 如果已经添加了托盘图标，先移除
+    if (g_trayIconAdded)
+    {
+        RemoveTrayIcon();
+    }
+    
+    // 设置托盘图标数据
+    g_notifyIconData.cbSize = sizeof(NOTIFYICONDATA);
+    g_notifyIconData.hWnd = g_hMainWindow;
+    g_notifyIconData.uID = 1;
+    g_notifyIconData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    g_notifyIconData.uCallbackMessage = WM_TRAYICON;
+    // 使用系统默认图标，确保图标可见
+    g_notifyIconData.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    
+    // 使用memcpy来复制字符串，避免类型问题
+    const wchar_t* tipText = L"Quick Launcher";
+    memcpy(g_notifyIconData.szTip, tipText, (wcslen(tipText) + 1) * sizeof(wchar_t));
+    
+    // 添加托盘图标
+    if (Shell_NotifyIcon(NIM_ADD, &g_notifyIconData))
+    {
+        g_trayIconAdded = true;
+        LogToFile("AddTrayIcon: 成功添加系统托盘图标");
+    }
+    else
+    {
+        LogToFile("AddTrayIcon: 添加系统托盘图标失败");
+    }
+}
+
+// 移除系统托盘图标
+void RemoveTrayIcon()
+{
+    if (g_trayIconAdded)
+    {
+        if (Shell_NotifyIcon(NIM_DELETE, &g_notifyIconData))
+        {
+            g_trayIconAdded = false;
+            LogToFile("RemoveTrayIcon: 成功移除系统托盘图标");
+        }
+        else
+        {
+            LogToFile("RemoveTrayIcon: 移除系统托盘图标失败");
+        }
+    }
+}
+
+// 创建托盘右键菜单
+void CreateTrayMenu()
+{
+    // 如果菜单已存在，先销毁
+    if (g_trayMenu)
+    {
+        DestroyMenu(g_trayMenu);
+    }
+    
+    // 创建弹出菜单
+    g_trayMenu = CreatePopupMenu();
+    if (g_trayMenu)
+    {
+        AppendMenuW(g_trayMenu, MF_STRING, ID_TRAY_SHOW, L"显示窗口");
+        AppendMenuW(g_trayMenu, MF_SEPARATOR, 0, NULL);
+        AppendMenuW(g_trayMenu, MF_STRING, ID_TRAY_EXIT, L"退出");
+        LogToFile("CreateTrayMenu: 成功创建托盘右键菜单");
+    }
+    else
+    {
+        LogToFile("CreateTrayMenu: 创建托盘右键菜单失败");
+    }
+}
+
+// 处理托盘消息
+void HandleTrayMessage(LPARAM lParam)
+{
+    switch (lParam)
+    {
+    case WM_LBUTTONDBLCLK:
+        // 双击左键显示窗口
+        ShowLauncherWindow();
+        LogToFile("HandleTrayMessage: 双击托盘图标，显示窗口");
+        break;
+        
+    case WM_RBUTTONDOWN:
+        // 右键点击显示菜单
+        if (g_trayMenu)
+        {
+            POINT pt;
+            GetCursorPos(&pt);
+            SetForegroundWindow(g_hMainWindow);
+            
+            // 显示菜单并获取用户选择
+            UINT cmd = TrackPopupMenu(g_trayMenu, 
+                                     TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY,
+                                     pt.x, pt.y, 0, g_hMainWindow, NULL);
+            
+            // 处理菜单选择
+            switch (cmd)
+            {
+            case ID_TRAY_SHOW:
+                ShowLauncherWindow();
+                LogToFile("HandleTrayMessage: 用户选择显示窗口");
+                break;
+                
+            case ID_TRAY_EXIT:
+                PostMessage(g_hMainWindow, WM_CLOSE, 0, 0);
+                LogToFile("HandleTrayMessage: 用户选择退出");
+                break;
+            }
+        }
+        break;
     }
 }
 
@@ -781,6 +915,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             UnregisterHotKey(hwnd, HOTKEY_ID);
             UnregisterHotKey(hwnd, HOTKEY_ID_CTRL_F1);
             UnregisterHotKey(hwnd, HOTKEY_ID_CTRL_F2);
+            
+            // 移除托盘图标和销毁托盘菜单
+            RemoveTrayIcon();
+            if (g_trayMenu)
+            {
+                DestroyMenu(g_trayMenu);
+                g_trayMenu = NULL;
+            }
+            
             g_shortcuts.clear();
             PostQuitMessage(0);
             return 0;
@@ -794,12 +937,24 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
             
         case WM_SIZE:
-            // 当窗口最小化时自动隐藏窗口
+            // 当窗口最小化时自动隐藏窗口到托盘
             if (wParam == SIZE_MINIMIZED)
             {
-                LogToFile("WM_SIZE: 窗口最小化，自动隐藏窗口");
+                LogToFile("WM_SIZE: 窗口最小化，隐藏到托盘");
                 ShowWindow(hwnd, SW_HIDE);
+                
+                // 如果托盘图标尚未添加，则添加
+                if (!g_trayIconAdded)
+                {
+                    AddTrayIcon();
+                    CreateTrayMenu();
+                }
             }
+            return 0;
+            
+        case WM_TRAYICON:
+            // 处理系统托盘图标消息
+            HandleTrayMessage(lParam);
             return 0;
             
         case WM_SETFOCUS:
@@ -819,6 +974,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 char logMsg[200] = {0};
                 sprintf(logMsg, "WM_COMMAND received: Control ID=%d, Notification=%d", LOWORD(wParam), HIWORD(wParam));
                 LogToFile(logMsg);
+                
+                // 处理托盘菜单命令
+                if (LOWORD(wParam) == ID_TRAY_SHOW)
+                {
+                    ShowLauncherWindow();
+                    LogToFile("WM_COMMAND: 用户选择显示窗口");
+                    return 0;
+                }
+                else if (LOWORD(wParam) == ID_TRAY_EXIT)
+                {
+                    PostMessage(hwnd, WM_CLOSE, 0, 0);
+                    LogToFile("WM_COMMAND: 用户选择退出");
+                    return 0;
+                }
                 
                 if (LOWORD(wParam) == IDC_EDIT)
                 {
@@ -1159,6 +1328,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     {
         LogToFile("Hotkey Ctrl+F2 registered successfully");
     }
+    
+    // 初始化系统托盘图标和菜单
+    AddTrayIcon();
+    CreateTrayMenu();
+    LogToFile("System tray icon and menu initialized");
     
     // Start message loop
     LogToFile("Starting message loop");
