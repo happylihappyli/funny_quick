@@ -11,6 +11,7 @@
 #include <string>
 #include <shlobj.h>
 #include <strsafe.h>
+#include <functional>
 
 // Define notification codes if not defined
 #ifndef EN_RETURN
@@ -23,6 +24,7 @@ HWND g_hMainWindow = NULL;
 HWND g_hEdit = NULL;
 HWND g_hListBox = NULL;
 HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
+HWND g_hSettingsButton = NULL;   // 设置按钮
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
 
@@ -41,14 +43,15 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define IDC_EDIT 1001
 #define IDC_LISTBOX 1002
 #define IDC_EXIT_CALC_BUTTON 1003  // 退出计算模式按钮ID
+#define IDC_SETTINGS_BUTTON 1004    // 设置按钮ID
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
 
 // 系统托盘相关常量
 #define WM_TRAYICON (WM_USER + 1)
-#define ID_TRAY_SHOW 1004
-#define ID_TRAY_EXIT 1005
+#define ID_TRAY_SHOW 1005
+#define ID_TRAY_EXIT 1006
 
 // Types
 struct ShortcutItem {
@@ -69,13 +72,18 @@ bool g_updatingEditBox = false;  // 是否正在更新编辑框内容，防止�
 std::vector<std::wstring> g_calculationHistory;  // 计算历史记录
 HWND g_hModeLabel = NULL;  // 模式标签控件
 
-// 计算模式相关函数声明
+// 表达式解析辅助函数声明
 void EnterCalculatorMode();
 void ExitCalculatorMode();
 void EvaluateExpression(const WCHAR* expression);
 void DisplayCalculationHistory();
 void SaveCalculationHistory();
 void LoadCalculationHistory();
+
+// 表达式解析辅助函数声明
+double parseNumber(const std::wstring& expr, size_t& pos);
+double parseTerm(const std::wstring& expr, size_t& pos);
+double parseExpression(const std::wstring& expr, size_t& pos);
 
 // Log function
 void LogToFile(const char* message)
@@ -151,6 +159,55 @@ void LogToFile(const char* message)
             fclose(errorFile);
         }
     }
+}
+
+// 表达式解析辅助函数实现
+double parseNumber(const std::wstring& expr, size_t& pos) {
+    std::wstring numStr;
+    while (pos < expr.length() && (iswdigit(expr[pos]) || expr[pos] == L'.')) {
+        numStr += expr[pos];
+        pos++;
+    }
+    return numStr.empty() ? 0.0 : _wtof(numStr.c_str());
+}
+
+double parseTerm(const std::wstring& expr, size_t& pos) {
+    double value = parseNumber(expr, pos);
+    
+    while (pos < expr.length() && (expr[pos] == L'*' || expr[pos] == L'/')) {
+        wchar_t op = expr[pos];
+        pos++;
+        double nextValue = parseNumber(expr, pos);
+        
+        if (op == L'*') {
+            value *= nextValue;
+        } else if (op == L'/' && nextValue != 0) {
+            value /= nextValue;
+        } else {
+            LogToFile("parseTerm: 除零错误");
+            throw std::exception("除零错误");
+        }
+    }
+    
+    return value;
+}
+
+double parseExpression(const std::wstring& expr, size_t& pos) {
+    double value = parseTerm(expr, pos);
+    
+    while (pos < expr.length() && (expr[pos] == L'+' || expr[pos] == L'-')) {
+        wchar_t op = expr[pos];
+        pos++;
+        double nextValue = parseTerm(expr, pos);
+        
+        if (op == L'+') {
+            value += nextValue;
+        } else {
+            value -= nextValue;
+        }
+    }
+    
+    return value;
 }
 
 // Forward declarations
@@ -946,6 +1003,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                   hwnd, (HMENU)IDC_EXIT_CALC_BUTTON,
                   g_hInstance, NULL);
             
+            // Create settings button (initially visible in non-calculator mode)
+            g_hSettingsButton = CreateWindowExW(
+                  0,
+                  L"BUTTON",
+                  L"设置",
+                  WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE,
+                  300, 10, 80, 25,
+                  hwnd, (HMENU)IDC_SETTINGS_BUTTON,
+                  g_hInstance, NULL);
+            
             // Initially hide the exit calculator button
             ShowWindow(g_hExitCalcButton, SW_HIDE);
             
@@ -1066,6 +1133,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         ExitCalculatorMode();
                         LogToFile("WM_COMMAND: 用户点击退出计算模式按钮");
                     }
+                    return 0;
+                }
+                // 处理设置按钮点击
+                else if (LOWORD(wParam) == IDC_SETTINGS_BUTTON)
+                {
+                    // 处理设置按钮点击
+                    LogToFile("WM_COMMAND: 用户点击设置按钮");
+                    // TODO: 实现设置功能
+                    MessageBoxW(hwnd, L"设置功能正在开发中...", L"提示", MB_OK | MB_ICONINFORMATION);
                     return 0;
                 }
                 // 处理托盘菜单命令
@@ -1643,6 +1719,9 @@ void EnterCalculatorMode()
     // 显示退出计算模式按钮
     ShowWindow(g_hExitCalcButton, SW_SHOW);
     
+    // 隐藏设置按钮
+    ShowWindow(g_hSettingsButton, SW_HIDE);
+    
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
     
@@ -1666,6 +1745,9 @@ void ExitCalculatorMode()
     
     // 隐藏退出计算模式按钮
     ShowWindow(g_hExitCalcButton, SW_HIDE);
+    
+    // 显示设置按钮
+    ShowWindow(g_hSettingsButton, SW_SHOW);
     
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
@@ -1707,6 +1789,16 @@ void EvaluateExpression(const WCHAR* expression)
         std::wstring expr = expression;
         LogToFile("EvaluateExpression: 创建了wstring表达式");
         
+        // 检查表达式中是否包含等号，如果包含则只取等号前的部分
+        size_t equalPos = expr.find(L'=');
+        if (equalPos != std::wstring::npos) {
+            expr = expr.substr(0, equalPos);
+            char trimmedLog[1024] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, expr.c_str(), -1, trimmedLog, sizeof(trimmedLog), NULL, NULL);
+            sprintf(logMsg, "EvaluateExpression: 发现等号，截取表达式为 '%s'", trimmedLog);
+            LogToFile(logMsg);
+        }
+        
         // 移除空格
         expr.erase(std::remove(expr.begin(), expr.end(), L' '), expr.end());
         LogToFile("EvaluateExpression: 移除了空格");
@@ -1742,113 +1834,19 @@ void EvaluateExpression(const WCHAR* expression)
         {
             LogToFile("EvaluateExpression: 不是单个数字，尝试解析表达式");
             // 不是简单的数字，需要更复杂的解析
-            // 这里只是一个简单的示例，实际应该使用表达式解析器
-            // 为了演示，我们只处理简单的加减乘除
+            // 使用递归下降法解析表达式，支持多个运算符
             
-            // 查找运算符，考虑运算符优先级
-            // 先查找乘除法，再查找加减法
-            size_t plusPos = expr.find_last_of(L'+');
-            size_t minusPos = expr.find_last_of(L'-');
-            size_t mulPos = expr.find_last_of(L'*');
-            size_t divPos = expr.find_last_of(L'/');
-            
-            // 确定运算符位置（优先级从高到低）
-            size_t opPos = std::wstring::npos;
-            wchar_t op = L'\0';
-            
-            // 先查找乘除法（优先级较高）
-            if (mulPos != std::wstring::npos && mulPos > 0)
-            {
-                opPos = mulPos;
-                op = L'*';
-            }
-            else if (divPos != std::wstring::npos && divPos > 0)
-            {
-                opPos = divPos;
-                op = L'/';
-            }
-            // 如果没有乘除法，再查找加减法（优先级较低）
-            else if (plusPos != std::wstring::npos && plusPos > 0)  // 确保不是负号
-            {
-                opPos = plusPos;
-                op = L'+';
-            }
-            else if (minusPos != std::wstring::npos && minusPos > 0)  // 确保不是负号
-            {
-                opPos = minusPos;
-                op = L'-';
-            }
-            
-            // 记录找到的运算符信息
-            char opLog[200] = {0};
-            sprintf(opLog, "EvaluateExpression: 找到运算符 '%lc' 在位置 %zu", op, opPos);
-            LogToFile(opLog);
-            
-            if (opPos != std::wstring::npos && opPos > 0 && opPos < expr.length() - 1)
-            {
-                // 提取左右操作数
-                std::wstring leftStr = expr.substr(0, opPos);
-                std::wstring rightStr = expr.substr(opPos + 1);
+            try {
+                size_t pos = 0;
+                result = parseExpression(expr, pos);
+                success = true;
                 
-                // 记录左右操作数
-                char leftLog[200] = {0};
-                char rightLog[200] = {0};
-                WideCharToMultiByte(CP_UTF8, 0, leftStr.c_str(), -1, leftLog, sizeof(leftLog), NULL, NULL);
-                WideCharToMultiByte(CP_UTF8, 0, rightStr.c_str(), -1, rightLog, sizeof(rightLog), NULL, NULL);
-                sprintf(logMsg, "EvaluateExpression: 左操作数 '%s', 右操作数 '%s'", leftLog, rightLog);
-                LogToFile(logMsg);
-                
-                try
-                {
-                    double left = std::stod(leftStr);
-                    double right = std::stod(rightStr);
-                    
-                    sprintf(logMsg, "EvaluateExpression: 解析左操作数为 %f, 右操作数为 %f", left, right);
-                    LogToFile(logMsg);
-                    
-                    switch (op)
-                    {
-                    case L'+':
-                        result = left + right;
-                        success = true;
-                        sprintf(logMsg, "EvaluateExpression: 执行加法 %f + %f = %f", left, right, result);
-                        LogToFile(logMsg);
-                        break;
-                    case L'-':
-                        result = left - right;
-                        success = true;
-                        sprintf(logMsg, "EvaluateExpression: 执行减法 %f - %f = %f", left, right, result);
-                        LogToFile(logMsg);
-                        break;
-                    case L'*':
-                        result = left * right;
-                        success = true;
-                        sprintf(logMsg, "EvaluateExpression: 执行乘法 %f * %f = %f", left, right, result);
-                        LogToFile(logMsg);
-                        break;
-                    case L'/':
-                        if (right != 0)
-                        {
-                            result = left / right;
-                            success = true;
-                            sprintf(logMsg, "EvaluateExpression: 执行除法 %f / %f = %f", left, right, result);
-                            LogToFile(logMsg);
-                        }
-                        else
-                        {
-                            LogToFile("EvaluateExpression: 除零错误");
-                        }
-                        break;
-                    }
-                }
-                catch (...)
-                {
-                    LogToFile("EvaluateExpression: 操作数解析失败");
-                }
-            }
-            else
-            {
-                LogToFile("EvaluateExpression: 未找到有效的运算符或运算符位置无效");
+                char resultLog[256] = {0};
+                sprintf(resultLog, "EvaluateExpression: 表达式计算结果为 %f", result);
+                LogToFile(resultLog);
+            } catch (...) {
+                LogToFile("EvaluateExpression: 表达式解析失败");
+                success = false;
             }
         }
         
@@ -1863,8 +1861,8 @@ void EvaluateExpression(const WCHAR* expression)
             swprintf(resultStr, 256, L"%.6g", result);
             LogToFile("EvaluateExpression: 创建了结果字符串");
             
-            // 创建历史记录条目
-            std::wstring historyEntry = expr;
+            // 创建历史记录条目（使用原始表达式，包括等号部分）
+            std::wstring historyEntry = expression;
             historyEntry += L" = ";
             historyEntry += resultStr;
             LogToFile("EvaluateExpression: 创建了历史记录条目");
