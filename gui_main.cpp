@@ -22,6 +22,7 @@ HINSTANCE g_hInstance = NULL;
 HWND g_hMainWindow = NULL;
 HWND g_hEdit = NULL;
 HWND g_hListBox = NULL;
+HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
 
@@ -39,14 +40,15 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 // Constants
 #define IDC_EDIT 1001
 #define IDC_LISTBOX 1002
+#define IDC_EXIT_CALC_BUTTON 1003  // 退出计算模式按钮ID
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
 
 // 系统托盘相关常量
 #define WM_TRAYICON (WM_USER + 1)
-#define ID_TRAY_SHOW 1003
-#define ID_TRAY_EXIT 1004
+#define ID_TRAY_SHOW 1004
+#define ID_TRAY_EXIT 1005
 
 // Types
 struct ShortcutItem {
@@ -60,6 +62,20 @@ struct ShortcutItem {
 std::vector<ShortcutItem> g_shortcuts;
 std::vector<ShortcutItem> g_searchResults;
 WCHAR g_currentSearch[1024] = {0};
+
+// 计算模式相关变量
+bool g_calculatorMode = false;  // 是否处于计算模式
+bool g_updatingEditBox = false;  // 是否正在更新编辑框内容，防止触发EN_CHANGE
+std::vector<std::wstring> g_calculationHistory;  // 计算历史记录
+HWND g_hModeLabel = NULL;  // 模式标签控件
+
+// 计算模式相关函数声明
+void EnterCalculatorMode();
+void ExitCalculatorMode();
+void EvaluateExpression(const WCHAR* expression);
+void DisplayCalculationHistory();
+void SaveCalculationHistory();
+void LoadCalculationHistory();
 
 // Log function
 void LogToFile(const char* message)
@@ -240,8 +256,21 @@ void AddTrayIcon()
     g_notifyIconData.uID = 1;
     g_notifyIconData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_notifyIconData.uCallbackMessage = WM_TRAYICON;
-    // 使用系统默认图标，确保图标可见
-    g_notifyIconData.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    // 从文件加载自定义图标
+    g_notifyIconData.hIcon = (HICON)LoadImageW(
+        NULL, 
+        L"app_icon.ico", 
+        IMAGE_ICON, 
+        0, 
+        0, 
+        LR_LOADFROMFILE | LR_DEFAULTSIZE
+    );
+    
+    // 如果加载自定义图标失败，使用系统默认图标作为备选
+    if (!g_notifyIconData.hIcon) {
+        g_notifyIconData.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+        LogToFile("AddTrayIcon: 加载自定义图标失败，使用系统默认图标");
+    }
     
     // 使用memcpy来复制字符串，避免类型问题
     const wchar_t* tipText = L"Quick Launcher";
@@ -351,6 +380,14 @@ void ProcessCommand(const WCHAR* command)
     char logMsg[1100] = {0};
     sprintf(logMsg, "ProcessCommand: 处理命令 '%s'", commandLog);
     LogToFile(logMsg);
+    
+    // 检查是否是"js"命令，用于进入计算模式
+    if (wcscmp(command, L"js") == 0)
+    {
+        LogToFile("ProcessCommand: 识别为'js'命令，进入计算模式");
+        EnterCalculatorMode();
+        return;
+    }
     
     // Clear previous results
     SendMessageW(g_hListBox, LB_RESETCONTENT, 0, 0);
@@ -617,6 +654,20 @@ void SearchAndDisplayResults(const WCHAR* query)
     sprintf(logMsg, "SearchAndDisplayResults: 搜索查询 '%s'", queryLog);
     LogToFile(logMsg);
     
+    // 检查是否要进入计算模式
+    if (query && _wcsicmp(query, L"js") == 0)
+    {
+        LogToFile("SearchAndDisplayResults: 检测到'js'命令，直接调用ProcessCommand");
+        
+        SendMessageW(g_hListBox, LB_RESETCONTENT, 0, 0);
+        g_searchResults.clear();
+        
+        // 直接调用ProcessCommand处理"js"命令
+        ProcessCommand(query);
+        
+        return;
+    }
+    
     if (!query || wcslen(query) == 0)
     {
         LogToFile("SearchAndDisplayResults: 查询为空，显示最常用的项目");
@@ -774,6 +825,14 @@ void ExecuteSelectedItem(int index)
             itemNameLog, itemPathLog, item.type, item.usageCount);
     LogToFile(logMsg);
     
+    // 检查是否是计算模式
+    if (item.type == 3 && wcscmp(item.path, L"calculator_mode") == 0)
+    {
+        LogToFile("ExecuteSelectedItem: 进入计算模式");
+        EnterCalculatorMode();
+        return;
+    }
+    
     // Execute the item without clearing the list
     HINSTANCE result;
     if (item.type == 0) // Directory
@@ -834,13 +893,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
         case WM_CREATE:
+            // 创建模式标签控件
+            g_hModeLabel = CreateWindowExW(
+                  0,
+                  L"STATIC",
+                  L"搜索:",
+                  WS_CHILD | WS_VISIBLE | SS_LEFT,
+                  10, 10, 50, 25,
+                  hwnd, NULL,
+                  g_hInstance, NULL);
+            
             // Create edit control without ES_WANTRETURN to receive WM_KEYDOWN messages
             g_hEdit = CreateWindowExW(
                   0,
                   WC_EDITW,
                   L"",
                   WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
-                  10, 10, 370, 25,
+                  65, 10, 230, 25,  // 减小宽度，为退出按钮腾出空间
                   hwnd, (HMENU)IDC_EDIT,
                   g_hInstance, NULL);
             
@@ -866,6 +935,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                   10, 45, 370, 200,
                   hwnd, (HMENU)IDC_LISTBOX,
                   g_hInstance, NULL);
+            
+            // Create exit calculator mode button (initially hidden)
+            g_hExitCalcButton = CreateWindowExW(
+                  0,
+                  L"BUTTON",
+                  L"退出计算",
+                  WS_CHILD | BS_PUSHBUTTON,
+                  300, 10, 80, 25,
+                  hwnd, (HMENU)IDC_EXIT_CALC_BUTTON,
+                  g_hInstance, NULL);
+            
+            // Initially hide the exit calculator button
+            ShowWindow(g_hExitCalcButton, SW_HIDE);
             
             return 0;
             
@@ -975,8 +1057,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 sprintf(logMsg, "WM_COMMAND received: Control ID=%d, Notification=%d", LOWORD(wParam), HIWORD(wParam));
                 LogToFile(logMsg);
                 
+                // 处理退出计算模式按钮点击
+                if (LOWORD(wParam) == IDC_EXIT_CALC_BUTTON)
+                {
+                    // 处理退出计算模式按钮点击
+                    if (g_calculatorMode)
+                    {
+                        ExitCalculatorMode();
+                        LogToFile("WM_COMMAND: 用户点击退出计算模式按钮");
+                    }
+                    return 0;
+                }
                 // 处理托盘菜单命令
-                if (LOWORD(wParam) == ID_TRAY_SHOW)
+                else if (LOWORD(wParam) == ID_TRAY_SHOW)
                 {
                     ShowLauncherWindow();
                     LogToFile("WM_COMMAND: 用户选择显示窗口");
@@ -1013,7 +1106,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             }
                             
                             wcscpy(g_currentSearch, searchText);
-                            SearchAndDisplayResults(searchText);
+                            
+                            // 检查是否在计算模式
+                            if (g_calculatorMode)
+                            {
+                                // 在计算模式下，不进行搜索，也不实时计算，只记录输入变化
+                                LogToFile("  EN_CHANGE: 计算模式下，输入内容已变化，但不计算");
+                            }
+                            else
+                            {
+                                // 在搜索模式下，进行正常搜索
+                                SearchAndDisplayResults(searchText);
+                            }
                             break;
                             
                         case EN_RETURN:
@@ -1040,61 +1144,81 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 sprintf(enterLog, "  EN_RETURN: 当前输入框内容: '%s'", currentTextLog);
                                 LogToFile(enterLog);
                                 
-                                // Handle return key - Ensure it executes the first item
+                                // 检查是否在计算模式
+                                if (g_calculatorMode)
                                 {
-                                    int itemCount = SendMessageW(g_hListBox, LB_GETCOUNT, 0, 0);
-                                    char logMsg[200] = {0};
-                                    sprintf(logMsg, "  EN_RETURN: 列表框项目数量: %d", itemCount);
-                                    LogToFile(logMsg);
-                                
-                                    // If list has items, explicitly select and open the first one
-                                    if (itemCount > 0)
+                                    // 在计算模式下，计算表达式
+                                    LogToFile("  EN_RETURN: 计算模式下，计算表达式");
+                                    EvaluateExpression(currentText);
+                                }
+                                else
+                                {
+                                    // 在搜索模式下，执行正常的搜索结果
+                                    // Handle return key - Ensure it executes the first item
                                     {
-                                        // Force select the first item to ensure it's highlighted
-                                        INT_PTR firstSelIndex = 0;
-                                        SendMessageW(g_hListBox, LB_SETCURSEL, firstSelIndex, 0);
-                                        LogToFile("  EN_RETURN: 强制选择第一个项目");
-                                        
-                                        // 获取第一个项目的文本
-                                        WCHAR firstItemText[1024] = {0};
-                                        SendMessageW(g_hListBox, LB_GETTEXT, firstSelIndex, (LPARAM)firstItemText);
-                                        char firstItemLog[1024] = {0};
-                                        WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                                        sprintf(logMsg, "  EN_RETURN: 第一个项目文本: '%s'", firstItemLog);
+                                        int itemCount = SendMessageW(g_hListBox, LB_GETCOUNT, 0, 0);
+                                        char logMsg[200] = {0};
+                                        sprintf(logMsg, "  EN_RETURN: 列表框项目数量: %d", itemCount);
                                         LogToFile(logMsg);
-                                        
-                                        // Verify g_searchResults has items before executing
-                                        // Also check if the first item is not the "No matching items found" message
-                                        if (!g_searchResults.empty() && g_searchResults.size() > 0)
-                                        {
-                                            LogToFile("  EN_RETURN: 搜索结果不为空，执行第一个项目");
-                                            ExecuteSelectedItem((int)firstSelIndex);
-                                        }
-                                        else
-                                        {
-                                            // Check if the first item is "No matching items found"
-                                            if (wcscmp(firstItemText, L"No matching items found") == 0)
-                                            {
-                                                LogToFile("  EN_RETURN: 第一个项目是'未找到匹配项'消息，不执行");
-                                            }
-                                            else
-                                            {
-                                                LogToFile("  EN_RETURN: 错误：搜索结果为空但列表框有实际项目");
-                                            }
-                                        }
+                                    
+                                        // If list has items, check if input is "js" command first
+                        if (itemCount > 0)
+                        {
+                            // 检查输入内容是否是"js"命令
+                            if (wcscmp(currentText, L"js") == 0)
+                            {
+                                LogToFile("  EN_RETURN: 识别为'js'命令，调用ProcessCommand");
+                                ProcessCommand(currentText);
+                            }
+                            else
+                            {
+                                // Force select the first item to ensure it's highlighted
+                                INT_PTR firstSelIndex = 0;
+                                SendMessageW(g_hListBox, LB_SETCURSEL, firstSelIndex, 0);
+                                LogToFile("  EN_RETURN: 强制选择第一个项目");
+                                
+                                // 获取第一个项目的文本
+                                WCHAR firstItemText[1024] = {0};
+                                SendMessageW(g_hListBox, LB_GETTEXT, firstSelIndex, (LPARAM)firstItemText);
+                                char firstItemLog[1024] = {0};
+                                WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
+                                sprintf(logMsg, "  EN_RETURN: 第一个项目文本: '%s'", firstItemLog);
+                                LogToFile(logMsg);
+                                
+                                // Verify g_searchResults has items before executing
+                                // Also check if the first item is not the "No matching items found" message
+                                if (!g_searchResults.empty() && g_searchResults.size() > 0)
+                                {
+                                    LogToFile("  EN_RETURN: 搜索结果不为空，执行第一个项目");
+                                    ExecuteSelectedItem((int)firstSelIndex);
+                                }
+                                else
+                                {
+                                    // Check if the first item is "No matching items found"
+                                    if (wcscmp(firstItemText, L"No matching items found") == 0)
+                                    {
+                                        LogToFile("  EN_RETURN: 第一个项目是'未找到匹配项'消息，不执行");
                                     }
                                     else
                                     {
-                                        // If no items, process as command
-                                        if (wcslen(currentText) > 0)
-                                        {
-                                            sprintf(logMsg, "  EN_RETURN: 列表为空，将输入内容作为命令处理: '%s'", currentTextLog);
-                                            LogToFile(logMsg);
-                                            ProcessCommand(currentText);
-                                        }
+                                        LogToFile("  EN_RETURN: 错误：搜索结果为空但列表框有实际项目");
+                                    }
+                                }
+                            }
+                        }
                                         else
                                         {
-                                            LogToFile("  EN_RETURN: 列表为空且输入内容为空，不执行任何操作");
+                                            // If no items, process as command
+                                            if (wcslen(currentText) > 0)
+                                            {
+                                                sprintf(logMsg, "  EN_RETURN: 列表为空，将输入内容作为命令处理: '%s'", currentTextLog);
+                                                LogToFile(logMsg);
+                                                ProcessCommand(currentText);
+                                            }
+                                            else
+                                            {
+                                                LogToFile("  EN_RETURN: 列表为空且输入内容为空，不执行任何操作");
+                                            }
                                         }
                                     }
                                 }
@@ -1145,61 +1269,81 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 sprintf(enterLog, "  WM_KEYDOWN: 当前输入框内容: '%s'", currentTextLog);
                 LogToFile(enterLog);
                 
-                // Handle return key - Ensure it executes the first item
+                // 检查是否在计算模式
+                if (g_calculatorMode)
                 {
-                    int itemCount = SendMessageW(g_hListBox, LB_GETCOUNT, 0, 0);
-                    char logMsg[200] = {0};
-                    sprintf(logMsg, "  WM_KEYDOWN: 列表框项目数量: %d", itemCount);
-                    LogToFile(logMsg);
-                
-                    // If list has items, explicitly select and open the first one
-                    if (itemCount > 0)
+                    // 在计算模式下，计算表达式
+                    LogToFile("  WM_KEYDOWN: 计算模式下，计算表达式");
+                    EvaluateExpression(currentText);
+                }
+                else
+                {
+                    // 在搜索模式下，执行正常的搜索结果
+                    // Handle return key - Ensure it executes the first item
                     {
-                        // Force select the first item to ensure it's highlighted
-                        INT_PTR firstSelIndex = 0;
-                        SendMessageW(g_hListBox, LB_SETCURSEL, firstSelIndex, 0);
-                        LogToFile("  WM_KEYDOWN: 强制选择第一个项目");
-                        
-                        // 获取第一个项目的文本
-                        WCHAR firstItemText[1024] = {0};
-                        SendMessageW(g_hListBox, LB_GETTEXT, firstSelIndex, (LPARAM)firstItemText);
-                        char firstItemLog[1024] = {0};
-                        WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                        sprintf(logMsg, "  WM_KEYDOWN: 第一个项目文本: '%s'", firstItemLog);
+                        int itemCount = SendMessageW(g_hListBox, LB_GETCOUNT, 0, 0);
+                        char logMsg[200] = {0};
+                        sprintf(logMsg, "  WM_KEYDOWN: 列表框项目数量: %d", itemCount);
                         LogToFile(logMsg);
-                        
-                        // Verify g_searchResults has items before executing
-                        // Also check if the first item is not the "No matching items found" message
-                        if (!g_searchResults.empty() && g_searchResults.size() > 0)
+                    
+                        // If list has items, check if input is "js" command first
+                        if (itemCount > 0)
                         {
-                            LogToFile("  WM_KEYDOWN: 搜索结果不为空，执行第一个项目");
-                            ExecuteSelectedItem((int)firstSelIndex);
-                        }
-                        else
-                        {
-                            // Check if the first item is "No matching items found"
-                            if (wcscmp(firstItemText, L"No matching items found") == 0)
+                            // 检查输入内容是否是"js"命令
+                            if (wcscmp(currentText, L"js") == 0)
                             {
-                                LogToFile("  WM_KEYDOWN: 第一个项目是'未找到匹配项'消息，不执行");
+                                LogToFile("  WM_KEYDOWN: 识别为'js'命令，调用ProcessCommand");
+                                ProcessCommand(currentText);
                             }
                             else
                             {
-                                LogToFile("  WM_KEYDOWN: 错误：搜索结果为空但列表框有实际项目");
+                                // Force select the first item to ensure it's highlighted
+                                INT_PTR firstSelIndex = 0;
+                                SendMessageW(g_hListBox, LB_SETCURSEL, firstSelIndex, 0);
+                                LogToFile("  WM_KEYDOWN: 强制选择第一个项目");
+                                
+                                // 获取第一个项目的文本
+                                WCHAR firstItemText[1024] = {0};
+                                SendMessageW(g_hListBox, LB_GETTEXT, firstSelIndex, (LPARAM)firstItemText);
+                                char firstItemLog[1024] = {0};
+                                WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
+                                sprintf(logMsg, "  WM_KEYDOWN: 第一个项目文本: '%s'", firstItemLog);
+                                LogToFile(logMsg);
+                                
+                                // Verify g_searchResults has items before executing
+                                // Also check if the first item is not the "No matching items found" message
+                                if (!g_searchResults.empty() && g_searchResults.size() > 0)
+                                {
+                                    LogToFile("  WM_KEYDOWN: 搜索结果不为空，执行第一个项目");
+                                    ExecuteSelectedItem((int)firstSelIndex);
+                                }
+                                else
+                                {
+                                    // Check if the first item is "No matching items found"
+                                    if (wcscmp(firstItemText, L"No matching items found") == 0)
+                                    {
+                                        LogToFile("  WM_KEYDOWN: 第一个项目是'未找到匹配项'消息，不执行");
+                                    }
+                                    else
+                                    {
+                                        LogToFile("  WM_KEYDOWN: 错误：搜索结果为空但列表框有实际项目");
+                                    }
+                                }
                             }
-                        }
-                    }
-                    else
-                    {
-                        // If no items, process as command
-                        if (wcslen(currentText) > 0)
-                        {
-                            sprintf(logMsg, "  WM_KEYDOWN: 列表为空，将输入内容作为命令处理: '%s'", currentTextLog);
-                            LogToFile(logMsg);
-                            ProcessCommand(currentText);
                         }
                         else
                         {
-                            LogToFile("  WM_KEYDOWN: 列表为空且输入内容为空，不执行任何操作");
+                            // If no items, process as command
+                            if (wcslen(currentText) > 0)
+                            {
+                                sprintf(logMsg, "  WM_KEYDOWN: 列表为空，将输入内容作为命令处理: '%s'", currentTextLog);
+                                LogToFile(logMsg);
+                                ProcessCommand(currentText);
+                            }
+                            else
+                            {
+                                LogToFile("  WM_KEYDOWN: 列表为空且输入内容为空，不执行任何操作");
+                            }
                         }
                     }
                 }
@@ -1231,6 +1375,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
     wc.lpszClassName = L"QuickLauncherClass";
+    
+    // 从文件加载自定义图标作为窗口类图标
+    wc.hIcon = (HICON)LoadImageW(
+        NULL, 
+        L"app_icon.ico", 
+        IMAGE_ICON, 
+        GetSystemMetrics(SM_CXICON), 
+        GetSystemMetrics(SM_CYICON), 
+        LR_LOADFROMFILE
+    );
+    
+    // 从文件加载自定义图标作为小图标
+    wc.hIconSm = (HICON)LoadImageW(
+        NULL, 
+        L"app_icon.ico", 
+        IMAGE_ICON, 
+        GetSystemMetrics(SM_CXSMICON), 
+        GetSystemMetrics(SM_CYSMICON), 
+        LR_LOADFROMFILE
+    );
+    
+    // 如果加载自定义图标失败，使用系统默认图标作为备选
+    if (!wc.hIcon) {
+        wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    }
+    if (!wc.hIconSm) {
+        wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+    }
     
     // Register window class
     if (!RegisterClassExW(&wc))
@@ -1334,6 +1506,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     CreateTrayMenu();
     LogToFile("System tray icon and menu initialized");
     
+    // 加载计算历史记录
+    LoadCalculationHistory();
+    
     // Start message loop
     LogToFile("Starting message loop");
     MSG msg;
@@ -1377,36 +1552,45 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                     // If list has items, explicitly select and open the first one
                     if (itemCount > 0)
                     {
-                        // Force select the first item to ensure it's highlighted
-                        INT_PTR firstSelIndex = 0;
-                        SendMessageW(g_hListBox, LB_SETCURSEL, firstSelIndex, 0);
-                        LogToFile("  EditSubclassProc: Force selecting first item");
-                        
-                        // Get first item text
-                        WCHAR firstItemText[1024] = {0};
-                        SendMessageW(g_hListBox, LB_GETTEXT, firstSelIndex, (LPARAM)firstItemText);
-                        char firstItemLog[1024] = {0};
-                        WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                        sprintf(logMsg, "  EditSubclassProc: First item text: '%s'", firstItemLog);
-                        LogToFile(logMsg);
-                        
-                        // Verify g_searchResults has items before executing
-                        // Also check if the first item is not the "No matching items found" message
-                        if (!g_searchResults.empty() && g_searchResults.size() > 0)
+                        // 检查是否在计算模式
+                        if (g_calculatorMode)
                         {
-                            LogToFile("  EditSubclassProc: Search results not empty, executing first item");
-                            ExecuteSelectedItem((int)firstSelIndex);
+                            LogToFile("  EditSubclassProc: 计算模式下，忽略列表项，调用EvaluateExpression");
+                            EvaluateExpression(currentText);
                         }
                         else
                         {
-                            // Check if the first item is "No matching items found"
-                            if (wcscmp(firstItemText, L"No matching items found") == 0)
+                            // Force select the first item to ensure it's highlighted
+                            INT_PTR firstSelIndex = 0;
+                            SendMessageW(g_hListBox, LB_SETCURSEL, firstSelIndex, 0);
+                            LogToFile("  EditSubclassProc: Force selecting first item");
+                            
+                            // Get first item text
+                            WCHAR firstItemText[1024] = {0};
+                            SendMessageW(g_hListBox, LB_GETTEXT, firstSelIndex, (LPARAM)firstItemText);
+                            char firstItemLog[1024] = {0};
+                            WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
+                            sprintf(logMsg, "  EditSubclassProc: First item text: '%s'", firstItemLog);
+                            LogToFile(logMsg);
+                            
+                            // Verify g_searchResults has items before executing
+                            // Also check if the first item is not the "No matching items found" message
+                            if (!g_searchResults.empty() && g_searchResults.size() > 0)
                             {
-                                LogToFile("  EditSubclassProc: First item is 'No matching items found' message, not executing");
+                                LogToFile("  EditSubclassProc: Search results not empty, executing first item");
+                                ExecuteSelectedItem((int)firstSelIndex);
                             }
                             else
                             {
-                                LogToFile("  EditSubclassProc: Error: search results empty but listbox has actual items");
+                                // Check if the first item is "No matching items found"
+                                if (wcscmp(firstItemText, L"No matching items found") == 0)
+                                {
+                                    LogToFile("  EditSubclassProc: First item is 'No matching items found' message, not executing");
+                                }
+                                else
+                                {
+                                    LogToFile("  EditSubclassProc: Error: search results empty but listbox has actual items");
+                                }
                             }
                         }
                     }
@@ -1417,7 +1601,18 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                         {
                             sprintf(logMsg, "  EditSubclassProc: List empty, processing input as command: '%s'", currentTextLog);
                             LogToFile(logMsg);
-                            ProcessCommand(currentText);
+                            
+                            // 检查是否在计算模式
+                            if (g_calculatorMode)
+                            {
+                                LogToFile("  EditSubclassProc: 计算模式下，调用EvaluateExpression");
+                                EvaluateExpression(currentText);
+                            }
+                            else
+                            {
+                                LogToFile("  EditSubclassProc: 非计算模式，调用ProcessCommand");
+                                ProcessCommand(currentText);
+                            }
                         }
                         else
                         {
@@ -1432,4 +1627,465 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
     
     // For other messages, call the original edit control procedure
     return DefSubclassProc(hwnd, uMsg, wParam, lParam);
+}
+
+// Enter calculator mode
+void EnterCalculatorMode()
+{
+    LogToFile("EnterCalculatorMode: 进入计算模式");
+    
+    // 设置计算模式标志
+    g_calculatorMode = true;
+    
+    // 更新模式标签文本
+    SetWindowTextW(g_hModeLabel, L"计算:");
+    
+    // 显示退出计算模式按钮
+    ShowWindow(g_hExitCalcButton, SW_SHOW);
+    
+    // 清空编辑框
+    SetWindowTextW(g_hEdit, L"");
+    
+    // 显示计算历史记录
+    DisplayCalculationHistory();
+    
+    // 设置焦点到编辑框
+    SetFocus(g_hEdit);
+}
+
+// Exit calculator mode
+void ExitCalculatorMode()
+{
+    LogToFile("ExitCalculatorMode: 退出计算模式");
+    
+    // 清除计算模式标志
+    g_calculatorMode = false;
+    
+    // 更新模式标签文本
+    SetWindowTextW(g_hModeLabel, L"搜索:");
+    
+    // 隐藏退出计算模式按钮
+    ShowWindow(g_hExitCalcButton, SW_HIDE);
+    
+    // 清空编辑框
+    SetWindowTextW(g_hEdit, L"");
+    
+    // 清空列表框
+    SendMessageW(g_hListBox, LB_RESETCONTENT, 0, 0);
+    
+    // 设置焦点到编辑框
+    SetFocus(g_hEdit);
+}
+
+// Evaluate mathematical expression
+void EvaluateExpression(const WCHAR* expression)
+{
+    LogToFile("EvaluateExpression: 函数开始");
+    
+    if (!expression || wcslen(expression) == 0)
+    {
+        LogToFile("EvaluateExpression: 表达式为空");
+        return;
+    }
+    
+    // 记录表达式
+    char exprLog[1024] = {0};
+    WideCharToMultiByte(CP_UTF8, 0, expression, -1, exprLog, sizeof(exprLog), NULL, NULL);
+    char logMsg[1100] = {0};
+    sprintf(logMsg, "EvaluateExpression: 计算表达式 '%s'", exprLog);
+    LogToFile(logMsg);
+    
+    // 这里应该实现表达式计算逻辑
+    // 为了简单起见，我们只实现基本的加减乘除
+    // 在实际应用中，可以使用更复杂的表达式解析器
+    
+    try
+    {
+        LogToFile("EvaluateExpression: 进入try块");
+        
+        // 将表达式转换为字符串以便处理
+        std::wstring expr = expression;
+        LogToFile("EvaluateExpression: 创建了wstring表达式");
+        
+        // 移除空格
+        expr.erase(std::remove(expr.begin(), expr.end(), L' '), expr.end());
+        LogToFile("EvaluateExpression: 移除了空格");
+        
+        // 简单的表达式计算（这里只是示例，实际应该使用更健壮的方法）
+        double result = 0.0;
+        bool success = false;
+        
+        // 尝试解析为数字
+        try
+        {
+            LogToFile("EvaluateExpression: 尝试解析为数字");
+            
+            // 检查表达式是否只包含数字和小数点
+            bool isPureNumber = true;
+            for (wchar_t c : expr) {
+                if (!isdigit(c) && c != L'.' && c != L'-') {
+                    isPureNumber = false;
+                    break;
+                }
+            }
+            
+            if (isPureNumber) {
+                result = std::stod(expr);
+                success = true;
+                LogToFile("EvaluateExpression: 成功解析为单个数字");
+            } else {
+                LogToFile("EvaluateExpression: 表达式包含非数字字符，尝试解析表达式");
+                throw std::exception(); // 强制进入表达式解析逻辑
+            }
+        }
+        catch (...)
+        {
+            LogToFile("EvaluateExpression: 不是单个数字，尝试解析表达式");
+            // 不是简单的数字，需要更复杂的解析
+            // 这里只是一个简单的示例，实际应该使用表达式解析器
+            // 为了演示，我们只处理简单的加减乘除
+            
+            // 查找运算符，考虑运算符优先级
+            // 先查找乘除法，再查找加减法
+            size_t plusPos = expr.find_last_of(L'+');
+            size_t minusPos = expr.find_last_of(L'-');
+            size_t mulPos = expr.find_last_of(L'*');
+            size_t divPos = expr.find_last_of(L'/');
+            
+            // 确定运算符位置（优先级从高到低）
+            size_t opPos = std::wstring::npos;
+            wchar_t op = L'\0';
+            
+            // 先查找乘除法（优先级较高）
+            if (mulPos != std::wstring::npos && mulPos > 0)
+            {
+                opPos = mulPos;
+                op = L'*';
+            }
+            else if (divPos != std::wstring::npos && divPos > 0)
+            {
+                opPos = divPos;
+                op = L'/';
+            }
+            // 如果没有乘除法，再查找加减法（优先级较低）
+            else if (plusPos != std::wstring::npos && plusPos > 0)  // 确保不是负号
+            {
+                opPos = plusPos;
+                op = L'+';
+            }
+            else if (minusPos != std::wstring::npos && minusPos > 0)  // 确保不是负号
+            {
+                opPos = minusPos;
+                op = L'-';
+            }
+            
+            // 记录找到的运算符信息
+            char opLog[200] = {0};
+            sprintf(opLog, "EvaluateExpression: 找到运算符 '%lc' 在位置 %zu", op, opPos);
+            LogToFile(opLog);
+            
+            if (opPos != std::wstring::npos && opPos > 0 && opPos < expr.length() - 1)
+            {
+                // 提取左右操作数
+                std::wstring leftStr = expr.substr(0, opPos);
+                std::wstring rightStr = expr.substr(opPos + 1);
+                
+                // 记录左右操作数
+                char leftLog[200] = {0};
+                char rightLog[200] = {0};
+                WideCharToMultiByte(CP_UTF8, 0, leftStr.c_str(), -1, leftLog, sizeof(leftLog), NULL, NULL);
+                WideCharToMultiByte(CP_UTF8, 0, rightStr.c_str(), -1, rightLog, sizeof(rightLog), NULL, NULL);
+                sprintf(logMsg, "EvaluateExpression: 左操作数 '%s', 右操作数 '%s'", leftLog, rightLog);
+                LogToFile(logMsg);
+                
+                try
+                {
+                    double left = std::stod(leftStr);
+                    double right = std::stod(rightStr);
+                    
+                    sprintf(logMsg, "EvaluateExpression: 解析左操作数为 %f, 右操作数为 %f", left, right);
+                    LogToFile(logMsg);
+                    
+                    switch (op)
+                    {
+                    case L'+':
+                        result = left + right;
+                        success = true;
+                        sprintf(logMsg, "EvaluateExpression: 执行加法 %f + %f = %f", left, right, result);
+                        LogToFile(logMsg);
+                        break;
+                    case L'-':
+                        result = left - right;
+                        success = true;
+                        sprintf(logMsg, "EvaluateExpression: 执行减法 %f - %f = %f", left, right, result);
+                        LogToFile(logMsg);
+                        break;
+                    case L'*':
+                        result = left * right;
+                        success = true;
+                        sprintf(logMsg, "EvaluateExpression: 执行乘法 %f * %f = %f", left, right, result);
+                        LogToFile(logMsg);
+                        break;
+                    case L'/':
+                        if (right != 0)
+                        {
+                            result = left / right;
+                            success = true;
+                            sprintf(logMsg, "EvaluateExpression: 执行除法 %f / %f = %f", left, right, result);
+                            LogToFile(logMsg);
+                        }
+                        else
+                        {
+                            LogToFile("EvaluateExpression: 除零错误");
+                        }
+                        break;
+                    }
+                }
+                catch (...)
+                {
+                    LogToFile("EvaluateExpression: 操作数解析失败");
+                }
+            }
+            else
+            {
+                LogToFile("EvaluateExpression: 未找到有效的运算符或运算符位置无效");
+            }
+        }
+        
+        LogToFile("EvaluateExpression: 表达式解析完成");
+        
+        if (success)
+        {
+            LogToFile("EvaluateExpression: 开始处理成功结果");
+            
+            // 创建结果字符串
+            WCHAR resultStr[256] = {0};
+            swprintf(resultStr, 256, L"%.6g", result);
+            LogToFile("EvaluateExpression: 创建了结果字符串");
+            
+            // 创建历史记录条目
+            std::wstring historyEntry = expr;
+            historyEntry += L" = ";
+            historyEntry += resultStr;
+            LogToFile("EvaluateExpression: 创建了历史记录条目");
+            
+            // 添加到计算历史
+            g_calculationHistory.push_back(historyEntry);
+            LogToFile("EvaluateExpression: 添加到历史记录");
+            
+            // 限制历史记录数量
+            if (g_calculationHistory.size() > 50)
+            {
+                g_calculationHistory.erase(g_calculationHistory.begin());
+            }
+            LogToFile("EvaluateExpression: 检查了历史记录数量");
+            
+            // 保存计算历史到文件
+            SaveCalculationHistory();
+            LogToFile("EvaluateExpression: 保存了计算历史到文件");
+            
+            // 显示计算历史
+            LogToFile("EvaluateExpression: 准备显示计算历史");
+            DisplayCalculationHistory();
+            LogToFile("EvaluateExpression: 显示了计算历史");
+            
+            // 记录结果
+            char resultLog[256] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, resultStr, -1, resultLog, sizeof(resultLog), NULL, NULL);
+            sprintf(logMsg, "EvaluateExpression: 计算结果为 %s", resultLog);
+            LogToFile(logMsg);
+            
+            // 将结果复制到编辑框
+            LogToFile("EvaluateExpression: 准备设置编辑框文本");
+            g_updatingEditBox = true;  // 设置标志，防止触发EN_CHANGE
+            SetWindowTextW(g_hEdit, resultStr);
+            g_updatingEditBox = false; // 清除标志
+            LogToFile("EvaluateExpression: 设置了编辑框文本");
+            
+            LogToFile("EvaluateExpression: 准备选择编辑框文本");
+            SendMessageW(g_hEdit, EM_SETSEL, 0, -1); // 全选文本
+            LogToFile("EvaluateExpression: 选择了编辑框文本");
+            
+            LogToFile("EvaluateExpression: 成功处理结果");
+        }
+        else
+        {
+            LogToFile("EvaluateExpression: 表达式计算失败");
+            MessageBoxW(g_hMainWindow, L"无法计算表达式", L"计算错误", MB_OK | MB_ICONERROR);
+        }
+    }
+    catch (...)
+    {
+        LogToFile("EvaluateExpression: 表达式计算异常");
+        MessageBoxW(g_hMainWindow, L"表达式计算异常", L"计算错误", MB_OK | MB_ICONERROR);
+    }
+    
+    LogToFile("EvaluateExpression: 函数结束");
+}
+
+// Display calculation history
+void DisplayCalculationHistory()
+{
+    LogToFile("DisplayCalculationHistory: 显示计算历史");
+    
+    // 暂停列表框重绘以提高性能
+    SendMessageW(g_hListBox, WM_SETREDRAW, FALSE, 0);
+    
+    // 清空列表框
+    SendMessageW(g_hListBox, LB_RESETCONTENT, 0, 0);
+    
+    // 添加历史记录到列表框（最新的在顶部）
+    for (auto it = g_calculationHistory.rbegin(); it != g_calculationHistory.rend(); ++it)
+    {
+        // 创建临时字符串以避免反向迭代器的指针问题
+        std::wstring entry = *it;
+        SendMessageW(g_hListBox, LB_ADDSTRING, 0, (LPARAM)entry.c_str());
+    }
+    
+    // 恢复列表框重绘
+    SendMessageW(g_hListBox, WM_SETREDRAW, TRUE, 0);
+    
+    // 强制重绘列表框
+    InvalidateRect(g_hListBox, NULL, TRUE);
+    
+    // 记录显示的历史记录数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "DisplayCalculationHistory: 显示了 %zu 条历史记录", g_calculationHistory.size());
+    LogToFile(logMsg);
+}
+
+// 保存计算历史到文件
+void SaveCalculationHistory()
+{
+    LogToFile("SaveCalculationHistory: 开始保存计算历史");
+    
+    // 创建数据目录（如果不存在）
+    CreateDirectoryW(L"data", NULL);
+    
+    // 打开历史文件
+    FILE* file = _wfopen(L"data\\calculation_history.txt", L"w, ccs=UTF-8");
+    if (!file)
+    {
+        LogToFile("SaveCalculationHistory: 无法打开历史文件进行写入");
+        return;
+    }
+    
+    // 写入历史记录
+    for (const auto& entry : g_calculationHistory)
+    {
+        // 直接写入宽字符字符串
+        fwprintf(file, L"%s\n", entry.c_str());
+    }
+    
+    fclose(file);
+    
+    // 记录保存的历史记录数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "SaveCalculationHistory: 保存了 %zu 条历史记录", g_calculationHistory.size());
+    LogToFile(logMsg);
+    LogToFile("SaveCalculationHistory: 函数结束");
+}
+
+// 从文件加载计算历史
+void LoadCalculationHistory()
+{
+    LogToFile("LoadCalculationHistory: 开始加载计算历史");
+    
+    try
+    {
+        // 检查数据目录是否存在
+        DWORD dwAttrib = GetFileAttributesW(L"data");
+        if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            LogToFile("LoadCalculationHistory: 数据目录不存在，创建目录");
+            CreateDirectoryW(L"data", NULL);
+        }
+        
+        // 检查历史文件是否存在
+        dwAttrib = GetFileAttributesW(L"data\\calculation_history.txt");
+        if (dwAttrib == INVALID_FILE_ATTRIBUTES)
+        {
+            LogToFile("LoadCalculationHistory: 历史文件不存在，可能是首次运行");
+            return;
+        }
+        
+        // 打开历史文件
+        LogToFile("LoadCalculationHistory: 尝试打开历史文件");
+        FILE* file = _wfopen(L"data\\calculation_history.txt", L"r, ccs=UTF-8");
+        if (!file)
+        {
+            LogToFile("LoadCalculationHistory: 无法打开历史文件进行读取，可能是首次运行");
+            return;
+        }
+        
+        LogToFile("LoadCalculationHistory: 成功打开历史文件");
+        
+        // 检查文件是否为空
+        fseek(file, 0, SEEK_END);
+        long fileSize = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        
+        if (fileSize == 0)
+        {
+            LogToFile("LoadCalculationHistory: 文件为空，无需加载");
+            fclose(file);
+            return;
+        }
+        
+        char sizeLog[100] = {0};
+        sprintf(sizeLog, "LoadCalculationHistory: 文件大小为 %ld 字节", fileSize);
+        LogToFile(sizeLog);
+        
+        // 清空当前历史记录
+        g_calculationHistory.clear();
+        LogToFile("LoadCalculationHistory: 已清空当前历史记录");
+        
+        // 读取历史记录
+        WCHAR buffer[1024];
+        int lineCount = 0;
+        
+        while (fgetws(buffer, sizeof(buffer)/sizeof(WCHAR), file))
+        {
+            lineCount++;
+            
+            // 移除换行符
+            size_t len = wcslen(buffer);
+            if (len > 0 && buffer[len - 1] == L'\n')
+            {
+                buffer[len - 1] = L'\0';
+                len--;
+            }
+            
+            // 跳过空行
+            if (len == 0)
+            {
+                LogToFile("LoadCalculationHistory: 跳过空行");
+                continue;
+            }
+            
+            // 添加到历史记录
+            g_calculationHistory.push_back(std::wstring(buffer));
+            
+            // 记录每行读取的内容（仅前5行）
+            if (lineCount <= 5)
+            {
+                char lineLog[1100] = {0};
+                WideCharToMultiByte(CP_ACP, 0, buffer, -1, lineLog, sizeof(lineLog), NULL, NULL);
+                LogToFile(lineLog);
+            }
+        }
+        
+        fclose(file);
+        LogToFile("LoadCalculationHistory: 已关闭历史文件");
+        
+        // 记录加载的历史记录数量
+        char logMsg[200] = {0};
+        sprintf(logMsg, "LoadCalculationHistory: 加载了 %zu 条历史记录，共读取 %d 行", g_calculationHistory.size(), lineCount);
+        LogToFile(logMsg);
+        LogToFile("LoadCalculationHistory: 函数结束");
+    }
+    catch (...)
+    {
+        LogToFile("LoadCalculationHistory: 加载计算历史时发生异常");
+    }
 }

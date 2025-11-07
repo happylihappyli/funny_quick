@@ -134,6 +134,17 @@ for src in sources:
 # 使用对象文件构建可执行文件
 executable = env.Program(target=target_path, source=object_files)
 
+# 复制图标文件到bin目录
+if os.path.exists('app_icon.ico'):
+    icon_target = os.path.join(bin_dir, 'app_icon.ico')
+    # 使用env.Command创建复制任务
+    icon_copy = env.Command(icon_target, 'app_icon.ico', Copy('$TARGET', '$SOURCE'))
+    # 确保图标复制在构建时执行
+    env.Depends(executable, icon_copy)
+    print("将复制图标文件到bin目录")
+else:
+    print("警告：未找到app_icon.ico文件")
+
 # 设置清理目标
 Clean(executable, os.path.join(bin_dir, 'quick_launcher.exe'))
 # 清理obj目录中的所有对象文件
@@ -141,6 +152,9 @@ for src in sources:
     base_name = os.path.splitext(os.path.basename(src))[0]
     obj_name = os.path.join(obj_dir, base_name + '.obj')
     Clean(executable, obj_name)
+# 清理复制的图标文件
+if os.path.exists('app_icon.ico'):
+    Clean(executable, os.path.join(bin_dir, 'app_icon.ico'))
 
 print("使用 'scons' 构建项目")
 print("使用 'scons -c' 清理项目")
