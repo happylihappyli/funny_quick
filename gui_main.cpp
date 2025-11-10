@@ -1,6 +1,7 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS 1
 
 #include <windows.h>
+#include <windowsx.h>  // 用于GET_X_LPARAM和GET_Y_LPARAM宏
 #include <tchar.h>
 #include <imm.h>
 #include <vector>
@@ -52,6 +53,10 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_SHOW 1005
 #define ID_TRAY_EXIT 1006
+
+// 右键菜单常量
+#define ID_CONTEXT_DELETE_ITEM 1007  // 删除单个计算结果
+#define ID_CONTEXT_CLEAR_ALL 1008    // 清空所有历史记录
 
 // Types
 struct ShortcutItem {
@@ -1425,7 +1430,84 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 return 0; // 消息已处理，不需要进一步处理
             }
-            // For other key presses, fall through to default handler
+            
+        case WM_CONTEXTMENU:
+            // 处理右键菜单
+            {
+                // 获取鼠标位置
+                POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+                
+                // 如果坐标是(-1, -1)，表示由键盘触发，使用当前鼠标位置
+                if (pt.x == -1 && pt.y == -1)
+                {
+                    GetCursorPos(&pt);
+                }
+                
+                // 检查是否在计算模式下，并且右键点击的是列表框
+                if (g_calculatorMode)
+                {
+                    // 获取列表框的屏幕坐标
+                    RECT listBoxRect;
+                    GetWindowRect(g_hListBox, &listBoxRect);
+                    
+                    // 检查鼠标是否在列表框内
+                    if (PtInRect(&listBoxRect, pt))
+                    {
+                        // 创建右键菜单
+                        HMENU hContextMenu = CreatePopupMenu();
+                        
+                        // 添加菜单项
+                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_DELETE_ITEM, L"删除此项");
+                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_CLEAR_ALL, L"清空历史");
+                        
+                        // 显示菜单并获取用户选择
+                        int command = TrackPopupMenu(hContextMenu, 
+                            TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY,
+                            pt.x, pt.y, 0, g_hMainWindow, NULL);
+                        
+                        // 销毁菜单
+                        DestroyMenu(hContextMenu);
+                        
+                        // 处理用户选择
+                        if (command == ID_CONTEXT_DELETE_ITEM)
+                        {
+                            // 删除选中的计算结果
+                            INT_PTR selIndex = SendMessageW(g_hListBox, LB_GETCURSEL, 0, 0);
+                            if (selIndex != LB_ERR && selIndex < (INT_PTR)g_calculationHistory.size())
+                            {
+                                // 计算在历史记录中的实际索引（因为显示是反向的）
+                                size_t actualIndex = g_calculationHistory.size() - 1 - selIndex;
+                                
+                                // 从历史记录中删除
+                                g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
+                                
+                                // 保存到文件
+                                SaveCalculationHistory();
+                                
+                                // 重新显示历史记录
+                                DisplayCalculationHistory();
+                                
+                                LogToFile("右键菜单: 删除了选中的计算结果");
+                            }
+                        }
+                        else if (command == ID_CONTEXT_CLEAR_ALL)
+                        {
+                            // 清空所有历史记录
+                            if (MessageBoxW(g_hMainWindow, L"确定要清空所有计算历史吗？", 
+                                L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                            {
+                                g_calculationHistory.clear();
+                                SaveCalculationHistory();
+                                DisplayCalculationHistory();
+                                LogToFile("右键菜单: 清空了所有计算历史");
+                            }
+                        }
+                        
+                        return 0; // 消息已处理
+                    }
+                }
+            }
+            // For other contexts, fall through to default handler
             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
             
         default:
