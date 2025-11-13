@@ -13,6 +13,7 @@
 #include <shlobj.h>
 #include <strsafe.h>
 #include <functional>
+#include "resource.h"
 
 // Define notification codes if not defined
 #ifndef EN_RETURN
@@ -26,8 +27,12 @@ HWND g_hEdit = NULL;
 HWND g_hListBox = NULL;
 HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
 HWND g_hSettingsButton = NULL;   // 设置按钮
+HWND g_hExitBookmarkButton = NULL;  // 退出网址收藏模式按钮
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
+
+// 字体相关变量
+HFONT g_hFont = NULL;  // 全局字体句柄
 
 // 系统托盘相关变量
 NOTIFYICONDATA g_notifyIconData = {0};
@@ -45,6 +50,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define IDC_LISTBOX 1002
 #define IDC_EXIT_CALC_BUTTON 1003  // 退出计算模式按钮ID
 #define IDC_SETTINGS_BUTTON 1004    // 设置按钮ID
+#define IDC_EXIT_BOOKMARK_BUTTON 1013  // 退出网址收藏模式按钮ID
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
@@ -57,6 +63,12 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 // 右键菜单常量
 #define ID_CONTEXT_DELETE_ITEM 1007  // 删除单个计算结果
 #define ID_CONTEXT_CLEAR_ALL 1008    // 清空所有历史记录
+
+// 网址收藏相关常量
+#define ID_ADD_BOOKMARK_BUTTON 1009  // 添加网址按钮ID
+#define ID_SYNC_CHROME_BUTTON 1010   // 同步Chrome书签按钮ID
+#define ID_CONTEXT_DELETE_BOOKMARK 1011  // 删除单个网址
+#define ID_CONTEXT_SYNC_CHROME 1012     // 同步Chrome书签
 
 // Types
 struct ShortcutItem {
@@ -77,6 +89,12 @@ bool g_updatingEditBox = false;  // 是否正在更新编辑框内容，防止�
 std::vector<std::wstring> g_calculationHistory;  // 计算历史记录
 HWND g_hModeLabel = NULL;  // 模式标签控件
 
+// 网址收藏模式相关变量
+bool g_bookmarkMode = false;  // 是否处于网址收藏模式
+std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网址收藏列表 (名称, URL)
+std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;  // 网址搜索结果
+HWND g_hAddBookmarkButton = NULL;  // 添加网址按钮
+
 // 表达式解析辅助函数声明
 void EnterCalculatorMode();
 void ExitCalculatorMode();
@@ -85,16 +103,40 @@ void DisplayCalculationHistory();
 void SaveCalculationHistory();
 void LoadCalculationHistory();
 
+// 网址收藏功能函数声明
+void EnterBookmarkMode();
+void ExitBookmarkMode();
+void AddBookmark(const WCHAR* name, const WCHAR* url);
+void DeleteBookmark(int index);
+void SaveBookmarks();
+void LoadBookmarks();
+void SyncChromeBookmarks();
+void SearchBookmarks(const WCHAR* query);
+void DisplayBookmarkResults();
+bool IsURL(const WCHAR* text);
+
+// 网址管理对话框函数声明
+INT_PTR CALLBACK BookmarkDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+void ShowBookmarkDialog();
+void RefreshBookmarkList(HWND hList);
+void AddBookmarkFromDialog(HWND hDlg);
+void UpdateBookmarkFromDialog(HWND hDlg);
+void DeleteBookmarkFromDialog(HWND hDlg);
+
 // 表达式解析辅助函数声明
 double parseNumber(const std::wstring& expr, size_t& pos);
 double parseTerm(const std::wstring& expr, size_t& pos);
 double parseExpression(const std::wstring& expr, size_t& pos);
 
+// 字体相关函数声明
+void CreateUIFont();
+void ApplyFontToControl(HWND hWnd);
+
 // Log function
 void LogToFile(const char* message)
 {
     // Create log directory if it doesn't exist
-    CreateDirectoryW(L"log", NULL);
+    CreateDirectoryW(L"bin\\log", NULL);
     
     // Generate unique log filename based on current date and time
     static WCHAR logFileName[MAX_PATH] = {0};
@@ -105,9 +147,10 @@ void LogToFile(const char* message)
         SYSTEMTIME st;
         GetLocalTime(&st);
         
-        // Format: log\quick_launcher_YYYYMMDD_HHMMSS.log
-        wsprintfW(logFileName, L"log\\quick_launcher_%04d%02d%02d_%02d%02d%02d.log",
-                st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+        // Format: bin\log\quick_launcher_YYYYMMDD_HHMMSS.log
+        wsprintfW(logFileName, L"bin\\log\\quick_launcher_%04d%02d%02d_%02d%02d%02d.log",
+                st.wYear, st.wMonth, st.wDay,
+                st.wHour, st.wMinute, st.wSecond);
         fileNameGenerated = true;
     }
     
@@ -230,6 +273,66 @@ void AddTrayIcon();
 void RemoveTrayIcon();
 void CreateTrayMenu();
 void HandleTrayMessage(LPARAM lParam);
+
+// 创建UI字体函数
+void CreateUIFont()
+{
+    // 如果字体已存在，先释放
+    if (g_hFont != NULL)
+    {
+        DeleteObject(g_hFont);
+        g_hFont = NULL;
+    }
+    
+    // 创建更光滑的字体 - 使用微软雅黑，启用抗锯齿
+    LOGFONTW lf = {0};
+    lf.lfHeight = -16;  // 字体大小，负值表示字符高度
+    lf.lfWeight = FW_NORMAL;  // 正常字重
+    lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfOutPrecision = OUT_TT_PRECIS;  // 使用TrueType字体
+    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+    lf.lfQuality = CLEARTYPE_QUALITY;  // 启用ClearType抗锯齿
+    lf.lfPitchAndFamily = FF_SWISS | VARIABLE_PITCH;  // 无衬线字体
+    
+    // 尝试使用微软雅黑字体，这是Windows系统中显示效果最好的字体之一
+    wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"Microsoft YaHei UI");
+    
+    g_hFont = CreateFontIndirectW(&lf);
+    
+    // 如果创建失败，尝试使用默认的微软雅黑
+    if (g_hFont == NULL)
+    {
+        wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"Microsoft YaHei");
+        g_hFont = CreateFontIndirectW(&lf);
+    }
+    
+    // 如果还是失败，尝试使用Segoe UI
+    if (g_hFont == NULL)
+    {
+        wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"Segoe UI");
+        g_hFont = CreateFontIndirectW(&lf);
+    }
+    
+    // 最后的备选方案：使用系统默认字体
+    if (g_hFont == NULL)
+    {
+        g_hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        LogToFile("CreateUIFont: 使用系统默认字体");
+    }
+    else
+    {
+        LogToFile("CreateUIFont: 成功创建高质量字体");
+    }
+}
+
+// 应用字体到控件函数
+void ApplyFontToControl(HWND hWnd)
+{
+    if (g_hFont != NULL && hWnd != NULL)
+    {
+        SendMessageW(hWnd, WM_SETFONT, (WPARAM)g_hFont, TRUE);
+    }
+}
 
 // Show launcher window
 void ShowLauncherWindow()
@@ -448,6 +551,14 @@ void ProcessCommand(const WCHAR* command)
     {
         LogToFile("ProcessCommand: 识别为'js'命令，进入计算模式");
         EnterCalculatorMode();
+        return;
+    }
+    
+    // 检查是否是"wz"命令，用于进入网址收藏模式
+    if (wcscmp(command, L"wz") == 0)
+    {
+        LogToFile("ProcessCommand: 识别为'wz'命令，进入网址收藏模式");
+        EnterBookmarkMode();
         return;
     }
     
@@ -730,6 +841,20 @@ void SearchAndDisplayResults(const WCHAR* query)
         return;
     }
     
+    // 检查是否要进入网址收藏模式
+    if (query && _wcsicmp(query, L"wz") == 0)
+    {
+        LogToFile("SearchAndDisplayResults: 检测到'wz'命令，直接调用ProcessCommand");
+        
+        // 显示列表框
+        ShowWindow(g_hListBox, SW_SHOW);
+        
+        // 直接调用ProcessCommand处理"wz"命令
+        ProcessCommand(query);
+        
+        return;
+    }
+    
     if (!query || wcslen(query) == 0)
     {
         LogToFile("SearchAndDisplayResults: 查询为空，显示最常用的项目");
@@ -774,6 +899,50 @@ void SearchAndDisplayResults(const WCHAR* query)
     
     sprintf(logMsg, "SearchAndDisplayResults: 在 %zu 个快捷方式中搜索匹配项", g_shortcuts.size());
     LogToFile(logMsg);
+    
+    // 首先搜索收藏的网址
+    sprintf(logMsg, "SearchAndDisplayResults: 在 %zu 个收藏网址中搜索匹配项", g_bookmarks.size());
+    LogToFile(logMsg);
+    
+    // 搜索收藏的网址
+    for (size_t i = 0; i < g_bookmarks.size(); i++)
+    {
+        // 转换名称为小写以进行不区分大小写的比较
+        std::wstring lowerName = g_bookmarks[i].first;
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::towlower);
+        
+        std::wstring lowerUrl = g_bookmarks[i].second;
+        std::transform(lowerUrl.begin(), lowerUrl.end(), lowerUrl.begin(), ::towlower);
+        
+        // 转换查询为小写
+        std::wstring lowerQuery = query;
+        std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::towlower);
+        
+        // 检查名称或URL是否包含查询字符串
+        bool nameMatch = lowerName.find(lowerQuery) != std::wstring::npos;
+        bool urlMatch = lowerUrl.find(lowerQuery) != std::wstring::npos;
+        
+        if (nameMatch || urlMatch)
+        {
+            sprintf(logMsg, "SearchAndDisplayResults: 找到收藏网址匹配 '%ls'", g_bookmarks[i].first.c_str());
+            LogToFile(logMsg);
+            
+            // 创建一个临时的ShortcutItem来表示收藏的网址
+            ShortcutItem bookmarkItem = {0};
+            wcscpy(bookmarkItem.name, g_bookmarks[i].first.c_str());
+            wcscpy(bookmarkItem.path, g_bookmarks[i].second.c_str());
+            bookmarkItem.type = 1; // URL类型
+            bookmarkItem.usageCount = 0;
+            
+            // 添加到搜索结果
+            g_searchResults.push_back(bookmarkItem);
+            
+            // 显示在列表框中，使用特殊格式标识收藏网址
+            WCHAR display[1024] = {0};
+            wsprintfW(display, L"收藏: %s", g_bookmarks[i].first.c_str());
+            SendMessageW(g_hListBox, LB_ADDSTRING, 0, (LPARAM)display);
+        }
+    }
     
     // Search for matching items using case-insensitive comparison
     for (size_t i = 0; i < g_shortcuts.size(); i++)
@@ -905,7 +1074,26 @@ void ExecuteSelectedItem(int index)
     else if (item.type == 1) // URL
     {
         LogToFile("ExecuteSelectedItem: 执行URL");
-        result = ShellExecuteW(NULL, L"open", item.path, NULL, NULL, SW_SHOWNORMAL);
+        // 检查是否是收藏的网址（路径以http://或https://开头）
+        if (wcsstr(item.path, L"http://") == item.path || wcsstr(item.path, L"https://") == item.path)
+        {
+            // 收藏的网址，直接打开
+            result = ShellExecuteW(NULL, L"open", item.path, NULL, NULL, SW_SHOWNORMAL);
+        }
+        else
+        {
+            // 其他URL，添加http://前缀
+            WCHAR fullUrl[1024] = {0};
+            if (wcsstr(item.path, L"://") == NULL)
+            {
+                wsprintfW(fullUrl, L"http://%s", item.path);
+                result = ShellExecuteW(NULL, L"open", fullUrl, NULL, NULL, SW_SHOWNORMAL);
+            }
+            else
+            {
+                result = ShellExecuteW(NULL, L"open", item.path, NULL, NULL, SW_SHOWNORMAL);
+            }
+        }
     }
     else // Application
     {
@@ -1018,8 +1206,35 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                   hwnd, (HMENU)IDC_SETTINGS_BUTTON,
                   g_hInstance, NULL);
             
-            // Initially hide the exit calculator button
+            // Create exit bookmark mode button (initially hidden)
+            g_hExitBookmarkButton = CreateWindowExW(
+                  0,
+                  L"BUTTON",
+                  L"退出",
+                  WS_CHILD | BS_PUSHBUTTON,
+                  300, 10, 80, 25,
+                  hwnd, (HMENU)IDC_EXIT_BOOKMARK_BUTTON,
+                  g_hInstance, NULL);
+            
+            // Initially hide the exit calculator button and exit bookmark button
             ShowWindow(g_hExitCalcButton, SW_HIDE);
+            ShowWindow(g_hExitBookmarkButton, SW_HIDE);
+            
+            // 应用字体到所有控件
+            if (g_hFont != NULL)
+            {
+                ApplyFontToControl(g_hModeLabel);
+                ApplyFontToControl(g_hEdit);
+                ApplyFontToControl(g_hListBox);
+                ApplyFontToControl(g_hExitCalcButton);
+                ApplyFontToControl(g_hSettingsButton);
+                ApplyFontToControl(g_hExitBookmarkButton);
+                LogToFile("字体已应用到所有控件");
+            }
+            else
+            {
+                LogToFile("警告：字体句柄为空，无法应用字体");
+            }
             
             return 0;
             
@@ -1145,8 +1360,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     // 处理设置按钮点击
                     LogToFile("WM_COMMAND: 用户点击设置按钮");
-                    // TODO: 实现设置功能
-                    MessageBoxW(hwnd, L"设置功能正在开发中...", L"提示", MB_OK | MB_ICONINFORMATION);
+                    ShowBookmarkDialog();
+                    return 0;
+                }
+                // 处理退出网址收藏模式按钮点击
+                else if (LOWORD(wParam) == IDC_EXIT_BOOKMARK_BUTTON)
+                {
+                    // 处理退出网址收藏模式按钮点击
+                    if (g_bookmarkMode)
+                    {
+                        ExitBookmarkMode();
+                        LogToFile("WM_COMMAND: 用户点击退出网址收藏模式按钮");
+                    }
                     return 0;
                 }
                 // 处理托盘菜单命令
@@ -1160,6 +1385,43 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     PostMessage(hwnd, WM_CLOSE, 0, 0);
                     LogToFile("WM_COMMAND: 用户选择退出");
+                    return 0;
+                }
+                // 处理网址收藏模式右键菜单命令
+                else if (LOWORD(wParam) == ID_CONTEXT_DELETE_BOOKMARK)
+                {
+                    // 删除选中的网址
+                    INT_PTR selIndex = SendMessageW(g_hListBox, LB_GETCURSEL, 0, 0);
+                    if (selIndex != LB_ERR && selIndex < (INT_PTR)g_bookmarkSearchResults.size())
+                    {
+                        // 获取选中的网址名称
+                        std::wstring selectedName = g_bookmarkSearchResults[selIndex].first;
+                        
+                        // 在原始网址列表中查找并删除
+                        for (size_t i = 0; i < g_bookmarks.size(); i++)
+                        {
+                            if (g_bookmarks[i].first == selectedName)
+                            {
+                                g_bookmarks.erase(g_bookmarks.begin() + i);
+                                break;
+                            }
+                        }
+                        
+                        // 保存到文件
+                        SaveBookmarks();
+                        
+                        // 重新搜索并显示结果
+                        SearchBookmarks(g_currentSearch);
+                        
+                        LogToFile("WM_COMMAND: 删除了选中的网址");
+                    }
+                    return 0;
+                }
+                else if (LOWORD(wParam) == ID_CONTEXT_SYNC_CHROME)
+                {
+                    // 同步Chrome书签
+                    SyncChromeBookmarks();
+                    LogToFile("WM_COMMAND: 同步Chrome书签");
                     return 0;
                 }
                 
@@ -1266,23 +1528,46 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 sprintf(logMsg, "  EN_RETURN: 第一个项目文本: '%s'", firstItemLog);
                                 LogToFile(logMsg);
                                 
-                                // Verify g_searchResults has items before executing
-                                // Also check if the first item is not the "No matching items found" message
-                                if (!g_searchResults.empty() && g_searchResults.size() > 0)
+                                // 检查是否是收藏的网址
+                                bool isBookmark = (wcsstr(firstItemText, L"收藏:") == firstItemText);
+                                if (isBookmark)
                                 {
-                                    LogToFile("  EN_RETURN: 搜索结果不为空，执行第一个项目");
-                                    ExecuteSelectedItem((int)firstSelIndex);
+                                    LogToFile("  EN_RETURN: 识别为收藏的网址，直接打开");
+                                    // 获取收藏的网址名称
+                                    std::wstring bookmarkName = firstItemText + 4; // 跳过"收藏:"前缀
+                                    
+                                    // 在收藏中查找对应的网址
+                                    for (size_t i = 0; i < g_bookmarks.size(); i++)
+                                    {
+                                        if (g_bookmarks[i].first == bookmarkName)
+                                        {
+                                            // 直接打开收藏的网址
+                                            ShellExecuteW(NULL, L"open", g_bookmarks[i].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                            LogToFile("  EN_RETURN: 成功打开收藏的网址");
+                                            break;
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    // Check if the first item is "No matching items found"
-                                    if (wcscmp(firstItemText, L"No matching items found") == 0)
+                                    // Verify g_searchResults has items before executing
+                                    // Also check if the first item is not the "No matching items found" message
+                                    if (!g_searchResults.empty() && g_searchResults.size() > 0)
                                     {
-                                        LogToFile("  EN_RETURN: 第一个项目是'未找到匹配项'消息，不执行");
+                                        LogToFile("  EN_RETURN: 搜索结果不为空，执行第一个项目");
+                                        ExecuteSelectedItem((int)firstSelIndex);
                                     }
                                     else
                                     {
-                                        LogToFile("  EN_RETURN: 错误：搜索结果为空但列表框有实际项目");
+                                        // Check if the first item is "No matching items found"
+                                        if (wcscmp(firstItemText, L"No matching items found") == 0)
+                                        {
+                                            LogToFile("  EN_RETURN: 第一个项目是'未找到匹配项'消息，不执行");
+                                        }
+                                        else
+                                        {
+                                            LogToFile("  EN_RETURN: 错误：搜索结果为空但列表框有实际项目");
+                                        }
                                     }
                                 }
                             }
@@ -1336,8 +1621,54 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             
         case WM_KEYDOWN:
+            // Handle Delete key press in bookmark mode
+            if (wParam == VK_DELETE && g_bookmarkMode && GetFocus() == g_hListBox)
+            {
+                LogToFile("WM_KEYDOWN: Delete key pressed in bookmark mode");
+                
+                // 获取选中的网址索引
+                INT_PTR selIndex = SendMessageW(g_hListBox, LB_GETCURSEL, 0, 0);
+                if (selIndex != LB_ERR && selIndex < (INT_PTR)g_bookmarkSearchResults.size())
+                {
+                    // 获取选中的网址名称
+                    std::wstring selectedName = g_bookmarkSearchResults[selIndex].first;
+                    
+                    // 确认删除
+                    WCHAR confirmMsg[512];
+                    swprintf(confirmMsg, L"确定要删除网址 '%s' 吗？", selectedName.c_str());
+                    if (MessageBoxW(g_hMainWindow, confirmMsg, L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                    {
+                        // 在原始网址列表中查找并删除
+                        for (size_t i = 0; i < g_bookmarks.size(); i++)
+                        {
+                            if (g_bookmarks[i].first == selectedName)
+                            {
+                                g_bookmarks.erase(g_bookmarks.begin() + i);
+                                break;
+                            }
+                        }
+                        
+                        // 保存到文件
+                        SaveBookmarks();
+                        
+                        // 重新搜索并显示结果
+                        SearchBookmarks(g_currentSearch);
+                        
+                        LogToFile("WM_KEYDOWN: 删除了选中的网址");
+                    }
+                    else
+                    {
+                        LogToFile("WM_KEYDOWN: 用户取消了删除操作");
+                    }
+                }
+                else
+                {
+                    LogToFile("WM_KEYDOWN: 没有选中任何网址");
+                }
+                return 0; // 消息已处理
+            }
             // Handle Enter key press directly in edit control
-            if (wParam == VK_RETURN && GetFocus() == g_hEdit)
+            else if (wParam == VK_RETURN && GetFocus() == g_hEdit)
             {
                 LogToFile("WM_KEYDOWN: Enter key pressed - processing directly");
                 
@@ -1506,6 +1837,70 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         return 0; // 消息已处理
                     }
                 }
+                // 检查是否在网址收藏模式下，并且右键点击的是列表框
+                else if (g_bookmarkMode)
+                {
+                    // 获取列表框的屏幕坐标
+                    RECT listBoxRect;
+                    GetWindowRect(g_hListBox, &listBoxRect);
+                    
+                    // 检查鼠标是否在列表框内
+                    if (PtInRect(&listBoxRect, pt))
+                    {
+                        // 创建右键菜单
+                        HMENU hContextMenu = CreatePopupMenu();
+                        
+                        // 添加菜单项
+                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_DELETE_BOOKMARK, L"删除此项");
+                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_SYNC_CHROME, L"同步Chrome书签");
+                        
+                        // 显示菜单并获取用户选择
+                        int command = TrackPopupMenu(hContextMenu, 
+                            TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY,
+                            pt.x, pt.y, 0, g_hMainWindow, NULL);
+                        
+                        // 销毁菜单
+                        DestroyMenu(hContextMenu);
+                        
+                        // 处理用户选择
+                        if (command == ID_CONTEXT_DELETE_BOOKMARK)
+                        {
+                            // 删除选中的网址
+                            INT_PTR selIndex = SendMessageW(g_hListBox, LB_GETCURSEL, 0, 0);
+                            if (selIndex != LB_ERR && selIndex < (INT_PTR)g_bookmarkSearchResults.size())
+                            {
+                                // 获取选中的网址名称
+                                std::wstring selectedName = g_bookmarkSearchResults[selIndex].first;
+                                
+                                // 在原始网址列表中查找并删除
+                                for (size_t i = 0; i < g_bookmarks.size(); i++)
+                                {
+                                    if (g_bookmarks[i].first == selectedName)
+                                    {
+                                        g_bookmarks.erase(g_bookmarks.begin() + i);
+                                        break;
+                                    }
+                                }
+                                
+                                // 保存到文件
+                                SaveBookmarks();
+                                
+                                // 重新搜索并显示结果
+                                SearchBookmarks(g_currentSearch);
+                                
+                                LogToFile("右键菜单: 删除了选中的网址");
+                            }
+                        }
+                        else if (command == ID_CONTEXT_SYNC_CHROME)
+                        {
+                            // 同步Chrome书签
+                            SyncChromeBookmarks();
+                            LogToFile("右键菜单: 同步Chrome书签");
+                        }
+                        
+                        return 0; // 消息已处理
+                    }
+                }
             }
             // For other contexts, fall through to default handler
             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
@@ -1523,6 +1918,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     
     // Initialize common shortcuts
     InitializeCommonShortcuts();
+    
+    // 创建UI字体
+    CreateUIFont();
+    LogToFile("UI字体已创建");
     
     // Register window class
     WNDCLASSEXW wc = {0};
@@ -1839,6 +2238,516 @@ void ExitCalculatorMode()
     
     // 设置焦点到编辑框
     SetFocus(g_hEdit);
+}
+
+// Enter bookmark mode
+void EnterBookmarkMode()
+{
+    LogToFile("EnterBookmarkMode: 进入网址收藏模式");
+    
+    // 设置网址收藏模式标志
+    g_bookmarkMode = true;
+    
+    // 更新模式标签文本
+    SetWindowTextW(g_hModeLabel, L"网址:");
+    
+    // 显示退出网址收藏模式按钮
+    ShowWindow(g_hExitBookmarkButton, SW_SHOW);
+    
+    // 隐藏设置按钮
+    ShowWindow(g_hSettingsButton, SW_HIDE);
+    
+    // 隐藏退出计算模式按钮（如果显示）
+    ShowWindow(g_hExitCalcButton, SW_HIDE);
+    
+    // 显示列表框
+    ShowWindow(g_hListBox, SW_SHOW);
+    
+    // 清空编辑框
+    SetWindowTextW(g_hEdit, L"");
+    
+    // 加载并显示网址收藏
+    LoadBookmarks();
+    DisplayBookmarkResults();
+    
+    // 设置焦点到编辑框
+    SetFocus(g_hEdit);
+}
+
+// Exit bookmark mode
+void ExitBookmarkMode()
+{
+    LogToFile("ExitBookmarkMode: 退出网址收藏模式");
+    
+    // 清除网址收藏模式标志
+    g_bookmarkMode = false;
+    
+    // 更新模式标签文本
+    SetWindowTextW(g_hModeLabel, L"搜索:");
+    
+    // 隐藏退出网址收藏模式按钮
+    ShowWindow(g_hExitBookmarkButton, SW_HIDE);
+    
+    // 显示设置按钮
+    ShowWindow(g_hSettingsButton, SW_SHOW);
+    
+    // 清空编辑框
+    SetWindowTextW(g_hEdit, L"");
+    
+    // 清空列表框
+    SendMessageW(g_hListBox, LB_RESETCONTENT, 0, 0);
+    
+    // 设置焦点到编辑框
+    SetFocus(g_hEdit);
+}
+
+// 添加网址收藏
+void AddBookmark(const WCHAR* name, const WCHAR* url)
+{
+    LogToFile("AddBookmark: 添加网址收藏");
+    
+    // 验证URL格式
+    if (!IsURL(url))
+    {
+        LogToFile("AddBookmark: URL格式无效");
+        MessageBoxW(g_hMainWindow, L"请输入有效的网址", L"添加网址失败", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // 检查是否已存在相同的网址
+    for (const auto& bookmark : g_bookmarks)
+    {
+        if (bookmark.second == url)
+        {
+            LogToFile("AddBookmark: 网址已存在");
+            MessageBoxW(g_hMainWindow, L"该网址已存在于收藏中", L"添加网址失败", MB_OK | MB_ICONWARNING);
+            return;
+        }
+    }
+    
+    // 添加到收藏列表
+    g_bookmarks.push_back(std::make_pair(std::wstring(name), std::wstring(url)));
+    
+    // 保存到文件
+    SaveBookmarks();
+    
+    // 刷新显示
+    DisplayBookmarkResults();
+    
+    LogToFile("AddBookmark: 网址收藏添加成功");
+}
+
+// 删除网址收藏
+void DeleteBookmark(int index)
+{
+    LogToFile("DeleteBookmark: 删除网址收藏");
+    
+    if (index < 0 || index >= static_cast<int>(g_bookmarks.size()))
+    {
+        LogToFile("DeleteBookmark: 索引超出范围");
+        return;
+    }
+    
+    // 删除指定索引的网址收藏
+    g_bookmarks.erase(g_bookmarks.begin() + index);
+    
+    // 保存到文件
+    SaveBookmarks();
+    
+    // 刷新显示
+    DisplayBookmarkResults();
+    
+    LogToFile("DeleteBookmark: 网址收藏删除成功");
+}
+
+// 保存网址收藏到文件
+void SaveBookmarks()
+{
+    LogToFile("SaveBookmarks: 开始保存网址收藏");
+    
+    // 创建数据目录（如果不存在）
+    CreateDirectoryW(L"data", NULL);
+    
+    // 打开网址收藏文件
+    FILE* file = _wfopen(L"data\\bookmarks.txt", L"w, ccs=UTF-8");
+    if (!file)
+    {
+        LogToFile("SaveBookmarks: 无法打开网址收藏文件进行写入");
+        return;
+    }
+    
+    // 写入网址收藏
+    for (const auto& bookmark : g_bookmarks)
+    {
+        // 格式：名称|URL
+        fwprintf(file, L"%s|%s\n", bookmark.first.c_str(), bookmark.second.c_str());
+    }
+    
+    fclose(file);
+    
+    // 记录保存的网址收藏数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "SaveBookmarks: 保存了 %zu 条网址收藏", g_bookmarks.size());
+    LogToFile(logMsg);
+    LogToFile("SaveBookmarks: 函数结束");
+}
+
+// 从文件加载网址收藏
+void LoadBookmarks()
+{
+    LogToFile("LoadBookmarks: 开始加载网址收藏");
+    
+    try
+    {
+        // 检查数据目录是否存在
+        DWORD dwAttrib = GetFileAttributesW(L"data");
+        if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            LogToFile("LoadBookmarks: 数据目录不存在，创建目录");
+            CreateDirectoryW(L"data", NULL);
+        }
+        
+        // 检查网址收藏文件是否存在
+        dwAttrib = GetFileAttributesW(L"data\\bookmarks.txt");
+        if (dwAttrib == INVALID_FILE_ATTRIBUTES)
+        {
+            LogToFile("LoadBookmarks: 网址收藏文件不存在，可能是首次运行");
+            return;
+        }
+        
+        // 打开网址收藏文件
+        LogToFile("LoadBookmarks: 尝试打开网址收藏文件");
+        FILE* file = _wfopen(L"data\\bookmarks.txt", L"r, ccs=UTF-8");
+        if (!file)
+        {
+            LogToFile("LoadBookmarks: 无法打开网址收藏文件进行读取，可能是首次运行");
+            return;
+        }
+        
+        LogToFile("LoadBookmarks: 成功打开网址收藏文件");
+        
+        // 检查文件是否为空
+        fseek(file, 0, SEEK_END);
+        long fileSize = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        
+        if (fileSize == 0)
+        {
+            LogToFile("LoadBookmarks: 文件为空，无需加载");
+            fclose(file);
+            return;
+        }
+        
+        char sizeLog[100] = {0};
+        sprintf(sizeLog, "LoadBookmarks: 文件大小为 %ld 字节", fileSize);
+        LogToFile(sizeLog);
+        
+        // 清空当前网址收藏
+        g_bookmarks.clear();
+        LogToFile("LoadBookmarks: 已清空当前网址收藏");
+        
+        // 读取网址收藏
+        WCHAR buffer[2048];
+        int lineCount = 0;
+        
+        while (fgetws(buffer, sizeof(buffer)/sizeof(WCHAR), file))
+        {
+            lineCount++;
+            
+            // 移除换行符
+            size_t len = wcslen(buffer);
+            if (len > 0 && buffer[len - 1] == L'\n')
+            {
+                buffer[len - 1] = L'\0';
+                len--;
+            }
+            
+            // 跳过空行
+            if (len == 0)
+            {
+                LogToFile("LoadBookmarks: 跳过空行");
+                continue;
+            }
+            
+            // 解析格式：名称|URL
+            WCHAR* separator = wcschr(buffer, L'|');
+            if (!separator)
+            {
+                LogToFile("LoadBookmarks: 跳过格式不正确的行");
+                continue;
+            }
+            
+            // 分割名称和URL
+            *separator = L'\0';
+            WCHAR* name = buffer;
+            WCHAR* url = separator + 1;
+            
+            // 添加到网址收藏列表
+            g_bookmarks.push_back(std::make_pair(std::wstring(name), std::wstring(url)));
+            
+            // 记录每行读取的内容（仅前5行）
+            if (lineCount <= 5)
+            {
+                char lineLog[2200] = {0};
+                WideCharToMultiByte(CP_UTF8, 0, buffer, -1, lineLog, sizeof(lineLog), NULL, NULL);
+                LogToFile(lineLog);
+            }
+        }
+        
+        fclose(file);
+        LogToFile("LoadBookmarks: 已关闭网址收藏文件");
+        
+        // 记录加载的网址收藏数量
+        char logMsg[200] = {0};
+        sprintf(logMsg, "LoadBookmarks: 加载了 %zu 条网址收藏，共读取 %d 行", g_bookmarks.size(), lineCount);
+        LogToFile(logMsg);
+        LogToFile("LoadBookmarks: 函数结束");
+    }
+    catch (...)
+    {
+        LogToFile("LoadBookmarks: 加载网址收藏时发生异常");
+    }
+}
+
+// 显示网址收藏
+void DisplayBookmarkResults()
+{
+    LogToFile("DisplayBookmarkResults: 显示网址收藏");
+    
+    // 暂停列表框重绘以提高性能
+    SendMessageW(g_hListBox, WM_SETREDRAW, FALSE, 0);
+    
+    // 清空列表框
+    SendMessageW(g_hListBox, LB_RESETCONTENT, 0, 0);
+    
+    // 使用搜索结果（如果有）或全部网址收藏
+    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+    
+    // 添加网址收藏到列表框
+    for (const auto& bookmark : displayBookmarks)
+    {
+        // 格式：名称 - URL
+        std::wstring displayText = bookmark.first + L" - " + bookmark.second;
+        SendMessageW(g_hListBox, LB_ADDSTRING, 0, (LPARAM)displayText.c_str());
+    }
+    
+    // 恢复列表框重绘
+    SendMessageW(g_hListBox, WM_SETREDRAW, TRUE, 0);
+    
+    // 强制重绘列表框
+    InvalidateRect(g_hListBox, NULL, TRUE);
+    
+    // 记录显示的网址收藏数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "DisplayBookmarkResults: 显示了 %zu 条网址收藏", displayBookmarks.size());
+    LogToFile(logMsg);
+}
+
+// 检查字符串是否为有效的URL
+bool IsURL(const WCHAR* str)
+{
+    if (!str || wcslen(str) < 4)
+    {
+        return false;
+    }
+    
+    // 检查是否以http://或https://开头
+    if (wcsncmp(str, L"http://", 7) == 0 || wcsncmp(str, L"https://", 8) == 0)
+    {
+        return true;
+    }
+    
+    // 检查是否以www.开头
+    if (wcsncmp(str, L"www.", 4) == 0)
+    {
+        return true;
+    }
+    
+    // 检查是否包含点号（简单的域名检查）
+    if (wcschr(str, L'.') != NULL)
+    {
+        return true;
+    }
+    
+    return false;
+}
+
+// 搜索网址收藏
+void SearchBookmarks(const WCHAR* query)
+{
+    LogToFile("SearchBookmarks: 搜索网址收藏");
+    
+    // 清空搜索结果
+    g_bookmarkSearchResults.clear();
+    
+    // 如果查询为空，显示所有网址收藏
+    if (!query || wcslen(query) == 0)
+    {
+        DisplayBookmarkResults();
+        return;
+    }
+    
+    // 转换查询为小写以进行不区分大小写的搜索
+    std::wstring lowerQuery = query;
+    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::towlower);
+    
+    // 搜索匹配的网址收藏
+    for (const auto& bookmark : g_bookmarks)
+    {
+        // 转换名称和URL为小写
+        std::wstring lowerName = bookmark.first;
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::towlower);
+        
+        std::wstring lowerUrl = bookmark.second;
+        std::transform(lowerUrl.begin(), lowerUrl.end(), lowerUrl.begin(), ::towlower);
+        
+        // 检查名称或URL是否包含查询字符串
+        if (lowerName.find(lowerQuery) != std::wstring::npos || 
+            lowerUrl.find(lowerQuery) != std::wstring::npos)
+        {
+            g_bookmarkSearchResults.push_back(bookmark);
+        }
+    }
+    
+    // 显示搜索结果
+    DisplayBookmarkResults();
+    
+    // 记录搜索结果数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "SearchBookmarks: 找到 %zu 条匹配的网址收藏", g_bookmarkSearchResults.size());
+    LogToFile(logMsg);
+}
+
+// 同步Chrome书签
+void SyncChromeBookmarks()
+{
+    LogToFile("SyncChromeBookmarks: 开始同步Chrome书签");
+    
+    // Chrome书签文件路径
+    WCHAR bookmarksPath[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, bookmarksPath)))
+    {
+        wcscat_s(bookmarksPath, L"\\Google\\Chrome\\User Data\\Default\\Bookmarks");
+        
+        // 检查文件是否存在
+        DWORD dwAttrib = GetFileAttributesW(bookmarksPath);
+        if (dwAttrib == INVALID_FILE_ATTRIBUTES)
+        {
+            LogToFile("SyncChromeBookmarks: Chrome书签文件不存在");
+            MessageBoxW(g_hMainWindow, L"未找到Chrome书签文件，请确保Chrome已安装并至少添加过一个书签", L"同步失败", MB_OK | MB_ICONERROR);
+            return;
+        }
+        
+        // 打开Chrome书签文件（JSON格式）
+        FILE* file = _wfopen(bookmarksPath, L"r, ccs=UTF-8");
+        if (!file)
+        {
+            LogToFile("SyncChromeBookmarks: 无法打开Chrome书签文件");
+            MessageBoxW(g_hMainWindow, L"无法读取Chrome书签文件，请确保Chrome已关闭", L"同步失败", MB_OK | MB_ICONERROR);
+            return;
+        }
+        
+        // 读取文件内容
+        fseek(file, 0, SEEK_END);
+        long fileSize = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        
+        char* buffer = new char[fileSize + 1];
+        fread(buffer, 1, fileSize, file);
+        buffer[fileSize] = '\0';
+        fclose(file);
+        
+        // 简单解析JSON（实际应用中应使用专门的JSON解析库）
+        // 这里只做简单的字符串匹配，提取书签名称和URL
+        std::string content(buffer);
+        delete[] buffer;
+        
+        // 查找书签条目
+        size_t pos = 0;
+        int addedCount = 0;
+        
+        while ((pos = content.find("\"name\":", pos)) != std::string::npos)
+        {
+            // 提取名称
+            pos += 8; // 跳过"name":
+            while (pos < content.length() && isspace(content[pos])) pos++;
+            if (pos >= content.length() || content[pos] != '"') continue;
+            pos++; // 跳过开始的引号
+            
+            size_t nameEnd = content.find("\"", pos);
+            if (nameEnd == std::string::npos) continue;
+            std::string name = content.substr(pos, nameEnd - pos);
+            pos = nameEnd + 1;
+            
+            // 查找URL
+            size_t urlPos = content.find("\"url\":", pos);
+            if (urlPos == std::string::npos) continue;
+            urlPos += 7; // 跳过"url":
+            while (urlPos < content.length() && isspace(content[urlPos])) urlPos++;
+            if (urlPos >= content.length() || content[urlPos] != '"') continue;
+            urlPos++; // 跳过开始的引号
+            
+            size_t urlEnd = content.find("\"", urlPos);
+            if (urlEnd == std::string::npos) continue;
+            std::string url = content.substr(urlPos, urlEnd - urlPos);
+            pos = urlEnd + 1;
+            
+            // 跳过文件夹（没有URL的条目）
+            if (url.empty()) continue;
+            
+            // 转换为宽字符
+            int nameLen = MultiByteToWideChar(CP_UTF8, 0, name.c_str(), -1, NULL, 0);
+            int urlLen = MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, NULL, 0);
+            
+            WCHAR* wName = new WCHAR[nameLen];
+            WCHAR* wUrl = new WCHAR[urlLen];
+            
+            MultiByteToWideChar(CP_UTF8, 0, name.c_str(), -1, wName, nameLen);
+            MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, wUrl, urlLen);
+            
+            // 检查是否已存在
+            bool exists = false;
+            for (const auto& bookmark : g_bookmarks)
+            {
+                if (bookmark.second == wUrl)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            // 如果不存在，则添加
+            if (!exists)
+            {
+                g_bookmarks.push_back(std::make_pair(std::wstring(wName), std::wstring(wUrl)));
+                addedCount++;
+            }
+            
+            delete[] wName;
+            delete[] wUrl;
+        }
+        
+        // 保存到文件
+        SaveBookmarks();
+        
+        // 刷新显示
+        DisplayBookmarkResults();
+        
+        // 显示结果
+        WCHAR msg[200];
+        swprintf(msg, L"成功从Chrome同步了 %d 个新书签", addedCount);
+        MessageBoxW(g_hMainWindow, msg, L"同步完成", MB_OK | MB_ICONINFORMATION);
+        
+        // 记录同步结果
+        char logMsg[200] = {0};
+        sprintf(logMsg, "SyncChromeBookmarks: 同步完成，添加了 %d 个新书签", addedCount);
+        LogToFile(logMsg);
+    }
+    else
+    {
+        LogToFile("SyncChromeBookmarks: 无法获取用户数据目录");
+        MessageBoxW(g_hMainWindow, L"无法获取用户数据目录", L"同步失败", MB_OK | MB_ICONERROR);
+    }
 }
 
 // Evaluate mathematical expression
@@ -2168,4 +3077,312 @@ void LoadCalculationHistory()
     {
         LogToFile("LoadCalculationHistory: 加载计算历史时发生异常");
     }
+}
+
+// 网址管理对话框实现
+
+// 显示网址管理对话框
+void ShowBookmarkDialog()
+{
+    LogToFile("ShowBookmarkDialog: 显示网址管理对话框");
+    
+    // 先加载网址收藏
+    LoadBookmarks();
+    
+    // 使用更简单的方法创建对话框
+    // 创建一个模态对话框
+    int result = DialogBox(
+        g_hInstance,
+        MAKEINTRESOURCE(IDD_BOOKMARK_DIALOG),
+        g_hMainWindow,
+        BookmarkDialogProc
+    );
+    
+    if (result == -1)
+    {
+        LogToFile("ShowBookmarkDialog: 无法创建对话框");
+        char errorMsg[256] = {0};
+        sprintf(errorMsg, "ShowBookmarkDialog: 错误代码 %d", GetLastError());
+        LogToFile(errorMsg);
+    }
+    else
+    {
+        LogToFile("ShowBookmarkDialog: 对话框已关闭");
+    }
+}
+
+// 网址管理对话框过程
+INT_PTR CALLBACK BookmarkDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+        case WM_INITDIALOG:
+        {
+            LogToFile("BookmarkDialogProc: WM_INITDIALOG");
+            
+            // 加载网址收藏
+            LoadBookmarks();
+            
+            // 设置窗口标题
+            SetWindowTextW(hwnd, L"网址收藏管理");
+            
+            // 动态设置按钮文本，确保中文显示正确
+            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_ADD), L"添加");
+            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_UPDATE), L"更新");
+            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_DELETE), L"删除");
+            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_CLOSE), L"关闭");
+            
+            // 动态设置标签文本，确保中文显示正确
+            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_NAME_LABEL), L"名称:");
+            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_URL_LABEL), L"URL:");
+            
+            // 刷新网址列表
+            RefreshBookmarkList(GetDlgItem(hwnd, IDC_BOOKMARK_LIST));
+            
+            // 设置焦点到列表框
+            SetFocus(GetDlgItem(hwnd, IDC_BOOKMARK_LIST));
+            
+            return TRUE;
+        }
+        
+        case WM_COMMAND:
+        {
+            switch (LOWORD(wParam))
+            {
+                case IDC_BOOKMARK_LIST:
+                {
+                    if (HIWORD(wParam) == LBN_SELCHANGE)
+                    {
+                        // 获取选中的网址
+                        HWND hList = GetDlgItem(hwnd, IDC_BOOKMARK_LIST);
+                        int selIndex = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+                        
+                        if (selIndex != LB_ERR && selIndex < (int)g_bookmarks.size())
+                        {
+                            // 在编辑框中显示选中的网址信息
+                            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_NAME), g_bookmarks[selIndex].first.c_str());
+                            SetWindowTextW(GetDlgItem(hwnd, IDC_BOOKMARK_URL), g_bookmarks[selIndex].second.c_str());
+                        }
+                    }
+                    return TRUE;
+                }
+                
+                case IDC_BOOKMARK_ADD:
+                {
+                    AddBookmarkFromDialog(hwnd);
+                    return TRUE;
+                }
+                
+                case IDC_BOOKMARK_UPDATE:
+                {
+                    UpdateBookmarkFromDialog(hwnd);
+                    return TRUE;
+                }
+                
+                case IDC_BOOKMARK_DELETE:
+                {
+                    DeleteBookmarkFromDialog(hwnd);
+                    return TRUE;
+                }
+                
+                case IDC_BOOKMARK_CLOSE:
+                {
+                    EndDialog(hwnd, IDOK);
+                    // 关闭对话框后进入网址收藏模式
+                    EnterBookmarkMode();
+                    return TRUE;
+                }
+            }
+            break;
+        }
+        
+        case WM_CLOSE:
+        {
+            EndDialog(hwnd, IDCANCEL);
+            return TRUE;
+        }
+        
+        case WM_DESTROY:
+        {
+            LogToFile("BookmarkDialogProc: WM_DESTROY");
+            return TRUE;
+        }
+    }
+    
+    return FALSE;
+}
+
+// 刷新网址列表
+void RefreshBookmarkList(HWND hList)
+{
+    LogToFile("RefreshBookmarkList: 刷新网址列表");
+    
+    if (!hList)
+    {
+        LogToFile("RefreshBookmarkList: 列表框句柄为空");
+        return;
+    }
+    
+    // 暂停列表框重绘以提高性能
+    SendMessageW(hList, WM_SETREDRAW, FALSE, 0);
+    
+    // 清空列表框
+    SendMessageW(hList, LB_RESETCONTENT, 0, 0);
+    
+    // 添加网址到列表框
+    for (const auto& bookmark : g_bookmarks)
+    {
+        // 创建显示字符串：名称 - URL
+        std::wstring displayStr = bookmark.first + L" - " + bookmark.second;
+        SendMessageW(hList, LB_ADDSTRING, 0, (LPARAM)displayStr.c_str());
+    }
+    
+    // 恢复列表框重绘
+    SendMessageW(hList, WM_SETREDRAW, TRUE, 0);
+    
+    // 强制重绘列表框
+    InvalidateRect(hList, NULL, TRUE);
+    
+    // 记录刷新的网址数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "RefreshBookmarkList: 刷新了 %zu 个网址", g_bookmarks.size());
+    LogToFile(logMsg);
+}
+
+// 从对话框添加网址
+void AddBookmarkFromDialog(HWND hDlg)
+{
+    LogToFile("AddBookmarkFromDialog: 从对话框添加网址");
+    
+    // 获取名称和URL
+    WCHAR name[256] = {0};
+    WCHAR url[1024] = {0};
+    
+    GetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_NAME), name, sizeof(name)/sizeof(WCHAR));
+    GetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_URL), url, sizeof(url)/sizeof(WCHAR));
+    
+    // 检查输入
+    if (wcslen(name) == 0 || wcslen(url) == 0)
+    {
+        MessageBoxW(hDlg, L"请输入名称和URL", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("AddBookmarkFromDialog: 名称或URL为空");
+        return;
+    }
+    
+    // 检查URL格式
+    if (!IsURL(url))
+    {
+        MessageBoxW(hDlg, L"请输入有效的URL", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("AddBookmarkFromDialog: URL格式无效");
+        return;
+    }
+    
+    // 添加网址
+    AddBookmark(name, url);
+    
+    // 刷新列表
+    RefreshBookmarkList(GetDlgItem(hDlg, IDC_BOOKMARK_LIST));
+    
+    // 清空编辑框
+    SetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_NAME), L"");
+    SetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_URL), L"");
+    
+    // 设置焦点到名称编辑框
+    SetFocus(GetDlgItem(hDlg, IDC_BOOKMARK_NAME));
+    
+    LogToFile("AddBookmarkFromDialog: 网址添加成功");
+}
+
+// 从对话框更新网址
+void UpdateBookmarkFromDialog(HWND hDlg)
+{
+    LogToFile("UpdateBookmarkFromDialog: 从对话框更新网址");
+    
+    // 获取选中的网址索引
+    HWND hList = GetDlgItem(hDlg, IDC_BOOKMARK_LIST);
+    int selIndex = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+    
+    if (selIndex == LB_ERR || selIndex >= (int)g_bookmarks.size())
+    {
+        MessageBoxW(hDlg, L"请选择要更新的网址", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("UpdateBookmarkFromDialog: 未选择网址");
+        return;
+    }
+    
+    // 获取名称和URL
+    WCHAR name[256] = {0};
+    WCHAR url[1024] = {0};
+    
+    GetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_NAME), name, sizeof(name)/sizeof(WCHAR));
+    GetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_URL), url, sizeof(url)/sizeof(WCHAR));
+    
+    // 检查输入
+    if (wcslen(name) == 0 || wcslen(url) == 0)
+    {
+        MessageBoxW(hDlg, L"请输入名称和URL", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("UpdateBookmarkFromDialog: 名称或URL为空");
+        return;
+    }
+    
+    // 检查URL格式
+    if (!IsURL(url))
+    {
+        MessageBoxW(hDlg, L"请输入有效的URL", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("UpdateBookmarkFromDialog: URL格式无效");
+        return;
+    }
+    
+    // 更新网址
+    g_bookmarks[selIndex].first = name;
+    g_bookmarks[selIndex].second = url;
+    
+    // 保存到文件
+    SaveBookmarks();
+    
+    // 刷新列表
+    RefreshBookmarkList(hList);
+    
+    // 重新选择更新后的项
+    SendMessageW(hList, LB_SETCURSEL, selIndex, 0);
+    
+    LogToFile("UpdateBookmarkFromDialog: 网址更新成功");
+}
+
+// 从对话框删除网址
+void DeleteBookmarkFromDialog(HWND hDlg)
+{
+    LogToFile("DeleteBookmarkFromDialog: 从对话框删除网址");
+    
+    // 获取选中的网址索引
+    HWND hList = GetDlgItem(hDlg, IDC_BOOKMARK_LIST);
+    int selIndex = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+    
+    if (selIndex == LB_ERR || selIndex >= (int)g_bookmarks.size())
+    {
+        MessageBoxW(hDlg, L"请选择要删除的网址", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("DeleteBookmarkFromDialog: 未选择网址");
+        return;
+    }
+    
+    // 确认删除
+    if (MessageBoxW(hDlg, L"确定要删除选中的网址吗？", L"确认", MB_YESNO | MB_ICONQUESTION) != IDYES)
+    {
+        LogToFile("DeleteBookmarkFromDialog: 用户取消删除");
+        return;
+    }
+    
+    // 删除网址
+    g_bookmarks.erase(g_bookmarks.begin() + selIndex);
+    
+    // 保存到文件
+    SaveBookmarks();
+    
+    // 刷新列表
+    RefreshBookmarkList(hList);
+    
+    // 清空编辑框
+    SetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_NAME), L"");
+    SetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_URL), L"");
+    
+    LogToFile("DeleteBookmarkFromDialog: 网址删除成功");
 }

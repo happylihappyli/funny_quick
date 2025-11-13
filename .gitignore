@@ -34,3 +34,6 @@
 *.dblite
 .sconsign.dblite
 .sconsign.dblite
+/bin/log
+bookmark_mode_20251110_164018.png
+/obj

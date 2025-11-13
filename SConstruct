@@ -4,17 +4,17 @@ import subprocess
 # 创建基本环境，确保包含所有必要的工具
 env = Environment(tools=['default'])
 
-# 在Windows环境下，构建前终止正在运行的quick_launcher进程
+# 在Windows环境下，构建前终止正在运行的funny_quick进程
 def kill_running_processes():
     if os.name == 'nt':
         try:
-            # 使用PowerShell命令终止所有quick_launcher进程
+            # 使用PowerShell命令终止所有funny_quick进程
             subprocess.run([
                 'powershell.exe', 
                 '-Command', 
-                'Get-Process quick_launcher -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'
+                'Get-Process funny_quick -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'
             ], check=False, shell=True)
-            print("已终止所有正在运行的quick_launcher进程")
+            print("已终止所有正在运行的funny_quick进程")
         except Exception as e:
             print(f"尝试终止进程时出错: {str(e)}")
 
@@ -38,6 +38,12 @@ def ensure_obj_directory():
 if os.name == 'nt':
     # 添加Windows特定库
     env.Append(LIBS=['shell32', 'user32', 'gdi32', 'comctl32', 'imm32'])
+    
+    # 添加资源编译器支持
+    env['RC'] = 'rc.exe'
+    env['RCCOM'] = '$RC $RCFLAGS /fo$TARGET $SOURCES'
+    env['RCFLAGS'] = '/c65001'  # 设置UTF-8编码
+    env['BUILDERS']['RES'] = Builder(action='$RCCOM', suffix='.res', src_suffix='.rc')
     
     # 检查SFML是否可用
     sfml_available = False
@@ -98,8 +104,15 @@ else:
 # 源文件 - 默认使用SFML版本，如果SFML不可用则使用Windows API版本
 if 'sfml_available' in locals() and sfml_available:
     sources = ['sfml_main.cpp']
+    resource_files = []
 else:
     sources = ['gui_main.cpp', 'command_handler.cpp']
+    
+    # Windows环境下添加资源文件
+    if os.name == 'nt':
+        resource_files = ['resource.rc']
+    else:
+        resource_files = []
 
 # Windows GUI应用程序设置
 if os.name == 'nt':
@@ -118,7 +131,7 @@ env['OBJSUFFIX'] = '.obj'
 env['PROGSUFFIX'] = '.exe'
 
 # 构建可执行文件到bin目录
-target_path = os.path.join(bin_dir, 'quick_launcher')
+target_path = os.path.join(bin_dir, 'funny_quick')
 
 # 为每个源文件创建对象文件节点
 object_files = []
@@ -131,8 +144,20 @@ for src in sources:
     obj = env.Object(target=obj_name, source=src)
     object_files.append(obj)
 
-# 使用对象文件构建可执行文件
-executable = env.Program(target=target_path, source=object_files)
+# 为每个资源文件创建资源文件节点
+resource_objects = []
+for rc in resource_files:
+    # 获取文件名（不含扩展名）
+    base_name = os.path.splitext(os.path.basename(rc))[0]
+    # 创建资源文件路径
+    res_name = os.path.join(obj_dir, base_name + '.res')
+    # 构建资源文件
+    res = env.RES(target=res_name, source=rc)
+    resource_objects.append(res)
+
+# 使用对象文件和资源文件构建可执行文件
+all_objects = object_files + resource_objects
+executable = env.Program(target=target_path, source=all_objects)
 
 # 复制图标文件到bin目录
 if os.path.exists('app_icon.ico'):
@@ -146,7 +171,7 @@ else:
     print("警告：未找到app_icon.ico文件")
 
 # 设置清理目标
-Clean(executable, os.path.join(bin_dir, 'quick_launcher.exe'))
+Clean(executable, os.path.join(bin_dir, 'funny_quick.exe'))
 # 清理obj目录中的所有对象文件
 for src in sources:
     base_name = os.path.splitext(os.path.basename(src))[0]
