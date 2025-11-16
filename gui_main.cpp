@@ -14,6 +14,8 @@
 #include <strsafe.h>
 #include <functional>
 #include "resource.h"
+#include "translation_manager.h"
+#include "internationalization.h"
 
 // Define notification codes if not defined
 #ifndef EN_RETURN
@@ -28,6 +30,7 @@ HWND g_hListBox = NULL;
 HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
 HWND g_hSettingsButton = NULL;   // 设置按钮
 HWND g_hExitBookmarkButton = NULL;  // 退出网址收藏模式按钮
+// HWND g_hHelpButton = NULL;       // 帮助按钮（已移除独立按钮）
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
 
@@ -51,6 +54,8 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define IDC_EXIT_CALC_BUTTON 1003  // 退出计算模式按钮ID
 #define IDC_SETTINGS_BUTTON 1004    // 设置按钮ID
 #define IDC_EXIT_BOOKMARK_BUTTON 1013  // 退出网址收藏模式按钮ID
+#define IDC_HELP_BUTTON 1014        // 帮助按钮ID（已移除独立按钮）
+#define ID_SETTINGS_HELP 1015        // 设置菜单帮助ID
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
@@ -122,6 +127,15 @@ void RefreshBookmarkList(HWND hList);
 void AddBookmarkFromDialog(HWND hDlg);
 void UpdateBookmarkFromDialog(HWND hDlg);
 void DeleteBookmarkFromDialog(HWND hDlg);
+
+// 设置下拉菜单相关函数声明
+void ShowSettingsDropdownMenu();
+HMENU CreateSettingsMenu();
+void HandleSettingsMenuCommand(WPARAM wParam);
+
+// 帮助功能相关函数声明
+void ShowHelpDialog();
+std::wstring GetCurrentMode();
 
 // 表达式解析辅助函数声明
 double parseNumber(const std::wstring& expr, size_t& pos);
@@ -483,9 +497,9 @@ void CreateTrayMenu()
     g_trayMenu = CreatePopupMenu();
     if (g_trayMenu)
     {
-        AppendMenuW(g_trayMenu, MF_STRING, ID_TRAY_SHOW, L"显示窗口");
+        AppendMenuW(g_trayMenu, MF_STRING, ID_TRAY_SHOW, BTN_SHOW_WINDOW);
         AppendMenuW(g_trayMenu, MF_SEPARATOR, 0, NULL);
-        AppendMenuW(g_trayMenu, MF_STRING, ID_TRAY_EXIT, L"退出");
+        AppendMenuW(g_trayMenu, MF_STRING, ID_TRAY_EXIT, BTN_EXIT);
         LogToFile("CreateTrayMenu: 成功创建托盘右键菜单");
     }
     else
@@ -1023,7 +1037,7 @@ void SearchAndDisplayResults(const WCHAR* query)
     if (g_searchResults.empty())
     {
         LogToFile("SearchAndDisplayResults: 未找到匹配项，显示'未找到匹配项'消息");
-        SendMessageW(g_hListBox, LB_ADDSTRING, 0, (LPARAM)L"No matching items found");
+        SendMessageW(g_hListBox, LB_ADDSTRING, 0, (LPARAM)TTR(L"No matching items found"));
     }
     else
     {
@@ -1190,19 +1204,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             g_hExitCalcButton = CreateWindowExW(
                   0,
                   L"BUTTON",
-                  L"退出计算",
+                  BTN_EXIT_CALC,
                   WS_CHILD | BS_PUSHBUTTON,
-                  300, 10, 80, 25,
+                  300, 40, 80, 25,  // 移动到第二行 (y=40)
                   hwnd, (HMENU)IDC_EXIT_CALC_BUTTON,
                   g_hInstance, NULL);
             
-            // Create settings button (initially visible in non-calculator mode)
+            // Create settings dropdown button (initially visible in non-calculator mode)
             g_hSettingsButton = CreateWindowExW(
                   0,
                   L"BUTTON",
-                  L"设置",
-                  WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE,
-                  300, 10, 80, 25,
+                  BTN_SETTINGS,
+                  WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE | WS_TABSTOP,
+                  290, 10, 80, 25,  // 保持在第一行 (y=10)
                   hwnd, (HMENU)IDC_SETTINGS_BUTTON,
                   g_hInstance, NULL);
             
@@ -1210,9 +1224,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             g_hExitBookmarkButton = CreateWindowExW(
                   0,
                   L"BUTTON",
-                  L"退出",
+                  BTN_EXIT_BOOKMARK,
                   WS_CHILD | BS_PUSHBUTTON,
-                  300, 10, 80, 25,
+                  380, 10, 80, 25,  // 保持在第一行 (y=10)
                   hwnd, (HMENU)IDC_EXIT_BOOKMARK_BUTTON,
                   g_hInstance, NULL);
             
@@ -1358,9 +1372,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // 处理设置按钮点击
                 else if (LOWORD(wParam) == IDC_SETTINGS_BUTTON)
                 {
-                    // 处理设置按钮点击
+                    // 处理设置按钮点击 - 显示下拉菜单
                     LogToFile("WM_COMMAND: 用户点击设置按钮");
-                    ShowBookmarkDialog();
+                    ShowSettingsDropdownMenu();
                     return 0;
                 }
                 // 处理退出网址收藏模式按钮点击
@@ -1453,6 +1467,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // 检查是否在计算模式
                             if (g_calculatorMode)
                             {
+                                // 在计算模式下，检查是否输入了'q'来退出计算模式
+                                if (wcscmp(searchText, L"q") == 0 || wcscmp(searchText, L"Q") == 0)
+                                {
+                                    LogToFile("  EN_CHANGE: 计算模式下输入'q'，退出计算模式");
+                                    ExitCalculatorMode();
+                                    // 清空输入框
+                                    SetWindowTextW(g_hEdit, L"");
+                                    wcscpy(g_currentSearch, L"");
+                                    // 重新显示设置按钮
+                                    ShowWindow(g_hSettingsButton, SW_SHOW);
+                                    return 0;
+                                }
                                 // 在计算模式下，不进行搜索，也不实时计算，只记录输入变化
                                 LogToFile("  EN_CHANGE: 计算模式下，输入内容已变化，但不计算");
                             }
@@ -1788,8 +1814,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         HMENU hContextMenu = CreatePopupMenu();
                         
                         // 添加菜单项
-                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_DELETE_ITEM, L"删除此项");
-                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_CLEAR_ALL, L"清空历史");
+                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_DELETE_ITEM, TTR(L"Delete Item"));
+                        AppendMenuW(hContextMenu, MF_STRING, ID_CONTEXT_CLEAR_ALL, TTR(L"Clear All History"));
                         
                         // 显示菜单并获取用户选择
                         int command = TrackPopupMenu(hContextMenu, 
@@ -1824,8 +1850,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         else if (command == ID_CONTEXT_CLEAR_ALL)
                         {
                             // 清空所有历史记录
-                            if (MessageBoxW(g_hMainWindow, L"确定要清空所有计算历史吗？", 
-                                L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                            if (MessageBoxW(g_hMainWindow, TTR(L"确定要清空所有历史记录吗？").c_str(), 
+                                TTR(L"确认").c_str(), MB_YESNO | MB_ICONQUESTION) == IDYES)
                             {
                                 g_calculationHistory.clear();
                                 SaveCalculationHistory();
@@ -1915,6 +1941,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
     LogToFile("Program started");
     g_hInstance = hInstance;
+    
+    // 初始化翻译管理器
+    TranslationManager* translationManager = TranslationManager::getInstance();
+    if (!translationManager->initialize()) {
+        LogToFile("Failed to initialize translation manager");
+    } else {
+        LogToFile("Translation manager initialized successfully");
+    }
     
     // Initialize common shortcuts
     InitializeCommonShortcuts();
@@ -2088,6 +2122,14 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_KEYDOWN:
             if (wParam == VK_RETURN)
             {
+                // 检查是否需要忽略这个回车键（由焦点变化触发）
+                if (g_ignoreNextReturn)
+                {
+                    LogToFile("EditSubclassProc: WM_KEYDOWN with VK_RETURN received but ignored (focus change)");
+                    g_ignoreNextReturn = false; // 重置标志
+                    return 0; // 消息已处理，不继续执行
+                }
+                
                 LogToFile("EditSubclassProc: WM_KEYDOWN with VK_RETURN received");
                 
                 // Get current text from edit control
@@ -2195,13 +2237,16 @@ void EnterCalculatorMode()
     g_calculatorMode = true;
     
     // 更新模式标签文本
-    SetWindowTextW(g_hModeLabel, L"计算:");
+    SetWindowTextW(g_hModeLabel, TTR(L"计算:(输入q退出)"));
     
-    // 显示退出计算模式按钮
+    // 显示退出计算模式按钮（保留但不使用，通过菜单和'q'键退出）
     ShowWindow(g_hExitCalcButton, SW_SHOW);
     
-    // 隐藏设置按钮
-    ShowWindow(g_hSettingsButton, SW_HIDE);
+    // 显示设置按钮（在计算模式下用户仍需要访问设置）
+    ShowWindow(g_hSettingsButton, SW_SHOW);
+    
+    // 隐藏退出网址收藏模式按钮（如果显示）
+    ShowWindow(g_hExitBookmarkButton, SW_HIDE);
     
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
@@ -2222,13 +2267,16 @@ void ExitCalculatorMode()
     g_calculatorMode = false;
     
     // 更新模式标签文本
-    SetWindowTextW(g_hModeLabel, L"搜索:");
+    SetWindowTextW(g_hModeLabel, TTR(L"搜索:"));
     
     // 隐藏退出计算模式按钮
     ShowWindow(g_hExitCalcButton, SW_HIDE);
     
     // 显示设置按钮
     ShowWindow(g_hSettingsButton, SW_SHOW);
+    
+    // 隐藏退出网址收藏模式按钮（如果显示）
+    ShowWindow(g_hExitBookmarkButton, SW_HIDE);
     
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
@@ -2249,13 +2297,13 @@ void EnterBookmarkMode()
     g_bookmarkMode = true;
     
     // 更新模式标签文本
-    SetWindowTextW(g_hModeLabel, L"网址:");
+    SetWindowTextW(g_hModeLabel, TTR(L"URL:"));
     
     // 显示退出网址收藏模式按钮
     ShowWindow(g_hExitBookmarkButton, SW_SHOW);
     
-    // 隐藏设置按钮
-    ShowWindow(g_hSettingsButton, SW_HIDE);
+    // 显示设置按钮（在网址收藏模式下也显示）
+    ShowWindow(g_hSettingsButton, SW_SHOW);
     
     // 隐藏退出计算模式按钮（如果显示）
     ShowWindow(g_hExitCalcButton, SW_HIDE);
@@ -2310,7 +2358,7 @@ void AddBookmark(const WCHAR* name, const WCHAR* url)
     if (!IsURL(url))
     {
         LogToFile("AddBookmark: URL格式无效");
-        MessageBoxW(g_hMainWindow, L"请输入有效的网址", L"添加网址失败", MB_OK | MB_ICONERROR);
+        MessageBoxW(g_hMainWindow, TTR(L"Invalid URL format").c_str(), TTR(L"Add Bookmark Failed").c_str(), MB_OK | MB_ICONERROR);
         return;
     }
     
@@ -2320,7 +2368,7 @@ void AddBookmark(const WCHAR* name, const WCHAR* url)
         if (bookmark.second == url)
         {
             LogToFile("AddBookmark: 网址已存在");
-            MessageBoxW(g_hMainWindow, L"该网址已存在于收藏中", L"添加网址失败", MB_OK | MB_ICONWARNING);
+        MessageBoxW(g_hMainWindow, TTR(L"URL already exists").c_str(), TTR(L"Add Bookmark Failed").c_str(), MB_OK | MB_ICONWARNING);
             return;
         }
     }
@@ -2790,6 +2838,16 @@ void EvaluateExpression(const WCHAR* expression)
             LogToFile(logMsg);
         }
         
+        // 检查表达式中是否包含#符号，如果包含则只取#符号前的部分（移除注释）
+        size_t commentPos = expr.find(L'#');
+        if (commentPos != std::wstring::npos) {
+            expr = expr.substr(0, commentPos);
+            char trimmedLog[1024] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, expr.c_str(), -1, trimmedLog, sizeof(trimmedLog), NULL, NULL);
+            sprintf(logMsg, "EvaluateExpression: 发现#注释，移除注释后表达式为 '%s'", trimmedLog);
+            LogToFile(logMsg);
+        }
+        
         // 移除空格
         expr.erase(std::remove(expr.begin(), expr.end(), L' '), expr.end());
         LogToFile("EvaluateExpression: 移除了空格");
@@ -2852,11 +2910,64 @@ void EvaluateExpression(const WCHAR* expression)
             swprintf(resultStr, 256, L"%.6g", result);
             LogToFile("EvaluateExpression: 创建了结果字符串");
             
-            // 创建历史记录条目（使用原始表达式，包括等号部分）
-            std::wstring historyEntry = expression;
-            historyEntry += L" = ";
-            historyEntry += resultStr;
-            LogToFile("EvaluateExpression: 创建了历史记录条目");
+            // 分离表达式和注释
+            std::wstring exprPart = expression;
+            std::wstring commentPart = L"";
+            
+            // 查找注释符号
+            size_t commentPos = exprPart.find(L'#');
+            if (commentPos != std::wstring::npos) {
+                // 分离表达式和注释部分
+                commentPart = exprPart.substr(commentPos + 1);
+                exprPart = exprPart.substr(0, commentPos);
+                
+                // 清理注释部分的前后空格
+                size_t firstNonSpace = commentPart.find_first_not_of(L' ');
+                if (firstNonSpace != std::wstring::npos) {
+                    commentPart = commentPart.substr(firstNonSpace);
+                }
+            }
+            
+            // 清理表达式部分的前后空格
+            size_t firstNonSpace = exprPart.find_first_not_of(L' ');
+            if (firstNonSpace != std::wstring::npos) {
+                exprPart = exprPart.substr(firstNonSpace);
+            }
+            size_t lastNonSpace = exprPart.find_last_not_of(L' ');
+            if (lastNonSpace != std::wstring::npos) {
+                exprPart = exprPart.substr(0, lastNonSpace + 1);
+            }
+            
+            // 创建历史记录条目，使用制表符对齐注释
+            std::wstring historyEntry;
+            if (!commentPart.empty()) {
+                // 表达式和结果占左边，注释占右边
+                historyEntry = exprPart;
+                historyEntry += L" = ";
+                historyEntry += resultStr;
+                
+                // 计算需要的空格数，使注释右对齐（假设列表框宽度约60字符）
+                int totalLength = historyEntry.length() + 2; // +2 for tab and space
+                int commentLength = commentPart.length();
+                int targetPos = 45; // 目标位置，可以根据实际调整
+                int spacesNeeded = targetPos - totalLength;
+                
+                if (spacesNeeded > 0) {
+                    historyEntry += std::wstring(spacesNeeded, L' ');
+                } else {
+                    historyEntry += L"    "; // 至少4个空格
+                }
+                
+                historyEntry += L"# ";
+                historyEntry += commentPart;
+            } else {
+                // 没有注释的情况
+                historyEntry = exprPart;
+                historyEntry += L" = ";
+                historyEntry += resultStr;
+            }
+            
+            LogToFile("EvaluateExpression: 创建了带注释的历史记录条目");
             
             // 添加到计算历史
             g_calculationHistory.push_back(historyEntry);
@@ -2900,13 +3011,13 @@ void EvaluateExpression(const WCHAR* expression)
         else
         {
             LogToFile("EvaluateExpression: 表达式计算失败");
-            MessageBoxW(g_hMainWindow, L"无法计算表达式", L"计算错误", MB_OK | MB_ICONERROR);
+            MessageBoxW(g_hMainWindow, TTR(L"无法计算表达式").c_str(), TTR(L"计算错误").c_str(), MB_OK | MB_ICONERROR);
         }
     }
     catch (...)
     {
         LogToFile("EvaluateExpression: 表达式计算异常");
-        MessageBoxW(g_hMainWindow, L"表达式计算异常", L"计算错误", MB_OK | MB_ICONERROR);
+        MessageBoxW(g_hMainWindow, TTR(L"表达式计算异常").c_str(), TTR(L"计算错误").c_str(), MB_OK | MB_ICONERROR);
     }
     
     LogToFile("EvaluateExpression: 函数结束");
@@ -3385,4 +3496,322 @@ void DeleteBookmarkFromDialog(HWND hDlg)
     SetWindowTextW(GetDlgItem(hDlg, IDC_BOOKMARK_URL), L"");
     
     LogToFile("DeleteBookmarkFromDialog: 网址删除成功");
+}
+
+// 设置下拉菜单相关函数实现
+
+// 创建设置菜单
+HMENU CreateSettingsMenu()
+{
+    LogToFile("CreateSettingsMenu: 创建设置下拉菜单");
+    
+    // 直接创建子菜单，不需要菜单栏
+    HMENU hSubMenu = CreatePopupMenu();
+    if (!hSubMenu)
+    {
+        LogToFile("CreateSettingsMenu: 创建子菜单失败");
+        return NULL;
+    }
+    
+    // 添加菜单项，确保有合适的宽度和间距
+    MENUITEMINFOW mii;
+    ZeroMemory(&mii, sizeof(mii));
+    mii.cbSize = sizeof(mii);
+    mii.fMask = MIIM_STRING | MIIM_ID;
+    mii.wID = ID_SETTINGS_BOOKMARK_MANAGE;
+    mii.dwTypeData = (LPWSTR)L"网址管理...";
+    
+    InsertMenuItemW(hSubMenu, 0, TRUE, &mii);
+    
+    mii.wID = ID_SETTINGS_OPTIONS;
+    mii.dwTypeData = (LPWSTR)L"选项设置...";
+    InsertMenuItemW(hSubMenu, 1, TRUE, &mii);
+    
+    // 添加分隔线
+    mii.fMask = MIIM_FTYPE;
+    mii.fType = MFT_SEPARATOR;
+    InsertMenuItemW(hSubMenu, 2, TRUE, &mii);
+    
+    // 添加帮助菜单项
+    mii.fMask = MIIM_STRING | MIIM_ID;
+    mii.fType = MFT_STRING;
+    mii.wID = ID_SETTINGS_HELP;
+    mii.dwTypeData = (LPWSTR)L"帮助...";
+    InsertMenuItemW(hSubMenu, 3, TRUE, &mii);
+    
+    // 检查当前模式，只在计算模式下显示"退出计算模式"选项
+    bool isCalculatorMode = (g_calculatorMode == true);
+    
+    if (isCalculatorMode)
+    {
+        // 添加分隔线
+        mii.fMask = MIIM_FTYPE;
+        mii.fType = MFT_SEPARATOR;
+        InsertMenuItemW(hSubMenu, 4, TRUE, &mii);
+        
+        // 添加退出计算模式选项
+        mii.fMask = MIIM_STRING | MIIM_ID;
+        mii.fType = MFT_STRING;
+        mii.wID = ID_SETTINGS_EXIT_CALCULATOR;
+        mii.dwTypeData = (LPWSTR)TTR(L"退出计算模式").c_str();
+        InsertMenuItemW(hSubMenu, 5, TRUE, &mii);
+        
+        // 添加分隔线
+        mii.fMask = MIIM_FTYPE;
+        mii.fType = MFT_SEPARATOR;
+        InsertMenuItemW(hSubMenu, 6, TRUE, &mii);
+        
+        // 恢复类型和ID
+        mii.fMask = MIIM_STRING | MIIM_ID;
+        mii.fType = MFT_STRING;
+        mii.wID = ID_SETTINGS_EXIT;
+        mii.dwTypeData = (LPWSTR)TTR(L"退出程序").c_str();
+        InsertMenuItemW(hSubMenu, 7, TRUE, &mii);
+    }
+    else
+    {
+        // 网址收藏模式或其他模式下，直接添加退出程序
+        // 添加分隔线
+        mii.fMask = MIIM_FTYPE;
+        mii.fType = MFT_SEPARATOR;
+        InsertMenuItemW(hSubMenu, 4, TRUE, &mii);
+        
+        // 添加退出程序
+        mii.fMask = MIIM_STRING | MIIM_ID;
+        mii.fType = MFT_STRING;
+        mii.wID = ID_SETTINGS_EXIT;
+        mii.dwTypeData = (LPWSTR)TTR(L"退出程序").c_str();
+        InsertMenuItemW(hSubMenu, 5, TRUE, &mii);
+    }
+    
+    LogToFile("CreateSettingsMenu: 设置下拉菜单创建成功");
+    return hSubMenu;
+}
+
+// 显示设置下拉菜单
+void ShowSettingsDropdownMenu()
+{
+    LogToFile("ShowSettingsDropdownMenu: 显示设置下拉菜单");
+    
+    // 获取按钮位置
+    RECT buttonRect;
+    if (!GetWindowRect(g_hSettingsButton, &buttonRect))
+    {
+        LogToFile("ShowSettingsDropdownMenu: 获取按钮位置失败");
+        return;
+    }
+    
+    // 创建菜单
+    HMENU hMenu = CreateSettingsMenu();
+    if (!hMenu)
+    {
+        LogToFile("ShowSettingsDropdownMenu: 创建菜单失败");
+        return;
+    }
+    
+    // 获取按钮中心点位置
+    int menuX = buttonRect.left;
+    int menuY = buttonRect.bottom;
+    
+    // 设置菜单位置参数
+    TPMPARAMS tpmParams;
+    tpmParams.cbSize = sizeof(TPMPARAMS);
+    tpmParams.rcExclude = buttonRect;
+    
+    // 先让按钮获得焦点，确保菜单能正确显示
+    SetForegroundWindow(g_hMainWindow);
+    SetFocus(g_hSettingsButton);
+    
+    // 显示菜单并等待用户选择
+    // 使用更合适的显示参数
+    int menuResult = TrackPopupMenuEx(hMenu, 
+                                     TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD | TPM_NONOTIFY,
+                                     menuX, menuY,
+                                     g_hMainWindow, &tpmParams);
+    
+    // 处理菜单命令
+    if (menuResult != 0)
+    {
+        HandleSettingsMenuCommand(menuResult);
+        LogToFile("ShowSettingsDropdownMenu: 用户选择了菜单项");
+    }
+    else
+    {
+        LogToFile("ShowSettingsDropdownMenu: 用户取消菜单选择");
+    }
+    
+    // 清理资源
+    DestroyMenu(hMenu);
+    
+    // 恢复窗口焦点
+    SetForegroundWindow(g_hMainWindow);
+}
+
+// 处理设置菜单命令
+void HandleSettingsMenuCommand(WPARAM wParam)
+{
+    LogToFile("HandleSettingsMenuCommand: 处理设置菜单命令");
+    
+    switch (LOWORD(wParam))
+    {
+        case ID_SETTINGS_BOOKMARK_MANAGE:
+        {
+            LogToFile("HandleSettingsMenuCommand: 用户选择网址管理");
+            ShowBookmarkDialog();
+            break;
+        }
+        
+        case ID_SETTINGS_OPTIONS:
+        {
+            LogToFile("HandleSettingsMenuCommand: 用户选择选项");
+            // 这里可以添加选项对话框
+            MessageBoxW(g_hMainWindow, TTR(L"选项功能正在开发中").c_str(), TTR(L"提示").c_str(), MB_OK | MB_ICONINFORMATION);
+            break;
+        }
+        
+        case ID_SETTINGS_HELP:
+        {
+            LogToFile("HandleSettingsMenuCommand: 用户选择帮助");
+            ShowHelpDialog();
+            break;
+        }
+        
+        case ID_SETTINGS_EXIT_CALCULATOR:
+        {
+            LogToFile("HandleSettingsMenuCommand: 用户选择退出计算模式");
+            if (g_calculatorMode)
+            {
+                ExitCalculatorMode();
+                LogToFile("HandleSettingsMenuCommand: 已退出计算模式");
+            }
+            else
+            {
+                LogToFile("HandleSettingsMenuCommand: 当前不在计算模式");
+            }
+            break;
+        }
+        
+        case ID_SETTINGS_EXIT:
+        {
+            LogToFile("HandleSettingsMenuCommand: 用户选择退出程序");
+            PostMessage(g_hMainWindow, WM_CLOSE, 0, 0);
+            break;
+        }
+        
+        default:
+        {
+            char logMsg[100] = {0};
+            sprintf(logMsg, "HandleSettingsMenuCommand: 未知的菜单命令: %d", LOWORD(wParam));
+            LogToFile(logMsg);
+            break;
+        }
+    }
+}
+
+// 显示帮助对话框
+void ShowHelpDialog()
+{
+    LogToFile("ShowHelpDialog: 开始显示帮助对话框");
+    
+    // 获取当前模式
+    std::wstring mode = GetCurrentMode();
+    std::wstring helpContent;
+    
+    if (mode == L"计算器")
+    {
+        // 计算器模式帮助
+        helpContent = L"计算器模式使用帮助\n\n";
+        helpContent += L"基本运算：\n";
+        helpContent += L"• 输入表达式进行计算，如：2+3*4\n";
+        helpContent += L"• 支持加减乘除：+ - * /\n";
+        helpContent += L"• 支持括号：() [] {}\n";
+        helpContent += L"• 支持小数：3.14\n\n";
+        helpContent += L"高级功能：\n";
+        helpContent += L"• 添加注释：输入 表达式 # 注释内容\n";
+        helpContent += L"  例如：1+2 #买面包\n";
+        helpContent += L"  例如：10*5 #买水果\n";
+        helpContent += L"• 注释会自动右对齐显示\n\n";
+        helpContent += L"操作方法：\n";
+        helpContent += L"• 在输入框输入表达式，按Enter计算\n";
+        helpContent += L"• 计算历史会显示在列表中\n";
+        helpContent += L"• 最多保存50条历史记录\n";
+        helpContent += L"• 点击历史记录可复制到输入框\n";
+        helpContent += L"• 输入\"js\"可切换到网址收藏模式\n";
+        helpContent += L"• 输入\"q\"可退出计算模式";
+    }
+    else if (mode == L"网址收藏")
+    {
+        // 网址收藏模式帮助
+        helpContent = L"网址收藏模式使用帮助\n\n";
+        helpContent += L"基本操作：\n";
+        helpContent += L"• 收藏网址：输入\"网址名=网址\"保存\n";
+        helpContent += L"  例如：百度=https://www.baidu.com\n";
+        helpContent += L"• 打开网址：双击列表中的网址项\n";
+        helpContent += L"• 删除网址：选中网址后按Delete键\n";
+        helpContent += L"• 修改网址：双击网址进行编辑\n\n";
+        helpContent += L"快捷操作：\n";
+        helpContent += L"• 右键点击网址可弹出操作菜单\n";
+        helpContent += L"• 支持复制网址到剪贴板\n";
+        helpContent += L"• 支持导入/导出收藏\n";
+        helpContent += L"• 支持批量操作\n\n";
+        helpContent += L"输入格式：\n";
+        helpContent += L"• 格式：网址名=网址\n";
+        helpContent += L"• 等号两边不要有空格\n";
+        helpContent += L"• 网址必须包含http://或https://\n\n";
+        helpContent += L"操作方法：\n";
+        helpContent += L"• 在输入框输入网址信息\n";
+        helpContent += L"• 计算历史会记录操作过程\n";
+        helpContent += L"• 输入\"退出\"或\"tz\"可切换回计算模式";
+    }
+    else
+    {
+        helpContent = L"未知模式帮助";
+    }
+    
+    // 显示帮助对话框
+    MessageBoxW(g_hMainWindow, helpContent.c_str(), L"帮助信息", MB_OK | MB_ICONINFORMATION);
+    
+    LogToFile("ShowHelpDialog: 帮助对话框显示完成");
+}
+
+// 获取当前模式的辅助函数
+std::wstring GetCurrentMode()
+{
+    // 检查当前激活的模式标签
+    if (g_hModeLabel && IsWindow(g_hModeLabel))
+    {
+        WCHAR modeText[100] = {0};
+        GetWindowTextW(g_hModeLabel, modeText, 100);
+        
+        // 根据标签文本判断当前模式
+        std::wstring modeStr = modeText;
+        
+        // 查找模式信息中的实际模式名称
+        size_t colonPos = modeStr.find(L"：");
+        if (colonPos != std::wstring::npos)
+        {
+            std::wstring actualMode = modeStr.substr(colonPos + 1);
+            // 去除前后空格
+            size_t startPos = actualMode.find_first_not_of(L' ');
+            size_t endPos = actualMode.find_last_not_of(L' ');
+            if (startPos != std::wstring::npos && endPos != std::wstring::npos)
+            {
+                return actualMode.substr(startPos, endPos - startPos + 1);
+            }
+        }
+        
+        return modeStr;
+    }
+    
+    // 备用检查：根据按钮状态判断
+    if (IsWindowVisible(g_hExitCalcButton))
+    {
+        return L"计算器";
+    }
+    else if (IsWindowVisible(g_hExitBookmarkButton))
+    {
+        return L"网址收藏";
+    }
+    
+    return L"未知";
 }
