@@ -1,4 +1,4 @@
-﻿百度|https://www.baidu.com
+百度|https://www.baidu.com
 谷歌|https://www.google.com
 GitHub|https://github.com
 哔哩哔哩|https://www.bilibili.com
@@ -6,4 +6,3 @@ GitHub|https://github.com
 CSDN|https://www.csdn.net
 掘金|https://juejin.cn
 Stack Overflow|https://stackoverflow.com
-数学人工智能|https://www.funnyai.com
