@@ -82,15 +82,25 @@ if os.name == 'nt':
     sfml_include_paths = [
         'C:\\SFML-2.5.1\\include',
         'D:\\SFML-2.5.1\\include',
+        'E:\\BaiduSyncdisk\\CPP\\common\\SFML-2.5.1\\include',
+        'C:\\SFML-2.6.0\\include',
+        'D:\\SFML-2.6.0\\include',
         'C:\\Program Files\\SFML\\include',
-        'D:\\Program Files\\SFML\\include'
+        'D:\\Program Files\\SFML\\include',
+        'C:\\SFML\\include',
+        'D:\\SFML\\include'
     ]
     
     sfml_lib_paths = [
         'C:\\SFML-2.5.1\\lib',
         'D:\\SFML-2.5.1\\lib',
+        'E:\\BaiduSyncdisk\\CPP\\common\\SFML-2.5.1\\lib',
+        'C:\\SFML-2.6.0\\lib',
+        'D:\\SFML-2.6.0\\lib',
         'C:\\Program Files\\SFML\\lib',
-        'D:\\Program Files\\SFML\\lib'
+        'D:\\Program Files\\SFML\\lib',
+        'C:\\SFML\\lib',
+        'D:\\SFML\\lib'
     ]
     
     # 尝试添加SFML路径
@@ -115,44 +125,60 @@ if os.name == 'nt':
     else:
         print("警告：未找到SFML库，将编译Windows API版本")
         # 使用Windows API版本
-        sources = ['gui_main.cpp', 'command_handler.cpp']
+        sources = ['gui_main.cpp', 'command_handler.cpp', 'translation_manager.cpp']
     
     # 尝试检测可用的编译器
     try:
         # 尝试使用Visual Studio编译器
         env.Tool('msvc')
-        env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']  # 添加UTF-8支持
-        print("使用Visual Studio编译器")
+        env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8', '/std:c++17']  # /utf-8选项已包含完整的UTF-8支持
+        print("使用Visual Studio编译器，启用UTF-8支持")
     except:
         # 如果Visual Studio不可用，尝试使用其他编译器设置
         print("未检测到Visual Studio编译器，使用默认编译设置")
-        env['CXXFLAGS'] = ['/utf-8']  # 添加UTF-8支持
+        env['CXXFLAGS'] = ['/utf-8']  # 使用/utf-8选项
+    
 else:
     # 非Windows环境
     env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
     # 非Windows环境下的SFML库
     env.Append(LIBS=['sfml-graphics', 'sfml-window', 'sfml-system'])
 
+# 添加UTF-8编译选项
+env.Append(CCFLAGS=['/utf-8'])
 # 添加语言相关的预处理器定义
 env.Append(CPPDEFINES=defines)
 
-# 源文件 - 默认使用SFML版本，如果SFML不可用则使用Windows API版本
-if 'sfml_available' in locals() and sfml_available:
+# 检查编译目标
+target_type = ARGUMENTS.get('target', 'default')
+
+if target_type == 'test_calc':
+    sources = ['test_calc_simple.cpp']
+    resource_files = []
+elif target_type == 'sfml':
+    sources = ['sfml_main.cpp']
+    resource_files = []
+elif 'sfml_available' in locals() and sfml_available:
     sources = ['sfml_main.cpp']
     resource_files = []
 else:
-    sources = ['gui_main.cpp', 'command_handler.cpp']
+    sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/translation_manager.cpp']
     
     # Windows环境下添加资源文件
     if os.name == 'nt':
-        resource_files = ['resource.rc']
+        resource_files = ['src/resource.rc']
     else:
-        resource_files = []
+        resource_files = ['src/resource.rc']
 
-# Windows GUI应用程序设置
+# Windows应用程序设置
 if os.name == 'nt':
-    # 设置为GUI子系统
-    env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS', '/ENTRY:WinMainCRTStartup'])
+    # 根据是否使用SFML设置不同的子系统
+    if 'sfml_available' in locals() and sfml_available:
+        # SFML版本使用控制台子系统
+        env.Append(LINKFLAGS=['/SUBSYSTEM:CONSOLE'])
+    else:
+        # Windows API版本使用GUI子系统
+        env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS', '/ENTRY:WinMainCRTStartup'])
 
 # 检查是否需要编译所有版本
 build_all = GetOption('build_all')
@@ -290,6 +316,31 @@ else:
         print(f"将复制图标文件到bin目录: {icon_target}")
     else:
         print("警告：未找到app_icon.ico文件")
+    
+    # 如果使用SFML，复制所需的DLL文件到bin目录
+    if 'sfml_available' in locals() and sfml_available:
+        sfml_bin_paths = [
+            'E:\\BaiduSyncdisk\\CPP\\common\\SFML-2.5.1\\bin',
+            'C:\\SFML\\bin',
+            'D:\\SFML\\bin'
+        ]
+        
+        dll_files_to_copy = ['sfml-graphics-2.dll', 'sfml-window-2.dll', 'sfml-system-2.dll']
+        
+        for dll_file in dll_files_to_copy:
+            dll_copied = False
+            for sfml_bin_path in sfml_bin_paths:
+                source_dll = os.path.join(sfml_bin_path, dll_file)
+                if os.path.exists(source_dll):
+                    target_dll = os.path.join(bin_dir, dll_file)
+                    dll_copy = env.Command(target_dll, source_dll, Copy('$TARGET', '$SOURCE'))
+                    env.Depends(executable, dll_copy)
+                    print(f"将复制DLL文件: {dll_file} 从 {sfml_bin_path} 到 {bin_dir}")
+                    dll_copied = True
+                    break
+            
+            if not dll_copied:
+                print(f"警告：未找到DLL文件 {dll_file}")
     
     # 设置清理目标
     Clean(executable, os.path.join(bin_dir, get_output_filename(lang)))

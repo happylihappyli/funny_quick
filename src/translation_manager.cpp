@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <codecvt>
 
 // 初始化单例实例
 TranslationManager* TranslationManager::instance = nullptr;
@@ -60,7 +61,9 @@ bool TranslationManager::loadPOFile(const std::wstring& filePath) {
     }
     
     // 设置UTF-8编码
-    file.imbue(std::locale(std::locale(), new std::codecvt_utf8<wchar_t>));
+    // file.imbue(std::locale(std::locale(), new std::codecvt_utf8<wchar_t>));
+        // 使用更现代的方法处理UTF-8编码
+        file.imbue(std::locale(std::locale(), new std::codecvt_utf8_utf16<wchar_t, 0x10ffff, std::consume_header>));
     
     // 读取整个文件
     std::wstringstream contentStream;

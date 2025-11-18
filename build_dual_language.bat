@@ -21,12 +21,15 @@ if "%BUILD_TYPE%"=="" (
     echo.
     echo 默认编译中文版 Default: Chinese version
     set BUILD_TYPE=chinese
+
+echo 测试编译修复后的表达式解析功能...
 )
 
 echo 开始编译 Starting build: %BUILD_TYPE%
 echo 开始时间 Start time: %date% %time% >> %LOG_FILE%
 
 cd /d "%PROJECT_PATH%"
+chcp 65001
 
 REM 清理之前的构建
 echo 清理构建目录 Cleaning build directories...
@@ -35,6 +38,8 @@ if exist obj rmdir /s /q obj
 mkdir bin
 mkdir obj
 
+echo 开始时间 Start time: %date% %time%
+
 echo.
 echo ========================================
 echo 开始编译 %BUILD_TYPE% 版
@@ -42,8 +47,10 @@ echo ========================================
 
 if "%BUILD_TYPE%"=="chinese" (
     echo 编译中文版 Building Chinese Version...
+    echo 开始时间: %date% %time%
     chcp 65001
     scons LANGUAGE=chinese
+    echo 编译完成时间: %date% %time%
     if errorlevel 1 (
         echo ❌ 中文版编译失败 Chinese build failed
         echo 编译错误信息已记录到 %LOG_FILE%
@@ -112,6 +119,8 @@ if "%BUILD_TYPE%"=="chinese" (
 
 echo.
 echo ========================================
+echo 结束时间 Completion time: %date% %time%
+echo.
 echo 编译结果 Build Results
 echo ========================================
 if exist bin\quick_launcher_chinese.exe echo ✅ 中文版: bin\quick_launcher_chinese.exe
