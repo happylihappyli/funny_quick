@@ -8,6 +8,10 @@ Failed to open log file. Message: ×ÖÌåÒÑÓ¦ÓÃµ½ËùÓĞ¿Ø¼ş
 Failed to open log file. Message: Window created successfully
 Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
 Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±äÎª 384x261
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±ä£¬ÖØĞÂ²¼¾Ö¿Ø¼ş
+Failed to open log file. Message: LayoutControls: ¿ªÊ¼ÖØĞÂ²¼¾Ö¿Ø¼ş£¬´°¿Ú´óĞ¡ 384x261
+Failed to open log file. Message: LayoutControls: ¿Ø¼ş²¼¾ÖÍê³É
 Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
 Failed to open log file. Message:   Edit control EN_RETURN notification - processing
 Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
@@ -41,124 +45,42 @@ Failed to open log file. Message: AddTrayIcon: ³É¹¦Ìí¼ÓÏµÍ³ÍĞÅÌÍ¼±ê
 Failed to open log file. Message: CreateTrayMenu: ³É¹¦´´½¨ÍĞÅÌÓÒ¼ü²Ëµ¥
 Failed to open log file. Message: System tray icon and menu initialized
 Failed to open log file. Message: LoadCalculationHistory: ¿ªÊ¼¼ÓÔØ¼ÆËãÀúÊ·
-Failed to open log file. Message: LoadCalculationHistory: Êı¾İÄ¿Â¼²»´æÔÚ£¬´´½¨Ä¿Â¼
-Failed to open log file. Message: LoadCalculationHistory: ÀúÊ·ÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
+Failed to open log file. Message: LoadCalculationHistory: ³¢ÊÔ´ò¿ªÀúÊ·ÎÄ¼ş
+Failed to open log file. Message: LoadCalculationHistory: ³É¹¦´ò¿ªÀúÊ·ÎÄ¼ş
+Failed to open log file. Message: LoadCalculationHistory: ÎÄ¼ş´óĞ¡Îª 109 ×Ö½Ú
+Failed to open log file. Message: LoadCalculationHistory: ÒÑÇå¿Õµ±Ç°ÀúÊ·¼ÇÂ¼
+Failed to open log file. Message: ????1+2
+Failed to open log file. Message: 3*3+3
+Failed to open log file. Message: 2*3+4^2
+Failed to open log file. Message: 1+2 #hi
+Failed to open log file. Message: 1+3 = 4
+Failed to open log file. Message: LoadCalculationHistory: ÒÑ¹Ø±ÕÀúÊ·ÎÄ¼ş
+Failed to open log file. Message: LoadCalculationHistory: ¼ÓÔØÁË 7 ÌõÀúÊ·¼ÇÂ¼£¬¹²¶ÁÈ¡ 7 ĞĞ
+Failed to open log file. Message: LoadCalculationHistory: º¯Êı½áÊø
 Failed to open log file. Message: Starting message loop
-Failed to open log file. Message: Program started
-Failed to open log file. Message: CreateUIFont: ³É¹¦´´½¨¸ßÖÊÁ¿×ÖÌå
-Failed to open log file. Message: UI×ÖÌåÒÑ´´½¨
-Failed to open log file. Message: Window class registered successfully
-Failed to open log file. Message: Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
-Failed to open log file. Message: Edit control subclassing successful
-Failed to open log file. Message: ×ÖÌåÒÑÓ¦ÓÃµ½ËùÓĞ¿Ø¼ş
-Failed to open log file. Message: Window created successfully
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
-Failed to open log file. Message:   Edit control unknown notification: 512
-Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
-Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
-Failed to open log file. Message:   Edit control EN_RETURN notification - processing
-Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
-Failed to open log file. Message: Set focus to edit control after window creation
-Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
-Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
-Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: Displayed default search results after window creation
-Failed to open log file. Message: Hotkey registration failed with error: 1409
-Failed to open log file. Message: Ctrl+F1 hotkey registration failed with error: 1409
-Failed to open log file. Message: Ctrl+F2 hotkey registration failed with error: 1409
-Failed to open log file. Message: AddTrayIcon: ³É¹¦Ìí¼ÓÏµÍ³ÍĞÅÌÍ¼±ê
-Failed to open log file. Message: CreateTrayMenu: ³É¹¦´´½¨ÍĞÅÌÓÒ¼ü²Ëµ¥
-Failed to open log file. Message: System tray icon and menu initialized
-Failed to open log file. Message: LoadCalculationHistory: ¿ªÊ¼¼ÓÔØ¼ÆËãÀúÊ·
-Failed to open log file. Message: LoadCalculationHistory: ÀúÊ·ÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
-Failed to open log file. Message: Starting message loop
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
-Failed to open log file. Message:   Edit control unknown notification: 512
-Failed to open log file. Message: WM_DESTROY: Exiting program
-Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
-Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
-Failed to open log file. Message: RemoveTrayIcon: ³É¹¦ÒÆ³ıÏµÍ³ÍĞÅÌÍ¼±ê
-Failed to open log file. Message: Exiting, unregistering hotkey
-Failed to open log file. Message: WM_DESTROY: Exiting program
-Failed to open log file. Message: RemoveTrayIcon: ³É¹¦ÒÆ³ıÏµÍ³ÍĞÅÌÍ¼±ê
-Failed to open log file. Message: Exiting, unregistering hotkey
-Failed to open log file. Message: Program started
-Failed to open log file. Message: CreateUIFont: ³É¹¦´´½¨¸ßÖÊÁ¿×ÖÌå
-Failed to open log file. Message: UI×ÖÌåÒÑ´´½¨
-Failed to open log file. Message: Window class registered successfully
-Failed to open log file. Message: Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
-Failed to open log file. Message: Edit control subclassing successful
-Failed to open log file. Message: ×ÖÌåÒÑÓ¦ÓÃµ½ËùÓĞ¿Ø¼ş
-Failed to open log file. Message: Window created successfully
-Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
-Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
-Failed to open log file. Message:   Edit control EN_RETURN notification - processing
-Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
-Failed to open log file. Message: Set focus to edit control after window creation
-Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
-Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
-Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
-Failed to open log file. Message: Displayed default search results after window creation
-Failed to open log file. Message: Hotkey Ctrl+Alt+Q registered successfully
-Failed to open log file. Message: Ctrl+F1 hotkey registration failed with error: 1409
-Failed to open log file. Message: Ctrl+F2 hotkey registration failed with error: 1409
-Failed to open log file. Message: AddTrayIcon: ³É¹¦Ìí¼ÓÏµÍ³ÍĞÅÌÍ¼±ê
-Failed to open log file. Message: CreateTrayMenu: ³É¹¦´´½¨ÍĞÅÌÓÒ¼ü²Ëµ¥
-Failed to open log file. Message: System tray icon and menu initialized
-Failed to open log file. Message: LoadCalculationHistory: ¿ªÊ¼¼ÓÔØ¼ÆËãÀúÊ·
-Failed to open log file. Message: LoadCalculationHistory: ÀúÊ·ÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
-Failed to open log file. Message: Starting message loop
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
-Failed to open log file. Message:   Edit control unknown notification: 512
-Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
-Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
-Failed to open log file. Message:   Edit control EN_RETURN notification - processing
-Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
 Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
 Failed to open log file. Message:   Edit control unknown notification: 1024
 Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
 Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'j'
-Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'j'
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 's'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 's'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'fooocus'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'uTools'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Show Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Start Menu'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Documents'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 8 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'se'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'se'
 Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
 Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
 Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
@@ -166,390 +88,36 @@ Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notifica
 Failed to open log file. Message:   Edit control unknown notification: 1024
 Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
 Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'js'
-Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'js'
-Failed to open log file. Message: SearchAndDisplayResults: ¼ì²âµ½'js'ÃüÁî£¬Ö±½Óµ÷ÓÃProcessCommand
-Failed to open log file. Message: ProcessCommand: ´¦ÀíÃüÁî 'js'
-Failed to open log file. Message: ProcessCommand: Ê¶±ğÎª'js'ÃüÁî£¬½øÈë¼ÆËãÄ£Ê½
-Failed to open log file. Message: EnterCalculatorMode: ½øÈë¼ÆËãÄ£Ê½
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾ÁË 0 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+2'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'set'
+Failed to open log file. Message:   EN_CHANGE: ¼ì²âµ½ÌØÊâÃüÁîÊäÈë£¬µ«²»Ö´ĞĞËÑË÷£¬µÈ´ı»Ø³µ¼ü
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
 Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
-Failed to open log file. Message:   EditSubclassProc: Current edit text: '1+2'
-Failed to open log file. Message:   EditSubclassProc: Listbox item count: 0
-Failed to open log file. Message:   EditSubclassProc: List empty, processing input as command: '1+2'
-Failed to open log file. Message:   EditSubclassProc: ¼ÆËãÄ£Ê½ÏÂ£¬µ÷ÓÃEvaluateExpression
-Failed to open log file. Message: EvaluateExpression: º¯Êı¿ªÊ¼
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã±í´ïÊ½ '1+2'
-Failed to open log file. Message: EvaluateExpression: ½øÈëtry¿é
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËwstring±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ÒÆ³ıÁË¿Õ¸ñ
-Failed to open log file. Message: EvaluateExpression: ³¢ÊÔ½âÎöÎªÊı×Ö
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½°üº¬·ÇÊı×Ö×Ö·û£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ²»ÊÇµ¥¸öÊı×Ö£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½¼ÆËã½á¹ûÎª 3.000000
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½½âÎöÍê³É
-Failed to open log file. Message: EvaluateExpression: ¿ªÊ¼´¦Àí³É¹¦½á¹û
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË½á¹û×Ö·û´®
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËÀúÊ·¼ÇÂ¼ÌõÄ¿
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË¼ÆËã¼ÇÂ¼½á¹¹Ìå
-Failed to open log file. Message: EvaluateExpression: Ìí¼Óµ½ÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ¼ì²éÁËÀúÊ·¼ÇÂ¼ÊıÁ¿
-Failed to open log file. Message: SaveCalculationHistory: ¿ªÊ¼±£´æ¼ÆËãÀúÊ·
-Failed to open log file. Message: SaveCalculationHistory: ±£´æÁË 1 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: SaveCalculationHistory: º¯Êı½áÊø
-Failed to open log file. Message: EvaluateExpression: ±£´æÁË¼ÆËãÀúÊ·µ½ÎÄ¼ş
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾ÁË 1 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ÏÔÊ¾ÁË¼ÆËãÀúÊ·
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã½á¹ûÎª 3
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÉèÖÃ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EvaluateExpression: ÉèÖÃÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ×¼±¸Ñ¡Ôñ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: Ñ¡ÔñÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ³É¹¦´¦Àí½á¹û
-Failed to open log file. Message: EvaluateExpression: º¯Êı½áÊø
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
-Failed to open log file. Message:   Edit control unknown notification: 512
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
-Failed to open log file. Message:   Edit control EN_RETURN notification - processing
-Failed to open log file. Message:   EN_RETURN: ´¦ÀíÓÃ»§°´ÏÂµÄ»Ø³µ¼ü
-Failed to open log file. Message:   EN_RETURN: µ±Ç°ÊäÈë¿òÄÚÈİ: '3'
-Failed to open log file. Message:   EN_RETURN: ¼ÆËãÄ£Ê½ÏÂ£¬¼ÆËã±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: º¯Êı¿ªÊ¼
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã±í´ïÊ½ '3'
-Failed to open log file. Message: EvaluateExpression: ½øÈëtry¿é
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËwstring±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ÒÆ³ıÁË¿Õ¸ñ
-Failed to open log file. Message: EvaluateExpression: ³¢ÊÔ½âÎöÎªÊı×Ö
-Failed to open log file. Message: EvaluateExpression: ³É¹¦½âÎöÎªµ¥¸öÊı×Ö
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½½âÎöÍê³É
-Failed to open log file. Message: EvaluateExpression: ¿ªÊ¼´¦Àí³É¹¦½á¹û
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË½á¹û×Ö·û´®
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËÀúÊ·¼ÇÂ¼ÌõÄ¿
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË¼ÆËã¼ÇÂ¼½á¹¹Ìå
-Failed to open log file. Message: EvaluateExpression: Ìí¼Óµ½ÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ¼ì²éÁËÀúÊ·¼ÇÂ¼ÊıÁ¿
-Failed to open log file. Message: SaveCalculationHistory: ¿ªÊ¼±£´æ¼ÆËãÀúÊ·
-Failed to open log file. Message: SaveCalculationHistory: ±£´æÁË 2 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: SaveCalculationHistory: º¯Êı½áÊø
-Failed to open log file. Message: EvaluateExpression: ±£´æÁË¼ÆËãÀúÊ·µ½ÎÄ¼ş
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾ÁË 2 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ÏÔÊ¾ÁË¼ÆËãÀúÊ·
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã½á¹ûÎª 3
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÉèÖÃ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EvaluateExpression: ÉèÖÃÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ×¼±¸Ñ¡Ôñ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: Ñ¡ÔñÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ³É¹¦´¦Àí½á¹û
-Failed to open log file. Message: EvaluateExpression: º¯Êı½áÊø
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3&'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3*'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3*3'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3*3+'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '3*3+3'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
-Failed to open log file. Message:   EditSubclassProc: Current edit text: '3*3+3'
-Failed to open log file. Message:   EditSubclassProc: Listbox item count: 2
-Failed to open log file. Message:   EditSubclassProc: ¼ÆËãÄ£Ê½ÏÂ£¬ºöÂÔÁĞ±íÏî£¬µ÷ÓÃEvaluateExpression
-Failed to open log file. Message: EvaluateExpression: º¯Êı¿ªÊ¼
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã±í´ïÊ½ '3*3+3'
-Failed to open log file. Message: EvaluateExpression: ½øÈëtry¿é
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËwstring±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ÒÆ³ıÁË¿Õ¸ñ
-Failed to open log file. Message: EvaluateExpression: ³¢ÊÔ½âÎöÎªÊı×Ö
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½°üº¬·ÇÊı×Ö×Ö·û£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ²»ÊÇµ¥¸öÊı×Ö£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½¼ÆËã½á¹ûÎª 12.000000
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½½âÎöÍê³É
-Failed to open log file. Message: EvaluateExpression: ¿ªÊ¼´¦Àí³É¹¦½á¹û
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË½á¹û×Ö·û´®
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËÀúÊ·¼ÇÂ¼ÌõÄ¿
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË¼ÆËã¼ÇÂ¼½á¹¹Ìå
-Failed to open log file. Message: EvaluateExpression: Ìí¼Óµ½ÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ¼ì²éÁËÀúÊ·¼ÇÂ¼ÊıÁ¿
-Failed to open log file. Message: SaveCalculationHistory: ¿ªÊ¼±£´æ¼ÆËãÀúÊ·
-Failed to open log file. Message: SaveCalculationHistory: ±£´æÁË 3 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: SaveCalculationHistory: º¯Êı½áÊø
-Failed to open log file. Message: EvaluateExpression: ±£´æÁË¼ÆËãÀúÊ·µ½ÎÄ¼ş
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾ÁË 3 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ÏÔÊ¾ÁË¼ÆËãÀúÊ·
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã½á¹ûÎª 12
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÉèÖÃ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '12'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EvaluateExpression: ÉèÖÃÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ×¼±¸Ñ¡Ôñ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: Ñ¡ÔñÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ³É¹¦´¦Àí½á¹û
-Failed to open log file. Message: EvaluateExpression: º¯Êı½áÊø
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2*'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2*3'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2*3+'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2*3+4'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2*3+4^'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2*3+4^2'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
-Failed to open log file. Message:   EditSubclassProc: Current edit text: '2*3+4^2'
-Failed to open log file. Message:   EditSubclassProc: Listbox item count: 3
-Failed to open log file. Message:   EditSubclassProc: ¼ÆËãÄ£Ê½ÏÂ£¬ºöÂÔÁĞ±íÏî£¬µ÷ÓÃEvaluateExpression
-Failed to open log file. Message: EvaluateExpression: º¯Êı¿ªÊ¼
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã±í´ïÊ½ '2*3+4^2'
-Failed to open log file. Message: EvaluateExpression: ½øÈëtry¿é
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËwstring±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ÒÆ³ıÁË¿Õ¸ñ
-Failed to open log file. Message: EvaluateExpression: ³¢ÊÔ½âÎöÎªÊı×Ö
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½°üº¬·ÇÊı×Ö×Ö·û£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ²»ÊÇµ¥¸öÊı×Ö£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½¼ÆËã½á¹ûÎª 10.000000
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½½âÎöÍê³É
-Failed to open log file. Message: EvaluateExpression: ¿ªÊ¼´¦Àí³É¹¦½á¹û
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË½á¹û×Ö·û´®
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËÀúÊ·¼ÇÂ¼ÌõÄ¿
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË¼ÆËã¼ÇÂ¼½á¹¹Ìå
-Failed to open log file. Message: EvaluateExpression: Ìí¼Óµ½ÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ¼ì²éÁËÀúÊ·¼ÇÂ¼ÊıÁ¿
-Failed to open log file. Message: SaveCalculationHistory: ¿ªÊ¼±£´æ¼ÆËãÀúÊ·
-Failed to open log file. Message: SaveCalculationHistory: ±£´æÁË 4 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: SaveCalculationHistory: º¯Êı½áÊø
-Failed to open log file. Message: EvaluateExpression: ±£´æÁË¼ÆËãÀúÊ·µ½ÎÄ¼ş
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾ÁË 4 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ÏÔÊ¾ÁË¼ÆËãÀúÊ·
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã½á¹ûÎª 10
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÉèÖÃ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '10'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EvaluateExpression: ÉèÖÃÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ×¼±¸Ñ¡Ôñ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: Ñ¡ÔñÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ³É¹¦´¦Àí½á¹û
-Failed to open log file. Message: EvaluateExpression: º¯Êı½áÊø
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 '
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #1'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #h'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #hi'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #hi''
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '1+1 #hi'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
-Failed to open log file. Message:   EditSubclassProc: Current edit text: '1+1 #hi'
-Failed to open log file. Message:   EditSubclassProc: Listbox item count: 4
-Failed to open log file. Message:   EditSubclassProc: ¼ÆËãÄ£Ê½ÏÂ£¬ºöÂÔÁĞ±íÏî£¬µ÷ÓÃEvaluateExpression
-Failed to open log file. Message: EvaluateExpression: º¯Êı¿ªÊ¼
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã±í´ïÊ½ '1+1 #hi'
-Failed to open log file. Message: EvaluateExpression: ½øÈëtry¿é
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËwstring±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ÌáÈ¡µ½×¢ÊÍ 'hi'
-Failed to open log file. Message: EvaluateExpression: ÒÆ³ıÁË¿Õ¸ñ
-Failed to open log file. Message: EvaluateExpression: ³¢ÊÔ½âÎöÎªÊı×Ö
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½°üº¬·ÇÊı×Ö×Ö·û£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ²»ÊÇµ¥¸öÊı×Ö£¬³¢ÊÔ½âÎö±í´ïÊ½
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½¼ÆËã½á¹ûÎª 2.000000
-Failed to open log file. Message: EvaluateExpression: ±í´ïÊ½½âÎöÍê³É
-Failed to open log file. Message: EvaluateExpression: ¿ªÊ¼´¦Àí³É¹¦½á¹û
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË½á¹û×Ö·û´®
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁËÀúÊ·¼ÇÂ¼ÌõÄ¿
-Failed to open log file. Message: EvaluateExpression: ´´½¨ÁË¼ÆËã¼ÇÂ¼½á¹¹Ìå
-Failed to open log file. Message: EvaluateExpression: Ìí¼Óµ½ÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ¼ì²éÁËÀúÊ·¼ÇÂ¼ÊıÁ¿
-Failed to open log file. Message: SaveCalculationHistory: ¿ªÊ¼±£´æ¼ÆËãÀúÊ·
-Failed to open log file. Message: SaveCalculationHistory: ±£´æÁË 5 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: SaveCalculationHistory: º¯Êı½áÊø
-Failed to open log file. Message: EvaluateExpression: ±£´æÁË¼ÆËãÀúÊ·µ½ÎÄ¼ş
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾¼ÆËãÀúÊ·
-Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾ÁË 5 ÌõÀúÊ·¼ÇÂ¼
-Failed to open log file. Message: EvaluateExpression: ÏÔÊ¾ÁË¼ÆËãÀúÊ·
-Failed to open log file. Message: EvaluateExpression: ¼ÆËã½á¹ûÎª 2
-Failed to open log file. Message: EvaluateExpression: ×¼±¸ÉèÖÃ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
-Failed to open log file. Message:   Edit control unknown notification: 1024
-Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
-Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
-Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: '2'
-Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
-Failed to open log file. Message: EvaluateExpression: ÉèÖÃÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ×¼±¸Ñ¡Ôñ±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: Ñ¡ÔñÁË±à¼­¿òÎÄ±¾
-Failed to open log file. Message: EvaluateExpression: ³É¹¦´¦Àí½á¹û
-Failed to open log file. Message: EvaluateExpression: º¯Êı½áÊø
+Failed to open log file. Message:   EditSubclassProc: Current edit text: 'set'
+Failed to open log file. Message:   EditSubclassProc: Listbox item count: 18
+Failed to open log file. Message:   EditSubclassProc: ¼ì²âµ½ÌØÊâÃüÁî£¬µ÷ÓÃProcessCommand´¦Àí
+Failed to open log file. Message: ProcessCommand: ´¦ÀíÃüÁî 'set'
+Failed to open log file. Message: ProcessCommand: ²»ÊÇURLÒ²²»ÊÇÓĞĞ§ÎÄ¼şÂ·¾¶£¬³¢ÊÔÔÚ¿ì½İ·½Ê½ÖĞ²éÕÒ
+Failed to open log file. Message: ProcessCommand: Î´ÕÒµ½Æ¥ÅäµÄÃüÁî»òÎÄ¼ş 'set'
 Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
 Failed to open log file. Message:   Edit control unknown notification: 512
 Failed to open log file. Message: WM_DESTROY: Exiting program

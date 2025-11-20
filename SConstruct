@@ -37,7 +37,7 @@ def ensure_obj_directory():
 # Windows环境特殊设置
 if os.name == 'nt':
     # 添加Windows特定库
-    env.Append(LIBS=['shell32', 'user32', 'gdi32', 'comctl32', 'imm32'])
+    env.Append(LIBS=['shell32', 'user32', 'gdi32', 'comctl32', 'imm32', 'advapi32'])
     
     # 添加资源编译器支持
     env['RC'] = 'rc.exe'
@@ -45,45 +45,9 @@ if os.name == 'nt':
     env['RCFLAGS'] = '/c65001'  # 设置UTF-8编码
     env['BUILDERS']['RES'] = Builder(action='$RCCOM', suffix='.res', src_suffix='.rc')
     
-    # 检查SFML是否可用
+    # 强制使用Windows API版本，不使用SFML库
     sfml_available = False
-    sfml_include_paths = [
-        'C:\\SFML-2.5.1\\include',
-        'D:\\SFML-2.5.1\\include',
-        'C:\\Program Files\\SFML\\include',
-        'D:\\Program Files\\SFML\\include'
-    ]
-    
-    sfml_lib_paths = [
-        'C:\\SFML-2.5.1\\lib',
-        'D:\\SFML-2.5.1\\lib',
-        'C:\\Program Files\\SFML\\lib',
-        'D:\\Program Files\\SFML\\lib'
-    ]
-    
-    # 尝试添加SFML路径
-    for include_path in sfml_include_paths:
-        if os.path.exists(include_path):
-            env.Append(CPPPATH=[include_path])
-            print(f"添加SFML头文件路径: {include_path}")
-            sfml_available = True
-            break
-    
-    for lib_path in sfml_lib_paths:
-        if os.path.exists(lib_path):
-            env.Append(LIBPATH=[lib_path])
-            print(f"添加SFML库路径: {lib_path}")
-            sfml_available = True
-            break
-    
-    if sfml_available:
-        # 添加SFML库
-        env.Append(LIBS=['sfml-graphics', 'sfml-window', 'sfml-system'])
-        print("SFML库已配置，将编译SFML版本")
-    else:
-        print("警告：未找到SFML库，将编译Windows API版本")
-        # 使用Windows API版本
-        sources = ['gui_main.cpp', 'command_handler.cpp']
+    print("强制使用Windows API版本，不编译SFML版本")
     
     # 尝试检测可用的编译器
     try:

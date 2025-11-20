@@ -1,0 +1,825 @@
+Failed to open log file. Message: Program started
+Failed to open log file. Message: CreateUIFont: ³É¹¦´´½¨¸ßÖÊÁ¿×ÖÌå
+Failed to open log file. Message: UI×ÖÌåÒÑ´´½¨
+Failed to open log file. Message: Window class registered successfully
+Failed to open log file. Message: Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
+Failed to open log file. Message: Edit control subclassing successful
+Failed to open log file. Message: ×ÖÌåÒÑÓ¦ÓÃµ½ËùÓĞ¿Ø¼ş
+Failed to open log file. Message: Window created successfully
+Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±äÎª 384x261
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±ä£¬ÖØĞÂ²¼¾Ö¿Ø¼ş
+Failed to open log file. Message: LayoutControls: ¿ªÊ¼ÖØĞÂ²¼¾Ö¿Ø¼ş£¬´°¿Ú´óĞ¡ 384x261
+Failed to open log file. Message: LayoutControls: ¿Ø¼ş²¼¾ÖÍê³É
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
+Failed to open log file. Message:   Edit control EN_RETURN notification - processing
+Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
+Failed to open log file. Message: Set focus to edit control after window creation
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: Displayed default search results after window creation
+Failed to open log file. Message: Hotkey Ctrl+Alt+Q registered successfully
+Failed to open log file. Message: Ctrl+F1 hotkey registration failed with error: 1409
+Failed to open log file. Message: Ctrl+F2 hotkey registration failed with error: 1409
+Failed to open log file. Message: AddTrayIcon: ³É¹¦Ìí¼ÓÏµÍ³ÍĞÅÌÍ¼±ê
+Failed to open log file. Message: CreateTrayMenu: ³É¹¦´´½¨ÍĞÅÌÓÒ¼ü²Ëµ¥
+Failed to open log file. Message: System tray icon and menu initialized
+Failed to open log file. Message: LoadCalculationHistory: ¿ªÊ¼¼ÓÔØ¼ÆËãÀúÊ·
+Failed to open log file. Message: LoadCalculationHistory: Êı¾İÄ¿Â¼²»´æÔÚ£¬´´½¨Ä¿Â¼
+Failed to open log file. Message: LoadCalculationHistory: ÀúÊ·ÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
+Failed to open log file. Message: Starting message loop
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
+Failed to open log file. Message:   Edit control unknown notification: 512
+Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
+Failed to open log file. Message:   Edit control EN_RETURN notification - processing
+Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
+Failed to open log file. Message: Program started
+Failed to open log file. Message: CreateUIFont: ³É¹¦´´½¨¸ßÖÊÁ¿×ÖÌå
+Failed to open log file. Message: UI×ÖÌåÒÑ´´½¨
+Failed to open log file. Message: Window class registered successfully
+Failed to open log file. Message: Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
+Failed to open log file. Message: Edit control subclassing successful
+Failed to open log file. Message: ×ÖÌåÒÑÓ¦ÓÃµ½ËùÓĞ¿Ø¼ş
+Failed to open log file. Message: Window created successfully
+Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±äÎª 384x261
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±ä£¬ÖØĞÂ²¼¾Ö¿Ø¼ş
+Failed to open log file. Message: LayoutControls: ¿ªÊ¼ÖØĞÂ²¼¾Ö¿Ø¼ş£¬´°¿Ú´óĞ¡ 384x261
+Failed to open log file. Message: LayoutControls: ¿Ø¼ş²¼¾ÖÍê³É
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
+Failed to open log file. Message:   Edit control EN_RETURN notification - processing
+Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
+Failed to open log file. Message: Set focus to edit control after window creation
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: Displayed default search results after window creation
+Failed to open log file. Message: Hotkey Ctrl+Alt+Q registered successfully
+Failed to open log file. Message: Ctrl+F1 hotkey registration failed with error: 1409
+Failed to open log file. Message: Ctrl+F2 hotkey registration failed with error: 1409
+Failed to open log file. Message: AddTrayIcon: ³É¹¦Ìí¼ÓÏµÍ³ÍĞÅÌÍ¼±ê
+Failed to open log file. Message: CreateTrayMenu: ³É¹¦´´½¨ÍĞÅÌÓÒ¼ü²Ëµ¥
+Failed to open log file. Message: System tray icon and menu initialized
+Failed to open log file. Message: LoadCalculationHistory: ¿ªÊ¼¼ÓÔØ¼ÆËãÀúÊ·
+Failed to open log file. Message: LoadCalculationHistory: ÀúÊ·ÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
+Failed to open log file. Message: Starting message loop
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±äÎª 444x463
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±ä£¬ÖØĞÂ²¼¾Ö¿Ø¼ş
+Failed to open log file. Message: LayoutControls: ¿ªÊ¼ÖØĞÂ²¼¾Ö¿Ø¼ş£¬´°¿Ú´óĞ¡ 444x463
+Failed to open log file. Message: LayoutControls: ¿Ø¼ş²¼¾ÖÍê³É
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'j'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'j'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'js'
+Failed to open log file. Message:   EN_CHANGE: ¼ì²âµ½ÌØÊâÃüÁîÊäÈë£¬µ«²»Ö´ĞĞËÑË÷£¬µÈ´ı»Ø³µ¼ü
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
+Failed to open log file. Message:   EditSubclassProc: Current edit text: 'js'
+Failed to open log file. Message:   EditSubclassProc: Listbox item count: 18
+Failed to open log file. Message:   EditSubclassProc: ¼ì²âµ½ÌØÊâÃüÁî£¬µ÷ÓÃProcessCommand´¦Àí
+Failed to open log file. Message: ProcessCommand: ´¦ÀíÃüÁî 'js'
+Failed to open log file. Message: ProcessCommand: Ê¶±ğÎª'js'ÃüÁî£¬½øÈë¼ÆËãÄ£Ê½
+Failed to open log file. Message: EnterCalculatorMode: ½øÈë¼ÆËãÄ£Ê½
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
+Failed to open log file. Message: DisplayCalculationHistory: ¿ªÊ¼ÏÔÊ¾¼ÆËãÀúÊ·
+Failed to open log file. Message: DisplayCalculationHistory: µ±Ç°ÓĞ 0 ÌõÀúÊ·¼ÇÂ¼
+Failed to open log file. Message: DisplayCalculationHistory: ÔİÍ£ListViewÖØ»æ
+Failed to open log file. Message: DisplayCalculationHistory: Çå¿ÕListView
+Failed to open log file. Message: DisplayCalculationHistory: »Ö¸´ListViewÖØ»æ
+Failed to open log file. Message: DisplayCalculationHistory: Ç¿ÖÆÖØ»æListView
+Failed to open log file. Message: DisplayCalculationHistory: ÏÔÊ¾Íê³É£¬¹² 0 ÌõÀúÊ·¼ÇÂ¼
+Failed to open log file. Message: DisplayCalculationHistory: ListViewÊµ¼ÊÏîÄ¿Êı = 0
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'q'
+Failed to open log file. Message:   EN_CHANGE: ¼ÆËãÄ£Ê½ÏÂ£¬ÊäÈëÄÚÈİÒÑ±ä»¯£¬µ«²»¼ÆËã
+Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
+Failed to open log file. Message:   EditSubclassProc: Current edit text: 'q'
+Failed to open log file. Message:   EditSubclassProc: Listbox item count: 0
+Failed to open log file. Message:   EditSubclassProc: List empty, processing input as command: 'q'
+Failed to open log file. Message:   EditSubclassProc: ¼ì²âµ½ÌØÊâÄ£Ê½ÏÂÊäÈë'q'£¬ÍË³öµ±Ç°Ä£Ê½
+Failed to open log file. Message: ExitCalculatorMode: ÍË³ö¼ÆËãÄ£Ê½
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Show Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'wz'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'wz'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
+Failed to open log file. Message:   EditSubclassProc: Current edit text: 'wz'
+Failed to open log file. Message:   EditSubclassProc: Listbox item count: 1
+Failed to open log file. Message:   EditSubclassProc: ¼ì²âµ½ÌØÊâÃüÁî£¬µ÷ÓÃProcessCommand´¦Àí
+Failed to open log file. Message: ProcessCommand: ´¦ÀíÃüÁî 'wz'
+Failed to open log file. Message: ProcessCommand: Ê¶±ğÎª'wz'ÃüÁî£¬½øÈëÍøÖ·ÊÕ²ØÄ£Ê½
+Failed to open log file. Message: EnterBookmarkMode: ½øÈëÍøÖ·ÊÕ²ØÄ£Ê½
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: LoadBookmarks: ¿ªÊ¼¼ÓÔØÍøÖ·ÊÕ²Ø
+Failed to open log file. Message: LoadBookmarks: ÍøÖ·ÊÕ²ØÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
+Failed to open log file. Message: DisplayBookmarkResults: ÏÔÊ¾ÍøÖ·ÊÕ²Ø
+Failed to open log file. Message: DisplayBookmarkResults: ÏÔÊ¾ÁË 0 ÌõÍøÖ·ÊÕ²Ø
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Show Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'ww'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'ww'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Show Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'f'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'f'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'fooocus'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'q'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'q'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
+Failed to open log file. Message:   EditSubclassProc: Current edit text: 'q'
+Failed to open log file. Message:   EditSubclassProc: Listbox item count: 1
+Failed to open log file. Message:   EditSubclassProc: ¼ì²âµ½ÌØÊâÄ£Ê½ÏÂÊäÈë'q'£¬ÍË³öµ±Ç°Ä£Ê½
+Failed to open log file. Message: ExitBookmarkMode: ÍË³öÍøÖ·ÊÕ²ØÄ£Ê½
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'f'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'f'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'fooocus'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run_nvidia_gpu - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Trae CN'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Start Menu'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Documents'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 9 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'no'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'no'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 3 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'not'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'not'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'no'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'no'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 3 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run_nvidia_gpu - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Trae CN'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Start Menu'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Documents'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 9 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nn'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nn'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nno'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nno'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nnot'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nnot'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nnote'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nnote'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nnot'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nnot'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nno'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nno'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'nn'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'nn'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run_nvidia_gpu - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Trae CN'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Start Menu'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Documents'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 9 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Show Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'wx'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'wx'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: Î´ÕÒµ½Æ¥ÅäÏî£¬ÏÔÊ¾'Î´ÕÒµ½Æ¥ÅäÏî'ÏûÏ¢
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'w'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Show Desktop'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: ''
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'n'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'run_nvidia_gpu - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Trae CN'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Start Menu'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Downloads'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'Documents'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 9 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'no'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'no'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½×Ó×Ö·û´®Æ¥Åä 'ScreenOff.bat - å¿«æ·æ–¹å¼'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 3 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'not'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'not'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'note'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'note'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'notep'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'notep'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'notepa'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'notepa'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½¾«È·Æ¥Åä 'Notepad'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 2 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=1024
+Failed to open log file. Message:   Edit control unknown notification: 1024
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=768
+Failed to open log file. Message:   Edit control EN_CHANGE notification - processing search
+Failed to open log file. Message:   EN_CHANGE: ÊäÈë×Ö·û: 'notepada'
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ 'notepada'
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 18 ¸ö¿ì½İ·½Ê½ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÔÚ 0 ¸öÊÕ²ØÍøÖ·ÖĞËÑË÷Æ¥ÅäÏî
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½Ç°×ºÆ¥Åä 'NotepadABC'
+Failed to open log file. Message: SearchAndDisplayResults: ÕÒµ½ 1 ¸öÆ¥ÅäÏî
+Failed to open log file. Message: EditSubclassProc: WM_KEYDOWN with VK_RETURN received
+Failed to open log file. Message:   EditSubclassProc: Current edit text: 'notepada'
+Failed to open log file. Message:   EditSubclassProc: Listbox item count: 1
+Failed to open log file. Message:   EditSubclassProc: Force selecting first item
+Failed to open log file. Message:   EditSubclassProc: First item text: ''
+Failed to open log file. Message:   EditSubclassProc: Search results not empty, executing first item
+Failed to open log file. Message: ExecuteSelectedItem: Ö´ĞĞÏîÄ¿ 'NotepadABC' (Â·¾¶: 'C:\Users\happyli\Desktop\NotepadABC.lnk', ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: ExecuteSelectedItem: Ö´ĞĞÓ¦ÓÃ³ÌĞò
+Failed to open log file. Message: ExecuteSelectedItem: ShellExecuteW ·µ»ØÖµ: 42
+Failed to open log file. Message: ExecuteSelectedItem: ¸üĞÂÊ¹ÓÃ´ÎÊıÎª 1
+Failed to open log file. Message: ExecuteSelectedItem: Ö´ĞĞ³É¹¦
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=512
+Failed to open log file. Message:   Edit control unknown notification: 512
+Failed to open log file. Message: Program started
+Failed to open log file. Message: CreateUIFont: ³É¹¦´´½¨¸ßÖÊÁ¿×ÖÌå
+Failed to open log file. Message: UI×ÖÌåÒÑ´´½¨
+Failed to open log file. Message: Window class registered successfully
+Failed to open log file. Message: Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages
+Failed to open log file. Message: Edit control subclassing successful
+Failed to open log file. Message: ×ÖÌåÒÑÓ¦ÓÃµ½ËùÓĞ¿Ø¼ş
+Failed to open log file. Message: Window created successfully
+Failed to open log file. Message: WM_SETFOCUS received for main window - setting ignore flag for next EN_RETURN
+Failed to open log file. Message:   Setting ignore flag for next EN_RETURN due to focus change
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±äÎª 384x261
+Failed to open log file. Message: WM_SIZE: ´°¿Ú´óĞ¡¸Ä±ä£¬ÖØĞÂ²¼¾Ö¿Ø¼ş
+Failed to open log file. Message: LayoutControls: ¿ªÊ¼ÖØĞÂ²¼¾Ö¿Ø¼ş£¬´°¿Ú´óĞ¡ 384x261
+Failed to open log file. Message: LayoutControls: ¿Ø¼ş²¼¾ÖÍê³É
+Failed to open log file. Message: WM_COMMAND received: Control ID=1001, Notification=256
+Failed to open log file. Message:   Edit control EN_RETURN notification - processing
+Failed to open log file. Message:   EN_RETURN: »Ø³µ¼ü±»ºöÂÔ (½¹µã±ä»¯µ¼ÖÂ)
+Failed to open log file. Message: Set focus to edit control after window creation
+Failed to open log file. Message: SearchAndDisplayResults: ËÑË÷²éÑ¯ ''
+Failed to open log file. Message: SearchAndDisplayResults: ²éÑ¯Îª¿Õ£¬ÏÔÊ¾×î³£ÓÃµÄÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: ÏÔÊ¾ 18 ¸ö×î³£ÓÃÏîÄ¿
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'fooocus' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'NotepadABC' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'run_nvidia_gpu - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'ScreenOff.bat - å¿«æ·æ–¹å¼' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae CN' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Trae' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'uTools' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'å¾®ä¿¡å¼€å‘è€…å·¥å…·' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Desktop' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Show Desktop' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Start Menu' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Downloads' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Documents' (ÀàĞÍ: 0, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Google' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Baidu' (ÀàĞÍ: 1, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Explorer' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: SearchAndDisplayResults: Ìí¼ÓÏîÄ¿ 'Notepad' (ÀàĞÍ: 2, Ê¹ÓÃ´ÎÊı: 0)
+Failed to open log file. Message: Displayed default search results after window creation
+Failed to open log file. Message: Hotkey Ctrl+Alt+Q registered successfully
+Failed to open log file. Message: Ctrl+F1 hotkey registration failed with error: 1409
+Failed to open log file. Message: Ctrl+F2 hotkey registration failed with error: 1409
+Failed to open log file. Message: AddTrayIcon: ³É¹¦Ìí¼ÓÏµÍ³ÍĞÅÌÍ¼±ê
+Failed to open log file. Message: CreateTrayMenu: ³É¹¦´´½¨ÍĞÅÌÓÒ¼ü²Ëµ¥
+Failed to open log file. Message: System tray icon and menu initialized
+Failed to open log file. Message: LoadCalculationHistory: ¿ªÊ¼¼ÓÔØ¼ÆËãÀúÊ·
+Failed to open log file. Message: LoadCalculationHistory: ÀúÊ·ÎÄ¼ş²»´æÔÚ£¬¿ÉÄÜÊÇÊ×´ÎÔËĞĞ
+Failed to open log file. Message: Starting message loop

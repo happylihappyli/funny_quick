@@ -379,7 +379,7 @@ void SearchAndDisplayResults(const std::string& query) {
 }
 
 // 执行选中的项目
-void ExecuteSelectedItem(int index) {
+void ExecuteSelectedItem(INT_PTR index) {
     if (index < 0 || index >= static_cast<int>(g_searchResults.size())) {
         return;
     }
@@ -407,8 +407,8 @@ void ExecuteSelectedItem(int index) {
             
             // 记录日志
             char logMsg[256];
-            sprintf(logMsg, "执行项目: %s, 路径: %s, 结果: %ld", 
-                    item.name.c_str(), item.path.c_str(), (long)result);
+            sprintf(logMsg, "执行项目: %s, 路径: %s, 结果: %Id", 
+                    item.name.c_str(), item.path.c_str(), (INT_PTR)result);
             LogToFile(logMsg);
             
             // 隐藏窗口
