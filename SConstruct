@@ -1,8 +1,46 @@
 import os
 import subprocess
+import datetime
 
 # 创建基本环境，确保包含所有必要的工具
 env = Environment(tools=['default'])
+
+# 编译开始时间
+start_time = datetime.datetime.now()
+
+def play_compilation_tts(message="任务运行完毕，过来看看！"):
+    """
+    播放编译完成TTS语音提示
+    """
+    try:
+        # 调用Python TTS脚本
+        subprocess.run([
+            'python', 'tts_notification.py', message
+        ], check=False, shell=True)
+        print(f"TTS播放: {message}")
+    except Exception as e:
+        print(f"TTS播放失败: {e}")
+
+def show_compilation_time(message="编译开始"):
+    """
+    显示编译时间信息
+    """
+    current_time = datetime.datetime.now()
+    print(f"{message}时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    if message == "编译结束":
+        duration = current_time - start_time
+        print(f"编译耗时: {duration.total_seconds():.2f}秒")
+        
+        # 播放编译完成的TTS提示
+        play_compilation_tts("编译已完成，任务运行完毕，过来看看！")
+    elif message == "编译开始":
+        # 播放编译开始的TTS提示
+        play_compilation_tts("开始编译项目")
+        print("=" * 50)
+
+# 显示编译开始时间
+show_compilation_time("编译开始")
 
 # 在Windows环境下，构建前终止正在运行的funny_quick进程
 def kill_running_processes():
@@ -37,7 +75,33 @@ def ensure_obj_directory():
 # Windows环境特殊设置
 if os.name == 'nt':
     # 添加Windows特定库
-    env.Append(LIBS=['shell32', 'user32', 'gdi32', 'comctl32', 'imm32', 'advapi32'])
+    env.Append(LIBS=['shell32', 'user32', 'gdi32', 'comctl32', 'imm32', 'advapi32', 'ole32', 'oleaut32'])
+    
+    # WebView2 路径配置
+    webview2_sdk_path = r'C:\Users\happyli\.nuget\packages\microsoft.web.webview2\1.0.3405.78'
+    webview2_include = os.path.join(webview2_sdk_path, 'build', 'native', 'include')
+    webview2_lib_x64 = os.path.join(webview2_sdk_path, 'build', 'native', 'x64')
+    webview2_lib_x86 = os.path.join(webview2_sdk_path, 'build', 'native', 'x86')
+    
+    # 添加 WebView2 头文件路径
+    if os.path.exists(webview2_include):
+        env.Append(CPPPATH=[webview2_include])
+        print(f"WebView2 头文件路径: {webview2_include}")
+    else:
+        print(f"警告: WebView2 头文件路径不存在: {webview2_include}")
+    
+    # 添加 WebView2 库文件路径（优先使用 x64）
+    if os.path.exists(webview2_lib_x64):
+        env.Append(LIBPATH=[webview2_lib_x64])
+        print(f"WebView2 库文件路径 (x64): {webview2_lib_x64}")
+        # 添加 WebView2LoaderStatic.lib（静态链接）
+        env.Append(LIBS=['WebView2LoaderStatic'])
+    elif os.path.exists(webview2_lib_x86):
+        env.Append(LIBPATH=[webview2_lib_x86])
+        print(f"WebView2 库文件路径 (x86): {webview2_lib_x86}")
+        env.Append(LIBS=['WebView2LoaderStatic'])
+    else:
+        print(f"警告: WebView2 库文件路径不存在")
     
     # 添加资源编译器支持
     env['RC'] = 'rc.exe'
@@ -45,38 +109,35 @@ if os.name == 'nt':
     env['RCFLAGS'] = '/c65001'  # 设置UTF-8编码
     env['BUILDERS']['RES'] = Builder(action='$RCCOM', suffix='.res', src_suffix='.rc')
     
-    # 强制使用Windows API版本，不使用SFML库
-    sfml_available = False
-    print("强制使用Windows API版本，不编译SFML版本")
+    # 使用Windows API版本
+    print("使用Windows API版本")
     
     # 尝试检测可用的编译器
     try:
         # 尝试使用Visual Studio编译器
         env.Tool('msvc')
         env['CXXFLAGS'] = ['/EHsc', '/W3']
+        # 添加src目录到头文件搜索路径
+        env.Append(CPPPATH=['src', '.'])
         print("使用Visual Studio编译器")
     except:
         # 如果Visual Studio不可用，尝试使用其他编译器设置
         print("未检测到Visual Studio编译器，使用默认编译设置")
         env['CXXFLAGS'] = []
+        # 添加src目录到头文件搜索路径
+        env.Append(CPPPATH=['src', '.'])
 else:
     # 非Windows环境
     env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
-    # 非Windows环境下的SFML库
-    env.Append(LIBS=['sfml-graphics', 'sfml-window', 'sfml-system'])
 
-# 源文件 - 默认使用SFML版本，如果SFML不可用则使用Windows API版本
-if 'sfml_available' in locals() and sfml_available:
-    sources = ['sfml_main.cpp']
-    resource_files = []
+# 源文件 - 使用Windows API版本（文件已移动到src目录）
+sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp']
+
+# Windows环境下添加资源文件（resource.rc和resource.h在根目录）
+if os.name == 'nt':
+    resource_files = ['resource.rc']
 else:
-    sources = ['gui_main.cpp', 'command_handler.cpp']
-    
-    # Windows环境下添加资源文件
-    if os.name == 'nt':
-        resource_files = ['resource.rc']
-    else:
-        resource_files = []
+    resource_files = []
 
 # Windows GUI应用程序设置
 if os.name == 'nt':
@@ -147,3 +208,19 @@ if os.path.exists('app_icon.ico'):
 
 print("使用 'scons' 构建项目")
 print("使用 'scons -c' 清理项目")
+
+# 设置编译完成后的钩子
+import atexit
+import signal
+import sys
+
+def cleanup_callback():
+    """清理回调函数，在程序退出时显示编译结束时间"""
+    show_compilation_time("编译结束")
+
+# 注册多个退出事件以确保时间显示
+atexit.register(cleanup_callback)
+signal.signal(signal.SIGINT, lambda s, f: (cleanup_callback(), sys.exit(0)))
+
+# 显示分隔线
+print("=" * 50)

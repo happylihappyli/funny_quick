@@ -17,6 +17,16 @@
 #include <commctrl.h>  // ListView控件相关API
 #include <basetsd.h>   // For INT_PTR definition
 #include "resource.h"
+#include "logger.h"
+
+// WebView2 相关头文件
+#include <WebView2.h>
+#include <wrl.h>  // 用于 Microsoft::WRL::Callback
+#include <wrl/event.h>  // 用于事件处理器
+using namespace Microsoft::WRL;
+
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "oleaut32.lib")
 
 // Define notification codes if not defined
 #ifndef EN_RETURN
@@ -27,12 +37,17 @@
 HINSTANCE g_hInstance = NULL;
 HWND g_hMainWindow = NULL;
 HWND g_hEdit = NULL;
-HWND g_hListView = NULL;  // ListView控件替代ListBox，支持双列显示
+HWND g_hListView = NULL;  // ListView控件（保留用于兼容）
+HWND g_hWebView2 = NULL;  // WebView2 控件窗口
+ICoreWebView2Controller* g_webViewController = nullptr;  // WebView2 控制器
+ICoreWebView2* g_webView = nullptr;  // WebView2 核心对象
 HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
 HWND g_hSettingsButton = NULL;   // 设置按钮
 HWND g_hExitBookmarkButton = NULL;  // 退出网址收藏模式按钮
+HWND g_hCalcMenuButton = NULL;  // 计算模式操作菜单按钮
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
+bool g_windowInitializing = false;  // 窗口是否正在初始化，防止自动执行
 
 // 字体相关变量
 HFONT g_hFont = NULL;  // 全局字体句柄
@@ -54,6 +69,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define IDC_EXIT_CALC_BUTTON 1003  // 退出计算模式按钮ID
 #define IDC_SETTINGS_BUTTON 1004    // 设置按钮ID
 #define IDC_EXIT_BOOKMARK_BUTTON 1013  // 退出网址收藏模式按钮ID
+#define IDC_CALC_MENU_BUTTON 1016  // 计算模式操作菜单按钮ID
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
@@ -100,14 +116,13 @@ struct CalculationRecord {
 bool g_calculatorMode = false;  // 是否处于计算模式
 bool g_updatingEditBox = false;  // 是否正在更新编辑框内容，防止触发EN_CHANGE
 std::vector<CalculationRecord> g_calculationHistory;  // 计算历史记录
-HWND g_hModeLabel = NULL;  // 模式标签控件
-HWND g_hInputHintLabel = NULL;  // 输入提示信息标签
 
 // 网址收藏模式相关变量
 bool g_bookmarkMode = false;  // 是否处于网址收藏模式
 std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网址收藏列表 (名称, URL)
 std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;  // 网址搜索结果
 HWND g_hAddBookmarkButton = NULL;  // 添加网址按钮
+bool g_settingsMenuMode = false;  // 当前是否显示设置菜单
 
 // 表达式解析辅助函数声明
 void EnterCalculatorMode();
@@ -161,82 +176,7 @@ void ShowAboutDialog(); // 显示关于对话框
 void SaveWindowSettings();
 void LoadWindowSettings(int& x, int& y, int& width, int& height);
 
-// Log function
-void LogToFile(const char* message)
-{
-    // Create log directory if it doesn't exist
-    CreateDirectoryW(L"bin\\log", NULL);
-    
-    // Generate unique log filename based on current date and time
-    static WCHAR logFileName[MAX_PATH] = {0};
-    static bool fileNameGenerated = false;
-    static bool bomWritten = false;
-    
-    if (!fileNameGenerated) {
-        SYSTEMTIME st;
-        GetLocalTime(&st);
-        
-        // Format: bin\log\quick_launcher_YYYYMMDD_HHMMSS.log
-        wsprintfW(logFileName, L"bin\\log\\quick_launcher_%04d%02d%02d_%02d%02d%02d.log",
-                st.wYear, st.wMonth, st.wDay,
-                st.wHour, st.wMinute, st.wSecond);
-        fileNameGenerated = true;
-    }
-    
-    // Open log file in binary append mode
-    FILE* file = _wfopen(logFileName, L"ab");
-    if (file)
-    {
-        // Write BOM only once when file is created
-        if (!bomWritten)
-        {
-            // Check if file is empty
-            fseek(file, 0, SEEK_END);
-            long fileSize = ftell(file);
-            fseek(file, 0, SEEK_SET);
-            
-            if (fileSize == 0)
-            {
-                // Write UTF-8 BOM
-                const unsigned char bom[3] = {0xEF, 0xBB, 0xBF};
-                fwrite(bom, 1, 3, file);
-            }
-            bomWritten = true;
-        }
-        
-        SYSTEMTIME st;
-        GetLocalTime(&st);
-        
-        // Create full log entry with timestamp and message
-        WCHAR fullLogEntry[2048] = {0};
-        wsprintfW(fullLogEntry, L"[%04d-%02d-%02d %02d:%02d:%02d.%03d] %hs\n", 
-                st.wYear, st.wMonth, st.wDay,
-                st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, message);
-        
-        // Convert to UTF-8 and write
-        int utf8Size = WideCharToMultiByte(CP_UTF8, 0, fullLogEntry, -1, NULL, 0, NULL, NULL);
-        if (utf8Size > 0)
-        {
-            char* utf8Buffer = new char[utf8Size];
-            WideCharToMultiByte(CP_UTF8, 0, fullLogEntry, -1, utf8Buffer, utf8Size, NULL, NULL);
-            fwrite(utf8Buffer, 1, utf8Size - 1, file); // -1 to exclude null terminator
-            delete[] utf8Buffer;
-        }
-        
-        fflush(file);
-        fclose(file);
-    }
-    else
-    {
-        // If we can't open the log file, try to create a simple error log
-        FILE* errorFile = fopen("log_error.txt", "a");
-        if (errorFile)
-        {
-            fprintf(errorFile, "Failed to open log file. Message: %s\n", message);
-            fclose(errorFile);
-        }
-    }
-}
+// 日志功能已移至 logger.cpp
 
 // 表达式解析辅助函数实现
 double parseNumber(const std::wstring& expr, size_t& pos) {
@@ -296,6 +236,20 @@ void ShowLauncherWindow();
 void HideLauncherWindow();
 void AddDesktopShortcuts();
 void SetEnglishInputMethod();
+void UpdateListViewColumns();  // 根据当前模式更新ListView列标题
+void AddHintRowToListView(const WCHAR* hintText);  // 在ListView第一行添加提示信息
+void AddMultiLineHintsToListView(const WCHAR* hints[], int hintCount);  // 在ListView前面添加多行提示信息
+int GetHintRowCount();  // 获取ListView前面提示行的数量
+INT_PTR GetFirstActualItemIndex();  // 获取第一个实际项目（跳过提示行）的索引
+void LogListViewContents();  // 打印ListView所有内容到日志
+
+// WebView2 相关函数声明
+void InitializeWebView2(HWND hwnd);  // 初始化 WebView2
+void UpdateWebView2Content(const WCHAR* htmlContent);  // 更新 WebView2 内容
+void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vector<std::wstring>& hints, std::wstring& html);  // 创建 HTML 内容
+void UpdateCalculatorModeWebView();  // 刷新计算模式的 WebView2 显示
+void UpdateSettingsMenuWebView();  // 刷新设置菜单的 WebView2 显示
+void ShowBasicUsage();  // 显示基本用法界面
 
 // 系统托盘相关函数声明
 void AddTrayIcon();
@@ -363,6 +317,246 @@ void ApplyFontToControl(HWND hWnd)
     }
 }
 
+// 根据当前模式更新ListView列标题
+void UpdateListViewColumns()
+{
+    if (!g_hListView || !IsWindow(g_hListView))
+    {
+        return;
+    }
+    
+    LVCOLUMNW lvc;
+    lvc.mask = LVCF_TEXT | LVCF_WIDTH;
+    
+    if (g_calculatorMode)
+    {
+        // 计算模式：表达式 | 结果
+        lvc.iSubItem = 0;
+        lvc.pszText = (WCHAR*)L"表达式";
+        lvc.cx = 180;
+        ListView_SetColumn(g_hListView, 0, &lvc);
+        
+        lvc.iSubItem = 1;
+        lvc.pszText = (WCHAR*)L"结果";
+        lvc.cx = 180;
+        ListView_SetColumn(g_hListView, 1, &lvc);
+        
+        LogToFile("UpdateListViewColumns: 已更新为计算模式列标题（表达式 | 结果）");
+    }
+    else if (g_bookmarkMode)
+    {
+        // 网址收藏模式：名称 | URL
+        lvc.iSubItem = 0;
+        lvc.pszText = (WCHAR*)L"名称";
+        lvc.cx = 180;
+        ListView_SetColumn(g_hListView, 0, &lvc);
+        
+        lvc.iSubItem = 1;
+        lvc.pszText = (WCHAR*)L"URL";
+        lvc.cx = 180;
+        ListView_SetColumn(g_hListView, 1, &lvc);
+        
+        LogToFile("UpdateListViewColumns: 已更新为网址收藏模式列标题（名称 | URL）");
+    }
+    else
+    {
+        // 普通模式：名称 | 路径
+        lvc.iSubItem = 0;
+        lvc.pszText = (WCHAR*)L"名称";
+        lvc.cx = 180;
+        ListView_SetColumn(g_hListView, 0, &lvc);
+        
+        // 确保第二列存在
+        int columnCount = Header_GetItemCount(ListView_GetHeader(g_hListView));
+        if (columnCount < 2)
+        {
+            // 如果第二列不存在，创建它
+            lvc.iSubItem = 1;
+            lvc.pszText = (WCHAR*)L"路径";
+            lvc.cx = 180;
+            ListView_InsertColumn(g_hListView, 1, &lvc);
+        }
+        else
+        {
+            // 如果第二列已存在，更新它
+            lvc.iSubItem = 1;
+            lvc.pszText = (WCHAR*)L"路径";
+            lvc.cx = 180;
+            ListView_SetColumn(g_hListView, 1, &lvc);
+        }
+        
+        LogToFile("UpdateListViewColumns: 已更新为普通模式列标题（名称 | 路径）");
+    }
+}
+
+// 在ListView第一行添加提示信息（单行）
+void AddHintRowToListView(const WCHAR* hintText)
+{
+    if (!g_hListView || !IsWindow(g_hListView) || !hintText)
+    {
+        return;
+    }
+    
+    // 检查是否已经有提示行（第一行）
+    int itemCount = ListView_GetItemCount(g_hListView);
+    if (itemCount > 0)
+    {
+        // 检查第一行是否是提示行（通过检查文本是否包含提示标识）
+        WCHAR firstItemText[1024] = {0};
+        LVITEMW lvi = {0};
+        lvi.mask = LVIF_TEXT;
+        lvi.iItem = 0;
+        lvi.iSubItem = 0;
+        lvi.pszText = firstItemText;
+        lvi.cchTextMax = sizeof(firstItemText) / sizeof(WCHAR);
+        if (ListView_GetItem(g_hListView, &lvi))
+        {
+            // 如果第一行已经是提示行，更新它
+            if (wcsstr(firstItemText, L"提示:") == firstItemText || wcsstr(firstItemText, L"💡") == firstItemText)
+            {
+                lvi.pszText = const_cast<LPWSTR>(hintText);
+                ListView_SetItem(g_hListView, &lvi);
+                return;
+            }
+        }
+    }
+    
+    // 插入新的提示行到第一行
+    LVITEMW lvi = {0};
+    lvi.mask = LVIF_TEXT;
+    lvi.iItem = 0;  // 插入到第一行
+    lvi.iSubItem = 0;
+    lvi.pszText = const_cast<LPWSTR>(hintText);
+    ListView_InsertItem(g_hListView, &lvi);
+    
+    // 如果是多列模式，设置第二列为空
+    int columnCount = Header_GetItemCount(ListView_GetHeader(g_hListView));
+    if (columnCount > 1)
+    {
+        lvi.iSubItem = 1;
+        lvi.pszText = (WCHAR*)L"";
+        ListView_SetItem(g_hListView, &lvi);
+    }
+}
+
+// 在ListView前面添加多行提示信息
+void AddMultiLineHintsToListView(const WCHAR* hints[], int hintCount)
+{
+    if (!g_hListView || !IsWindow(g_hListView) || !hints || hintCount <= 0)
+    {
+        return;
+    }
+    
+    // 检查是否已经有提示行
+    int itemCount = ListView_GetItemCount(g_hListView);
+    bool hasHints = false;
+    if (itemCount > 0)
+    {
+        WCHAR firstItemText[1024] = {0};
+        LVITEMW lvi = {0};
+        lvi.mask = LVIF_TEXT;
+        lvi.iItem = 0;
+        lvi.iSubItem = 0;
+        lvi.pszText = firstItemText;
+        lvi.cchTextMax = sizeof(firstItemText) / sizeof(WCHAR);
+        if (ListView_GetItem(g_hListView, &lvi))
+        {
+            if (wcsstr(firstItemText, L"提示:") == firstItemText || wcsstr(firstItemText, L"💡") == firstItemText)
+            {
+                hasHints = true;
+            }
+        }
+    }
+    
+    // 如果已有提示行，删除所有提示行
+    if (hasHints)
+    {
+        // 删除所有提示行（从后往前删除，避免索引变化）
+        for (int i = itemCount - 1; i >= 0; i--)
+        {
+            WCHAR itemText[1024] = {0};
+            LVITEMW lvi = {0};
+            lvi.mask = LVIF_TEXT;
+            lvi.iItem = i;
+            lvi.iSubItem = 0;
+            lvi.pszText = itemText;
+            lvi.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+            if (ListView_GetItem(g_hListView, &lvi))
+            {
+                if (wcsstr(itemText, L"提示:") == itemText || wcsstr(itemText, L"💡") == itemText)
+                {
+                    ListView_DeleteItem(g_hListView, i);
+                }
+                else
+                {
+                    break;  // 遇到非提示行，停止删除
+                }
+            }
+        }
+    }
+    
+    // 插入新的提示行到前面
+    for (int i = 0; i < hintCount; i++)
+    {
+        LVITEMW lvi = {0};
+        lvi.mask = LVIF_TEXT;
+        lvi.iItem = i;  // 插入到第i行
+        lvi.iSubItem = 0;
+        lvi.pszText = const_cast<LPWSTR>(hints[i]);
+        ListView_InsertItem(g_hListView, &lvi);
+    }
+}
+
+// 获取ListView前面提示行的数量
+int GetHintRowCount()
+{
+    if (!g_hListView || !IsWindow(g_hListView))
+    {
+        return 0;
+    }
+    
+    int hintRowCount = 0;
+    int itemCount = ListView_GetItemCount(g_hListView);
+    for (int i = 0; i < itemCount; i++)
+    {
+        WCHAR itemText[1024] = {0};
+        LVITEMW lvItem = {0};
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = i;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = itemText;
+        lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+        if (ListView_GetItem(g_hListView, &lvItem))
+        {
+            // 检查是否是提示行
+            if (wcsstr(itemText, L"提示:") == itemText || wcsstr(itemText, L"💡") == itemText)
+            {
+                hintRowCount++;
+            }
+            else
+            {
+                break;  // 遇到非提示行，停止计数
+            }
+        }
+    }
+    
+    return hintRowCount;
+}
+
+// 获取第一个实际项目（跳过提示行）的索引
+INT_PTR GetFirstActualItemIndex()
+{
+    int hintRowCount = GetHintRowCount();
+    int itemCount = ListView_GetItemCount(g_hListView);
+    
+    if (hintRowCount >= itemCount)
+    {
+        return -1;  // 只有提示行，没有实际项目
+    }
+    
+    return hintRowCount;  // 第一个实际项目的索引
+}
+
 // 窗口大小调整时重新布局控件
 void LayoutControls(int windowWidth, int windowHeight)
 {
@@ -381,7 +575,6 @@ void LayoutControls(int windowWidth, int windowHeight)
     
     // 控件高度
     int editHeight = 25;
-    int labelHeight = 20;
     int buttonHeight = 25;
     
     // 计算各控件的位置和大小
@@ -390,16 +583,11 @@ void LayoutControls(int windowWidth, int windowHeight)
     int editY = margin;
     int editWidth = windowWidth - (margin * 2);
     
-    // 提示标签：编辑框下方
-    int labelX = margin;
-    int labelY = editY + editHeight + spacing;
-    int labelWidth = windowWidth - (margin * 2);
-    
-    // ListView：提示标签下方，占据中间大部分空间
+    // ListView：文本框下方，占据中间大部分空间
     int listViewX = margin;
-    int listViewY = labelY + labelHeight + spacing;
+    int listViewY = editY + editHeight + spacing;
     int listViewWidth = windowWidth - (margin * 2);
-    int listViewHeight = windowHeight - listViewY - spacing - buttonHeight - spacing * 2; // 减去按钮区域和边距
+    int listViewHeight = windowHeight - listViewY - margin - buttonHeight - margin; // 为底部按钮和边距留空间
     
     // 按钮区域：底部位置
     int buttonY = windowHeight - margin - buttonHeight;
@@ -412,11 +600,28 @@ void LayoutControls(int windowWidth, int windowHeight)
     
     // 应用新的位置和大小到各个控件
     SetWindowPos(g_hEdit, NULL, editX, editY, editWidth, editHeight, SWP_NOZORDER);
-    SetWindowPos(g_hInputHintLabel, NULL, labelX, labelY, labelWidth, labelHeight, SWP_NOZORDER);
     SetWindowPos(g_hListView, NULL, listViewX, listViewY, listViewWidth, listViewHeight, SWP_NOZORDER);
+    
+    // 更新 WebView2 占位窗口的位置和大小（与 ListView 相同）
+    if (g_hWebView2 != NULL)
+    {
+        SetWindowPos(g_hWebView2, NULL, listViewX, listViewY, listViewWidth, listViewHeight, SWP_NOZORDER);
+        
+        // 更新 WebView2 控制器的位置和大小
+        if (g_webViewController != NULL)
+        {
+            RECT bounds = {0, 0, listViewWidth, listViewHeight};
+            g_webViewController->put_Bounds(bounds);
+        }
+    }
+    
     SetWindowPos(g_hSettingsButton, NULL, settingsButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
     SetWindowPos(g_hExitCalcButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
     SetWindowPos(g_hExitBookmarkButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
+    
+    // 计算模式菜单按钮位置：在退出按钮左侧
+    int calcMenuButtonX = exitButtonX - buttonWidth - buttonSpacing;
+    SetWindowPos(g_hCalcMenuButton, NULL, calcMenuButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
     
     // 刷新ListView显示
     if (g_hListView != NULL)
@@ -432,6 +637,9 @@ void LayoutControls(int windowWidth, int windowHeight)
 void ShowLauncherWindow()
 {
     LogToFile("ShowLauncherWindow called - START");
+    
+    // 设置初始化标志，防止自动执行
+    g_windowInitializing = true;
     
     // Clear edit control first before showing to avoid unexpected change notifications
     SetWindowTextW(g_hEdit, L"");
@@ -452,6 +660,20 @@ void ShowLauncherWindow()
     // Display default search results
     LogToFile("Displaying default search results");
     SearchAndDisplayResults(L"");
+    
+    // 处理所有待处理的消息，确保初始化消息都已处理
+    MSG msg;
+    int messageCount = 0;
+    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE) && messageCount < 50)
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+        messageCount++;
+    }
+    
+    // 延迟清除初始化标志，确保所有初始化消息都已处理
+    Sleep(200);
+    g_windowInitializing = false;
     
     LogToFile("ShowLauncherWindow finished - END");
 }
@@ -974,6 +1196,47 @@ void InitializeCommonShortcuts()
 // Search and display matching results
 void SearchAndDisplayResults(const WCHAR* query)
 {
+    // 检查ListView是否有效
+    if (!g_hListView || !IsWindow(g_hListView))
+    {
+        LogToFile("SearchAndDisplayResults: ListView句柄无效或窗口不存在");
+        return;
+    }
+    
+    // 进入搜索结果模式，退出设置菜单状态
+    g_settingsMenuMode = false;
+    std::vector<std::wstring> webViewHints;
+    
+    // 检查ListView是否有列（如果没有列，需要先初始化列）
+    // 使用Header_GetItemCount来检查列数
+    HWND hHeader = ListView_GetHeader(g_hListView);
+    int columnCount = 0;
+    if (hHeader)
+    {
+        columnCount = Header_GetItemCount(hHeader);
+    }
+    if (columnCount == 0)
+    {
+        LogToFile("SearchAndDisplayResults: ListView没有列，初始化列");
+        // 初始化ListView的列
+        LVCOLUMNW lvc;
+        lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+        
+        // 第一列：名称
+        lvc.iSubItem = 0;
+        lvc.pszText = (WCHAR*)L"名称";
+        lvc.cx = 180;
+        ListView_InsertColumn(g_hListView, 0, &lvc);
+        
+        // 第二列：路径
+        lvc.iSubItem = 1;
+        lvc.pszText = (WCHAR*)L"路径";
+        lvc.cx = 180;
+        ListView_InsertColumn(g_hListView, 1, &lvc);
+        
+        LogToFile("SearchAndDisplayResults: ListView列初始化完成（名称 | 路径）");
+    }
+    
     // 记录搜索查询
     char queryLog[1024] = {0};
     if (query)
@@ -995,6 +1258,53 @@ void SearchAndDisplayResults(const WCHAR* query)
     // 注意：不再在SearchAndDisplayResults中处理"wz"命令
     // "wz"命令现在只在用户按回车键时在EN_RETURN消息中处理
     
+    // 清空旧内容并添加提示行
+    ListView_DeleteAllItems(g_hListView);
+    g_searchResults.clear();
+    
+    if (g_calculatorMode)
+    {
+        // 计算模式：添加多行提示
+        const WCHAR* hints[] = {
+            L"💡 输入数学表达式",
+            L"💡 按回车计算",
+            L"💡 输入 q 退出计算模式"
+        };
+        AddMultiLineHintsToListView(hints, 3);
+        for (int i = 0; i < 3; ++i)
+        {
+            webViewHints.emplace_back(hints[i]);
+        }
+    }
+    else if (g_bookmarkMode)
+    {
+        // 网址收藏模式：添加多行提示
+        const WCHAR* hints[] = {
+            L"💡 搜索或浏览收藏的网址",
+            L"💡 按回车或双击打开",
+            L"💡 输入 q 退出网址收藏模式"
+        };
+        AddMultiLineHintsToListView(hints, 3);
+        for (int i = 0; i < 3; ++i)
+        {
+            webViewHints.emplace_back(hints[i]);
+        }
+    }
+    else
+    {
+        // 普通模式：添加多行提示
+        const WCHAR* hints[] = {
+            L"💡 输入命令或网址搜索",
+            L"💡 按回车或双击执行",
+            L"💡 输入 js 进入计算模式，输入 wz 进入网址收藏模式"
+        };
+        AddMultiLineHintsToListView(hints, 3);
+        for (int i = 0; i < 3; ++i)
+        {
+            webViewHints.emplace_back(hints[i]);
+        }
+    }
+    
     if (!query || wcslen(query) == 0)
     {
         LogToFile("SearchAndDisplayResults: 查询为空，显示最常用的项目");
@@ -1005,7 +1315,6 @@ void SearchAndDisplayResults(const WCHAR* query)
                 return a.usageCount > b.usageCount; 
             });
         
-        ListView_DeleteAllItems(g_hListView);
         g_searchResults = sorted;
         
         sprintf(logMsg, "SearchAndDisplayResults: 显示 %zu 个最常用项目", sorted.size());
@@ -1023,7 +1332,7 @@ void SearchAndDisplayResults(const WCHAR* query)
             
             LVITEMW lvi = {0};
             lvi.mask = LVIF_TEXT;
-            lvi.iItem = 0;
+            lvi.iItem = ListView_GetItemCount(g_hListView);
             lvi.iSubItem = 0;
             lvi.pszText = display;
             ListView_InsertItem(g_hListView, &lvi);
@@ -1035,12 +1344,14 @@ void SearchAndDisplayResults(const WCHAR* query)
                     itemNameLog, sorted[i].type, sorted[i].usageCount);
             LogToFile(logMsg);
         }
+        
+        // 更新 WebView2 显示搜索结果
+        std::wstring html;
+        CreateWebView2HTML(g_searchResults, webViewHints, html);
+        UpdateWebView2Content(html.c_str());
+        
         return;
     }
-    
-    // Clear previous results
-    ListView_DeleteAllItems(g_hListView);
-    g_searchResults.clear();
     
     sprintf(logMsg, "SearchAndDisplayResults: 在 %zu 个快捷方式中搜索匹配项", g_shortcuts.size());
     LogToFile(logMsg);
@@ -1079,24 +1390,39 @@ void SearchAndDisplayResults(const WCHAR* query)
             bookmarkItem.type = 1; // URL类型
             bookmarkItem.usageCount = 0;
             
-            // 添加到搜索结果
+            // 先添加到搜索结果，然后追加到ListView末尾（使用-1自动追加）
             g_searchResults.push_back(bookmarkItem);
             
             // 显示在列表视图中，使用特殊格式标识收藏网址
             WCHAR display[1024] = {0};
             wsprintfW(display, L"收藏: %s", g_bookmarks[i].first.c_str());
             
+            // 先获取当前ListView的项目数量，作为插入位置
+            int currentItemCount = ListView_GetItemCount(g_hListView);
+            
             LVITEMW lvi = {0};
             lvi.mask = LVIF_TEXT;
-            lvi.iItem = 0;
+            lvi.iItem = currentItemCount;  // 使用当前项目数量作为插入位置
             lvi.iSubItem = 0;
             lvi.pszText = display;
-            ListView_InsertItem(g_hListView, &lvi);
+            int actualIndex = ListView_InsertItem(g_hListView, &lvi);
             
-            // 添加URL到第二列
-            lvi.iSubItem = 1;
-            lvi.pszText = const_cast<LPWSTR>(g_bookmarks[i].second.c_str());
-            ListView_SetItem(g_hListView, &lvi);
+            // 检查插入是否成功
+            if (actualIndex == -1)
+            {
+                DWORD error = GetLastError();
+                char errorLog[300] = {0};
+                sprintf(errorLog, "SearchAndDisplayResults: 收藏网址ListView_InsertItem失败，错误代码: %lu, ListView项目数: %d", 
+                        error, currentItemCount);
+                LogToFile(errorLog);
+            }
+            else
+            {
+                // 添加URL到第二列
+                lvi.iSubItem = 1;
+                lvi.pszText = const_cast<LPWSTR>(g_bookmarks[i].second.c_str());
+                ListView_SetItem(g_hListView, &lvi);
+            }
         }
     }
     
@@ -1121,19 +1447,42 @@ void SearchAndDisplayResults(const WCHAR* query)
             else // Application
                 wsprintfW(display, L"APP: %s", g_shortcuts[i].name);
             
+            // 先添加到搜索结果，然后追加到ListView末尾
+            g_searchResults.push_back(g_shortcuts[i]);
+            size_t searchResultIndex = g_searchResults.size() - 1;
+            
+            // 先获取当前ListView的项目数量，作为插入位置
+            int currentItemCount = ListView_GetItemCount(g_hListView);
+            
             LVITEMW lvi = {0};
             lvi.mask = LVIF_TEXT;
-            lvi.iItem = 0;
+            lvi.iItem = currentItemCount;  // 使用当前项目数量作为插入位置
             lvi.iSubItem = 0;
             lvi.pszText = display;
-            ListView_InsertItem(g_hListView, &lvi);
+            int actualIndex = ListView_InsertItem(g_hListView, &lvi);
             
-            // 添加路径到第二列
-            lvi.iSubItem = 1;
-            lvi.pszText = g_shortcuts[i].path;
-            ListView_SetItem(g_hListView, &lvi);
-            
-            g_searchResults.push_back(g_shortcuts[i]);
+            // 检查插入是否成功
+            if (actualIndex == -1)
+            {
+                DWORD error = GetLastError();
+                char errorLog[300] = {0};
+                sprintf(errorLog, "SearchAndDisplayResults: 精确匹配ListView_InsertItem失败，错误代码: %lu, ListView项目数: %d, 句柄: %p", 
+                        error, currentItemCount, g_hListView);
+                LogToFile(errorLog);
+            }
+            else
+            {
+                // 记录插入位置用于调试
+                char insertLog[300] = {0};
+                sprintf(insertLog, "SearchAndDisplayResults: 精确匹配插入到ListView位置 %d, g_searchResults索引 %zu", 
+                        actualIndex, searchResultIndex);
+                LogToFile(insertLog);
+                
+                // 添加路径到第二列
+                lvi.iSubItem = 1;
+                lvi.pszText = g_shortcuts[i].path;
+                ListView_SetItem(g_hListView, &lvi);
+            }
         }
         else
         {
@@ -1156,19 +1505,42 @@ void SearchAndDisplayResults(const WCHAR* query)
                 else // Application
                     wsprintfW(display, L"APP: %s", g_shortcuts[i].name);
                 
+                // 先添加到搜索结果，然后追加到ListView末尾
+                g_searchResults.push_back(g_shortcuts[i]);
+                size_t searchResultIndex = g_searchResults.size() - 1;
+                
+                // 先获取当前ListView的项目数量，作为插入位置
+                int currentItemCount = ListView_GetItemCount(g_hListView);
+                
                 LVITEMW lvi = {0};
                 lvi.mask = LVIF_TEXT;
-                lvi.iItem = 0;
+                lvi.iItem = currentItemCount;  // 使用当前项目数量作为插入位置
                 lvi.iSubItem = 0;
                 lvi.pszText = display;
-                ListView_InsertItem(g_hListView, &lvi);
+                int actualIndex = ListView_InsertItem(g_hListView, &lvi);
                 
-                // 添加路径到第二列
-                lvi.iSubItem = 1;
-                lvi.pszText = g_shortcuts[i].path;
-                ListView_SetItem(g_hListView, &lvi);
-                
-                g_searchResults.push_back(g_shortcuts[i]);
+                // 检查插入是否成功
+                if (actualIndex == -1)
+                {
+                    DWORD error = GetLastError();
+                    char errorLog[300] = {0};
+                    sprintf(errorLog, "SearchAndDisplayResults: 前缀匹配ListView_InsertItem失败，错误代码: %lu, ListView项目数: %d", 
+                            error, currentItemCount);
+                    LogToFile(errorLog);
+                }
+                else
+                {
+                    // 记录插入位置用于调试
+                    char insertLog[300] = {0};
+                    sprintf(insertLog, "SearchAndDisplayResults: 前缀匹配插入到ListView位置 %d, g_searchResults索引 %zu, 名称: '%s'", 
+                            actualIndex, searchResultIndex, itemNameLog);
+                    LogToFile(insertLog);
+                    
+                    // 添加路径到第二列
+                    lvi.iSubItem = 1;
+                    lvi.pszText = g_shortcuts[i].path;
+                    ListView_SetItem(g_hListView, &lvi);
+                }
             }
             else if (queryLen <= nameLen)
             {
@@ -1188,19 +1560,42 @@ void SearchAndDisplayResults(const WCHAR* query)
                         else // Application
                             wsprintfW(display, L"APP: %s", g_shortcuts[i].name);
                         
+                        // 先添加到搜索结果，然后追加到ListView末尾
+                        g_searchResults.push_back(g_shortcuts[i]);
+                        size_t searchResultIndex = g_searchResults.size() - 1;
+                        
+                        // 先获取当前ListView的项目数量，作为插入位置
+                        int currentItemCount = ListView_GetItemCount(g_hListView);
+                        
                         LVITEMW lvi = {0};
                         lvi.mask = LVIF_TEXT;
-                        lvi.iItem = 0;
+                        lvi.iItem = currentItemCount;  // 使用当前项目数量作为插入位置
                         lvi.iSubItem = 0;
                         lvi.pszText = display;
-                        ListView_InsertItem(g_hListView, &lvi);
+                        int actualIndex = ListView_InsertItem(g_hListView, &lvi);
                         
-                        // 添加路径到第二列
-                        lvi.iSubItem = 1;
-                        lvi.pszText = g_shortcuts[i].path;
-                        ListView_SetItem(g_hListView, &lvi);
-                        
-                        g_searchResults.push_back(g_shortcuts[i]);
+                        // 检查插入是否成功
+                        if (actualIndex == -1)
+                        {
+                            DWORD error = GetLastError();
+                            char errorLog[300] = {0};
+                            sprintf(errorLog, "SearchAndDisplayResults: 子字符串匹配ListView_InsertItem失败，错误代码: %lu, ListView项目数: %d", 
+                                    error, currentItemCount);
+                            LogToFile(errorLog);
+                        }
+                        else
+                        {
+                            // 记录插入位置用于调试
+                            char insertLog[300] = {0};
+                            sprintf(insertLog, "SearchAndDisplayResults: 子字符串匹配插入到ListView位置 %d, g_searchResults索引 %zu, 名称: '%s'", 
+                                    actualIndex, searchResultIndex, itemNameLog);
+                            LogToFile(insertLog);
+                            
+                            // 添加路径到第二列
+                            lvi.iSubItem = 1;
+                            lvi.pszText = g_shortcuts[i].path;
+                            ListView_SetItem(g_hListView, &lvi);
+                        }
                         break;
                     }
                 }
@@ -1223,21 +1618,213 @@ void SearchAndDisplayResults(const WCHAR* query)
     {
         sprintf(logMsg, "SearchAndDisplayResults: 找到 %zu 个匹配项", g_searchResults.size());
         LogToFile(logMsg);
+        
+        // 搜索完成后立即打印ListView内容用于调试
+        LogToFile("SearchAndDisplayResults: 搜索完成，打印ListView和g_searchResults内容:");
+        LogListViewContents();
+    }
+
+    // 无论是否有结果，WebView2 都显示提示信息和最新列表
+    std::wstring html;
+    CreateWebView2HTML(g_searchResults, webViewHints, html);
+    UpdateWebView2Content(html.c_str());
+}
+
+// 打印ListView所有内容到日志
+void LogListViewContents()
+{
+    if (!g_hListView)
+    {
+        LogToFile("LogListViewContents: ListView句柄为空");
+        return;
+    }
+    
+    int itemCount = ListView_GetItemCount(g_hListView);
+    char logMsg[200] = {0};
+    sprintf(logMsg, "LogListViewContents: ListView共有 %d 个项目", itemCount);
+    LogToFile(logMsg);
+    
+    // 打印g_searchResults的内容
+    sprintf(logMsg, "LogListViewContents: g_searchResults共有 %zu 个项目", g_searchResults.size());
+    LogToFile(logMsg);
+    for (size_t i = 0; i < g_searchResults.size() && i < 20; i++)
+    {
+        char itemNameLog[256] = {0};
+        char itemPathLog[512] = {0};
+        WideCharToMultiByte(CP_UTF8, 0, g_searchResults[i].name, -1, itemNameLog, sizeof(itemNameLog), NULL, NULL);
+        WideCharToMultiByte(CP_UTF8, 0, g_searchResults[i].path, -1, itemPathLog, sizeof(itemPathLog), NULL, NULL);
+        char itemLog[800] = {0};
+        sprintf(itemLog, "  g_searchResults[%zu]: name='%s', path='%s', type=%d", 
+                i, itemNameLog, itemPathLog, g_searchResults[i].type);
+        LogToFile(itemLog);
+    }
+    
+    // 打印ListView显示的内容
+    for (int i = 0; i < itemCount && i < 20; i++)
+    {
+        WCHAR itemText[1024] = {0};
+        WCHAR itemPath[1024] = {0};
+        
+        LVITEMW lvItem = {0};
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = i;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = itemText;
+        lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+        int result = ListView_GetItem(g_hListView, &lvItem);
+        
+        char resultLog[200] = {0};
+        sprintf(resultLog, "  ListView_GetItem[%d] 返回值: %d", i, result);
+        LogToFile(resultLog);
+        
+        // 获取第二列（路径）
+        lvItem.iSubItem = 1;
+        lvItem.pszText = itemPath;
+        lvItem.cchTextMax = sizeof(itemPath) / sizeof(WCHAR);
+        ListView_GetItem(g_hListView, &lvItem);
+        
+        char itemTextLog[1024] = {0};
+        char itemPathLog[1024] = {0};
+        WideCharToMultiByte(CP_UTF8, 0, itemText, -1, itemTextLog, sizeof(itemTextLog), NULL, NULL);
+        WideCharToMultiByte(CP_UTF8, 0, itemPath, -1, itemPathLog, sizeof(itemPathLog), NULL, NULL);
+        
+        char listViewLog[2100] = {0};
+        sprintf(listViewLog, "  ListView[%d]: text='%s' (长度=%zu), path='%s'", i, itemTextLog, wcslen(itemText), itemPathLog);
+        LogToFile(listViewLog);
+        
+        // 检查是否为空
+        if (wcslen(itemText) == 0)
+        {
+            char emptyLog[200] = {0};
+            sprintf(emptyLog, "  WARNING: ListView[%d] 文本为空！", i);
+            LogToFile(emptyLog);
+        }
+    }
+    
+    // 对比显示顺序是否一致
+    if (itemCount > 0 && g_searchResults.size() > 0)
+    {
+        WCHAR firstListViewText[1024] = {0};
+        LVITEMW lvItem = {0};
+        lvItem.iItem = 0;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = firstListViewText;
+        lvItem.cchTextMax = sizeof(firstListViewText) / sizeof(WCHAR);
+        ListView_GetItem(g_hListView, &lvItem);
+        
+        char firstListViewLog[1024] = {0};
+        char firstSearchResultLog[256] = {0};
+        WideCharToMultiByte(CP_UTF8, 0, firstListViewText, -1, firstListViewLog, sizeof(firstListViewLog), NULL, NULL);
+        WideCharToMultiByte(CP_UTF8, 0, g_searchResults[0].name, -1, firstSearchResultLog, sizeof(firstSearchResultLog), NULL, NULL);
+        
+        char compareLog[1300] = {0};
+        sprintf(compareLog, "LogListViewContents: 对比 - ListView[0]='%s', g_searchResults[0].name='%s'", 
+                firstListViewLog, firstSearchResultLog);
+        LogToFile(compareLog);
+        
+        // 检查是否匹配（ListView可能显示"DIR: "前缀）
+        bool matches = false;
+        if (wcsstr(firstListViewText, g_searchResults[0].name) != NULL)
+        {
+            matches = true;
+        }
+        else if (wcsstr(firstListViewText, L"收藏:") == firstListViewText)
+        {
+            // 收藏网址格式
+            WCHAR bookmarkName[256] = {0};
+            wcscpy(bookmarkName, firstListViewText + 3); // 跳过"收藏:"
+            if (wcscmp(bookmarkName, g_searchResults[0].name) == 0)
+            {
+                matches = true;
+            }
+        }
+        
+        char matchLog[300] = {0};
+        sprintf(matchLog, "LogListViewContents: 第一个项目匹配: %s", matches ? "是" : "否");
+        LogToFile(matchLog);
     }
 }
 
 // Execute selected item from list
 void ExecuteSelectedItem(INT_PTR index)
 {
-    if (index < 0 || (size_t)index >= g_searchResults.size())
+    // 检查ListView前面有多少行提示行，需要调整索引
+    int hintRowCount = 0;
+    int itemCount = ListView_GetItemCount(g_hListView);
+    for (int i = 0; i < itemCount; i++)
+    {
+        WCHAR itemText[1024] = {0};
+        LVITEMW lvItem = {0};
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = i;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = itemText;
+        lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+        if (ListView_GetItem(g_hListView, &lvItem))
+        {
+            // 检查是否是提示行
+            if (wcsstr(itemText, L"提示:") == itemText || wcsstr(itemText, L"💡") == itemText)
+            {
+                hintRowCount++;
+            }
+            else
+            {
+                break;  // 遇到非提示行，停止计数
+            }
+        }
+    }
+    
+    INT_PTR adjustedIndex = index - hintRowCount;
+    
+    if (adjustedIndex < 0 || (size_t)adjustedIndex >= g_searchResults.size())
     {
         char logMsg[200] = {0};
-        sprintf(logMsg, "ExecuteSelectedItem: 无效索引 %Id，搜索结果大小为 %zu", index, g_searchResults.size());
+        sprintf(logMsg, "ExecuteSelectedItem: 无效索引 %Id（调整后 %Id），搜索结果大小为 %zu", index, adjustedIndex, g_searchResults.size());
         LogToFile(logMsg);
         return;
     }
+    
+    if (hintRowCount > 0)
+    {
+        char adjustLog[200] = {0};
+        sprintf(adjustLog, "ExecuteSelectedItem: 检测到 %d 行提示行，实际执行索引调整为 %Id", hintRowCount, adjustedIndex);
+        LogToFile(adjustLog);
+    }
+    
+    // 记录所有搜索结果用于调试
+    char debugMsg[2000] = {0};
+    sprintf(debugMsg, "ExecuteSelectedItem: 当前搜索结果列表（共%zu项）:", g_searchResults.size());
+    LogToFile(debugMsg);
+    for (size_t i = 0; i < g_searchResults.size() && i < 10; i++)
+    {
+        char itemNameLog[256] = {0};
+        WideCharToMultiByte(CP_UTF8, 0, g_searchResults[i].name, -1, itemNameLog, sizeof(itemNameLog), NULL, NULL);
+        char itemLog[300] = {0};
+        sprintf(itemLog, "  [%zu] %s", i, itemNameLog);
+        LogToFile(itemLog);
+    }
+    
+    // 记录ListView显示的第一个实际项目用于对比（跳过提示行）
+    if (hintRowCount < itemCount)
+    {
+        WCHAR firstItemText[1024] = {0};
+        LVITEMW lvItem = {0};
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = hintRowCount;  // 跳过提示行
+        lvItem.iSubItem = 0;
+        lvItem.pszText = firstItemText;
+        lvItem.cchTextMax = sizeof(firstItemText) / sizeof(WCHAR);
+        if (ListView_GetItem(g_hListView, &lvItem))
+        {
+            char firstItemLog[1024] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
+            char listViewLog[1100] = {0};
+            sprintf(listViewLog, "ExecuteSelectedItem: ListView显示的第一个实际项目: '%s'", firstItemLog);
+            LogToFile(listViewLog);
+        }
+    }
         
-    ShortcutItem& item = g_searchResults[(size_t)index]; // Use reference to update usage count
+    ShortcutItem& item = g_searchResults[(size_t)adjustedIndex]; // Use reference to update usage count
     
     // 记录要执行的项目信息
     char itemNameLog[1024] = {0};
@@ -1246,8 +1833,8 @@ void ExecuteSelectedItem(INT_PTR index)
     WideCharToMultiByte(CP_UTF8, 0, item.path, -1, itemPathLog, sizeof(itemPathLog), NULL, NULL);
     
     char logMsg[1100] = {0};
-    sprintf(logMsg, "ExecuteSelectedItem: 执行项目 '%s' (路径: '%s', 类型: %d, 使用次数: %d)", 
-            itemNameLog, itemPathLog, item.type, item.usageCount);
+    sprintf(logMsg, "ExecuteSelectedItem: 执行项目[%Id] '%s' (路径: '%s', 类型: %d, 使用次数: %d)", 
+            adjustedIndex, itemNameLog, itemPathLog, item.type, item.usageCount);
     LogToFile(logMsg);
     
     // 检查是否是计算模式
@@ -1343,6 +1930,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
         case WM_CREATE:
+        {
             // Create edit control without ES_WANTRETURN to receive WM_KEYDOWN messages
             // 文本框位置调整：移除左边标签，文本框靠左显示
             g_hEdit = CreateWindowExW(
@@ -1367,39 +1955,41 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 LogToFile("Edit control subclassing failed");
             }
 
-            // 创建输入提示信息标签，放在文本框下方
-            g_hInputHintLabel = CreateWindowExW(
+            // 创建 WebView2 占位窗口（用于承载 WebView2 控件）
+            g_hWebView2 = CreateWindowExW(
                   0,
                   L"STATIC",
-                  L"输入命令或网址；输入 js 进入计算模式；输入 wz 进入网址收藏模式",
-                  WS_CHILD | WS_VISIBLE | SS_LEFT,
-                  10, 40, 360, 20,  // 调整位置：x=10, y=40, 宽度=360
+                  L"",
+                  WS_CHILD | WS_VISIBLE | WS_BORDER,
+                  10, 45, 360, 200,  // 调整位置，利用提示信息空间
                   hwnd, NULL,
                   g_hInstance, NULL);
-
-            // Create ListView control with two columns for better display
+            
+            LogToFile("WebView2 占位窗口已创建");
+            
+            // 初始化 WebView2（异步创建，需要时间）
+            InitializeWebView2(hwnd);
+            
+            // 保留 ListView 用于兼容（暂时隐藏）
             g_hListView = CreateWindowExW(
                   0,
                   WC_LISTVIEWW,
                   L"",
-                  WS_CHILD | WS_VISIBLE | WS_BORDER | LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS,
-                  10, 65, 360, 180,  // 下移到65开始，给提示标签留出空间；宽度调整为360
+                  WS_CHILD | WS_BORDER | LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS,
+                  10, 45, 360, 200,
                   hwnd, (HMENU)IDC_LISTVIEW,
                   g_hInstance, NULL);
+            ShowWindow(g_hListView, SW_HIDE);  // 隐藏 ListView，使用 WebView2
             
-            // 初始化ListView的列
+            // 初始化ListView的列（保留用于兼容）
             LVCOLUMNW lvc;
             lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-            
-            // 第一列：表达式
             lvc.iSubItem = 0;
-            lvc.pszText = (WCHAR*)L"表达式";
+            lvc.pszText = (WCHAR*)L"名称";
             lvc.cx = 180;
             ListView_InsertColumn(g_hListView, 0, &lvc);
-            
-            // 第二列：注释
             lvc.iSubItem = 1;
-            lvc.pszText = (WCHAR*)L"注释";
+            lvc.pszText = (WCHAR*)L"路径";
             lvc.cx = 180;
             ListView_InsertColumn(g_hListView, 1, &lvc);
             
@@ -1425,19 +2015,29 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                   hwnd, (HMENU)IDC_EXIT_BOOKMARK_BUTTON,
                   g_hInstance, NULL);
             
+            // Create calculator mode menu button (initially hidden)
+            g_hCalcMenuButton = CreateWindowExW(
+                  0,
+                  L"BUTTON",
+                  L"操作 ▼",
+                  WS_CHILD | BS_PUSHBUTTON,
+                  200, 10, 80, 25,
+                  hwnd, (HMENU)IDC_CALC_MENU_BUTTON,
+                  g_hInstance, NULL);
+            
             // Initially hide the exit calculator button and exit bookmark button
             ShowWindow(g_hExitCalcButton, SW_HIDE);
             ShowWindow(g_hExitBookmarkButton, SW_HIDE);
+            ShowWindow(g_hCalcMenuButton, SW_HIDE);
             
             // 应用字体到所有控件
             if (g_hFont != NULL)
             {
-                // g_hModeLabel已移除，不再应用字体
-                ApplyFontToControl(g_hInputHintLabel);  // 为提示标签应用字体
                 ApplyFontToControl(g_hEdit);
                 ApplyFontToControl(g_hListView);
                 ApplyFontToControl(g_hExitCalcButton);
                 ApplyFontToControl(g_hExitBookmarkButton);
+                ApplyFontToControl(g_hCalcMenuButton);
                 LogToFile("字体已应用到所有控件");
             }
             else
@@ -1446,6 +2046,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             
             return 0;
+        }
             
         case WM_HOTKEY:
             {  
@@ -1507,6 +2108,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             
             g_shortcuts.clear();
+            
+            // 记录退出信息并关闭日志文件
+            LogToFile("WM_DESTROY: Program exiting, closing log file");
+            CloseLogFile();
+            
             PostQuitMessage(0);
             return 0;
             
@@ -1549,6 +2155,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             return 0;
             
+        case WM_EXITSIZEMOVE:
+            {
+                // 用户完成调整窗口大小或移动窗口后，保存窗口设置
+                LogToFile("WM_EXITSIZEMOVE: 窗口大小调整完成，保存窗口设置");
+                SaveWindowSettings();
+            }
+            return 0;
+            
         case WM_TRAYICON:
             // 处理系统托盘图标消息
             HandleTrayMessage(lParam);
@@ -1563,6 +2177,95 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             LogToFile("  Setting ignore flag for next EN_RETURN due to focus change");
             // Allow normal focus behavior but ensure no auto-execution happens
             // Call default handler to ensure normal focus functionality
+            return DefWindowProcW(hwnd, uMsg, wParam, lParam);
+            
+        case WM_NOTIFY:
+            {
+                NMHDR* nmhdr = (NMHDR*)lParam;
+                // 处理ListView的双击事件
+                if (nmhdr->idFrom == IDC_LISTVIEW)
+                {
+                    // 处理双击事件：NM_DBLCLK是标准的双击通知，LVN_ITEMACTIVATE是ListView的激活通知
+                    if (nmhdr->code == NM_DBLCLK)
+                    {
+                        LogToFile("WM_NOTIFY: ListView双击事件");
+                        // 获取当前选中的项
+                        INT_PTR selIndex = ListView_GetNextItem(g_hListView, -1, LVNI_FOCUSED | LVNI_SELECTED);
+                        if (selIndex == -1)
+                        {
+                            // 如果没有选中项，尝试获取第一个项
+                            selIndex = ListView_GetNextItem(g_hListView, -1, LVNI_ALL);
+                        }
+                        
+                        if (selIndex >= 0)
+                        {
+                            // 检查是否是设置菜单模式
+                            if (g_settingsMenuMode)
+                            {
+                                // 设置菜单模式下，检查是否是提示行
+                                if (selIndex == 0)
+                                {
+                                    LogToFile("WM_NOTIFY: 设置菜单模式下双击提示行，忽略");
+                                }
+                                else
+                                {
+                                    LogToFile("WM_NOTIFY: 设置菜单模式下双击菜单项");
+                                    HandleSettingsMenuItemClick(selIndex);
+                                }
+                            }
+                            // 检查是否是计算模式或网址收藏模式
+                            else if (g_calculatorMode)
+                            {
+                                // 计算模式下，双击不执行，只允许回车执行
+                                LogToFile("WM_NOTIFY: 计算模式下，双击不执行");
+                            }
+                            else if (g_bookmarkMode)
+                            {
+                                // 网址收藏模式下，双击打开选中的网址
+                                if (selIndex < (INT_PTR)g_bookmarkSearchResults.size())
+                                {
+                                    LogToFile("WM_NOTIFY: 网址收藏模式下，双击打开选中的网址");
+                                    std::wstring url = g_bookmarkSearchResults[selIndex].second;
+                                    ShellExecuteW(NULL, L"open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                }
+                            }
+                            else
+                            {
+                                // 普通模式下，双击执行选中的项
+                                // 检查是否是有效的搜索结果（不是"No matching items found"）
+                                if (selIndex < (INT_PTR)g_searchResults.size())
+                                {
+                                    LogToFile("WM_NOTIFY: 双击执行选中的搜索结果");
+                                    ExecuteSelectedItem(selIndex);
+                                }
+                                else
+                                {
+                                    // 检查是否是"No matching items found"消息
+                                    WCHAR itemText[1024] = {0};
+                                    LVITEMW lvItem = {0};
+                                    lvItem.iItem = (int)selIndex;
+                                    lvItem.iSubItem = 0;
+                                    lvItem.pszText = itemText;
+                                    lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+                                    ListView_GetItem(g_hListView, &lvItem);
+                                    
+                                    if (wcscmp(itemText, L"No matching items found") != 0)
+                                    {
+                                        LogToFile("WM_NOTIFY: 双击的项目不在搜索结果中，尝试执行");
+                                        ExecuteSelectedItem(selIndex);
+                                    }
+                                    else
+                                    {
+                                        LogToFile("WM_NOTIFY: 双击的是'No matching items found'消息，不执行");
+                                    }
+                                }
+                            }
+                        }
+                        return 0;
+                    }
+                }
+            }
+            // 对于其他WM_NOTIFY消息，调用默认处理
             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
             
         case WM_COMMAND:
@@ -1594,6 +2297,106 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // 不再调用ExitBookmarkMode();
                         // 可选择显示提示信息
                         MessageBoxW(hwnd, L"请使用'q'键退出网址收藏模式", L"提示", MB_OK | MB_ICONINFORMATION);
+                    }
+                    return 0;
+                }
+                // 处理计算模式操作菜单按钮点击
+                else if (LOWORD(wParam) == IDC_CALC_MENU_BUTTON)
+                {
+                    if (g_calculatorMode)
+                    {
+                        LogToFile("WM_COMMAND: 用户点击计算模式操作菜单按钮");
+                        
+                        // 获取按钮位置
+                        RECT buttonRect;
+                        GetWindowRect(g_hCalcMenuButton, &buttonRect);
+                        
+                        // 创建下拉菜单
+                        HMENU hMenu = CreatePopupMenu();
+                        
+                        // 添加菜单项
+                        AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_COPY, L"复制选中项");
+                        AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+                        AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_DELETE_ITEM, L"删除选中项");
+                        AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_CLEAR_ALL, L"清空历史记录");
+                        
+                        // 显示菜单（在按钮下方）
+                        int command = TrackPopupMenu(hMenu, 
+                            TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_NONOTIFY,
+                            buttonRect.left, buttonRect.bottom, 0, hwnd, NULL);
+                        
+                        // 销毁菜单
+                        DestroyMenu(hMenu);
+                        
+                        // 处理用户选择
+                        if (command == ID_CONTEXT_COPY)
+                        {
+                            CopySelectedListItem();
+                            LogToFile("操作菜单: 复制了选中的项目");
+                        }
+                        else if (command == ID_CONTEXT_DELETE_ITEM)
+                        {
+                            // 删除选中的计算结果
+                            if (g_calculationHistory.empty())
+                            {
+                                LogToFile("操作菜单: 历史记录为空，无法删除");
+                                MessageBoxW(hwnd, L"历史记录为空，没有可删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
+                                return 0;
+                            }
+                            
+                            // 获取ListView中选中的项目
+                            INT_PTR selIndex = ListView_GetNextItem(g_hListView, -1, LVNI_SELECTED);
+                            if (selIndex == -1)
+                            {
+                                // 如果没有选中项，尝试获取焦点项
+                                selIndex = ListView_GetNextItem(g_hListView, -1, LVNI_FOCUSED);
+                            }
+                            
+                            if (selIndex < 0 || selIndex >= (INT_PTR)g_calculationHistory.size())
+                            {
+                                MessageBoxW(hwnd, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
+                                return 0;
+                            }
+                            
+                            // 转换ListView索引到实际历史记录索引
+                            size_t actualIndex = g_calculationHistory.size() - 1 - selIndex;
+                            
+                            if (actualIndex >= g_calculationHistory.size())
+                            {
+                                MessageBoxW(hwnd, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
+                                return 0;
+                            }
+                            
+                            // 从历史记录中删除
+                            g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
+                            
+                            // 保存到文件
+                            SaveCalculationHistory();
+                            
+                            // 重新显示历史记录
+                            DisplayCalculationHistory();
+                            
+                            // 更新WebView2显示
+                            UpdateCalculatorModeWebView();
+                            
+                            LogToFile("操作菜单: 删除了选中的计算结果");
+                        }
+                        else if (command == ID_CONTEXT_CLEAR_ALL)
+                        {
+                            // 清空所有历史记录
+                            if (MessageBoxW(hwnd, L"确定要清空所有计算历史吗？", 
+                                L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                            {
+                                g_calculationHistory.clear();
+                                SaveCalculationHistory();
+                                DisplayCalculationHistory();
+                                
+                                // 更新WebView2显示
+                                UpdateCalculatorModeWebView();
+                                
+                                LogToFile("操作菜单: 清空了所有计算历史");
+                            }
+                        }
                     }
                     return 0;
                 }
@@ -1718,6 +2521,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // Log edit control EN_RETURN notification
                             LogToFile("  Edit control EN_RETURN notification - processing");
                             
+                            // 打印ListView所有内容用于调试
+                            LogToFile("  EN_RETURN: 回车键按下，打印ListView内容:");
+                            LogListViewContents();
+                            
                             // Handle Enter key press in edit control
                             // Check if this EN_RETURN is caused by focus change and should be ignored
                             if (g_ignoreNextReturn)
@@ -1776,12 +2583,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                         }
                                         else if (itemCount > 0)
                                         {
-                                            // Force select the first item to ensure it's highlighted
-                                            INT_PTR firstSelIndex = 0;
-                                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
-                                            LogToFile("  EN_RETURN: 强制选择第一个项目");
+                                            // 获取第一个实际项目（跳过提示行）
+                                            INT_PTR firstSelIndex = GetFirstActualItemIndex();
+                                            if (firstSelIndex == -1)
+                                            {
+                                                LogToFile("  EN_RETURN: 只有提示行，没有实际项目");
+                                                return 0;
+                                            }
                                             
-                                            // 获取第一个项目的文本
+                                            // Force select the first actual item to ensure it's highlighted
+                                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                                            LogToFile("  EN_RETURN: 强制选择第一个实际项目（跳过提示行）");
+                                            
+                                            // 获取第一个实际项目的文本
                                             WCHAR firstItemText[1024] = {0};
                                             LVITEMW lvItem = {0};
                                             lvItem.iItem = (int)firstSelIndex;
@@ -1791,7 +2605,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                             ListView_GetItem(g_hListView, &lvItem);
                                             char firstItemLog[1024] = {0};
                                             WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                                            sprintf(logMsg, "  EN_RETURN: 第一个项目文本: '%s'", firstItemLog);
+                                            sprintf(logMsg, "  EN_RETURN: 第一个实际项目文本: '%s'", firstItemLog);
                                             LogToFile(logMsg);
                                             
                                             // 检查是否是收藏的网址
@@ -1819,10 +2633,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                 // Verify g_searchResults has items before executing
                                                 // Also check if the first item is not the "No matching items found" message
                                                 if (!g_searchResults.empty() && g_searchResults.size() > 0)
-                            {
-                                LogToFile("  EN_RETURN: 搜索结果不为空，执行第一个项目");
-                                ExecuteSelectedItem(firstSelIndex);
-                            }
+                                                {
+                                                    LogToFile("  EN_RETURN: 搜索结果不为空，执行第一个项目");
+                                                    ExecuteSelectedItem(firstSelIndex);
+                                                }
                                                 else
                                                 {
                                                     // Check if the first item is "No matching items found"
@@ -1876,13 +2690,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         INT_PTR selIndex = ListView_GetNextItem(g_hListView, -1, LVNI_FOCUSED);
                         if (selIndex != -1)
                         {
-                            // 检查是否在设置菜单模式
-                            WCHAR hintText[256] = {0};
-                            GetWindowTextW(g_hInputHintLabel, hintText, sizeof(hintText)/sizeof(WCHAR));
-                            
-                            // 检查提示文本是否包含"设置菜单"，表示当前在设置菜单模式
-                            if (wcsstr(hintText, L"设置菜单") != NULL)
+                            if (g_settingsMenuMode)
                             {
+                                if (selIndex == 0)
+                                {
+                                    LogToFile("WM_COMMAND: 设置菜单模式下双击提示行，忽略");
+                                    return 0;
+                                }
+                                
                                 LogToFile("WM_COMMAND: 检测到设置菜单模式，调用菜单项处理函数");
                                 HandleSettingsMenuItemClick(selIndex);
                             }
@@ -1961,6 +2776,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 sprintf(enterLog, "  WM_KEYDOWN: 当前输入框内容: '%s'", currentTextLog);
                 LogToFile(enterLog);
                 
+                // 打印ListView所有内容用于调试
+                LogToFile("  WM_KEYDOWN: 回车键按下，打印ListView内容:");
+                LogListViewContents();
+                
                 // 检查是否在计算模式
                 if (g_calculatorMode)
                 {
@@ -1987,12 +2806,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         }
                         else if (itemCount > 0)
                         {
-                            // Force select the first item to ensure it's highlighted
-                            INT_PTR firstSelIndex = 0;
-                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
-                            LogToFile("  WM_KEYDOWN: 强制选择第一个项目");
+                            // 获取第一个实际项目（跳过提示行）
+                            INT_PTR firstSelIndex = GetFirstActualItemIndex();
+                            if (firstSelIndex == -1)
+                            {
+                                LogToFile("  WM_KEYDOWN: 只有提示行，没有实际项目");
+                                return 0;
+                            }
                             
-                            // 获取第一个项目的文本
+                            // Force select the first actual item to ensure it's highlighted
+                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                            LogToFile("  WM_KEYDOWN: 强制选择第一个实际项目（跳过提示行）");
+                            
+                            // 获取第一个实际项目的文本
                             WCHAR firstItemText[1024] = {0};
                             LVITEMW lvItem = {0};
                             lvItem.iItem = (int)firstSelIndex;
@@ -2002,7 +2828,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             ListView_GetItem(g_hListView, &lvItem);
                             char firstItemLog[1024] = {0};
                             WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                            sprintf(logMsg, "  WM_KEYDOWN: 第一个项目文本: '%s'", firstItemLog);
+                            sprintf(logMsg, "  WM_KEYDOWN: 第一个实际项目文本: '%s'", firstItemLog);
                             LogToFile(logMsg);
                             
                             // Verify g_searchResults has items before executing
@@ -2093,6 +2919,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         {
                             // 删除选中的计算结果
                             
+                            // 检查历史记录是否为空
+                            if (g_calculationHistory.empty())
+                            {
+                                LogToFile("ListView删除: 历史记录为空，无法删除");
+                                MessageBoxW(g_hMainWindow, L"历史记录为空，没有可删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
+                                return 0;
+                            }
+                            
                             // 记录删除前状态
                             char beforeStateLog[300] = {0};
                             sprintf(beforeStateLog, "删除开始: g_calculationHistory大小=%zu, ListView项目数=%d", 
@@ -2115,7 +2949,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             
                             // 如果无法通过鼠标点击获取索引，则尝试获取选中项
                             INT_PTR selIndex = -1;
-                            if (clickedIndex != -1) {
+                            if (clickedIndex != -1 && clickedIndex >= 0) {
                                 selIndex = clickedIndex;
                                 LogToFile("ListView删除: 使用鼠标点击索引");
                             } else {
@@ -2134,67 +2968,71 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 (int)selIndex, g_calculationHistory.size(), ListView_GetItemCount(g_hListView));
                             LogToFile(logMsg1);
                             
-                            // 添加索引验证
+                            // 验证索引是否有效（ListView索引应该在[0, g_calculationHistory.size()-1]范围内）
                             if (selIndex < 0 || selIndex >= (INT_PTR)g_calculationHistory.size()) {
                                 char errorLog[300] = {0};
-                                sprintf(errorLog, "ListView删除: 选中索引=%d 超出有效范围[0,%zu]", (int)selIndex, g_calculationHistory.size()-1);
+                                if (g_calculationHistory.size() > 0) {
+                                    sprintf(errorLog, "ListView删除: 选中索引=%d 超出有效范围[0,%zu]", (int)selIndex, g_calculationHistory.size()-1);
+                                } else {
+                                    sprintf(errorLog, "ListView删除: 选中索引=%d 但历史记录为空", (int)selIndex);
+                                }
                                 LogToFile(errorLog);
                                 MessageBoxW(g_hMainWindow, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
                                 return 0;
                             }
                             
-                            if (selIndex != -1 && selIndex < (INT_PTR)g_calculationHistory.size())
-                            {
-                                // 修复索引转换逻辑：
-                                // DisplayCalculationHistory使用反向迭代器显示，所以：
-                                // ListView第0行 = g_calculationHistory的最后一条记录（最新）
-                                // ListView第1行 = g_calculationHistory的倒数第二条记录
-                                // ListView第N行 = g_calculationHistory的第(N+1)条记录
-                                // 因此ListView选中索引selIndex对应的实际索引是：
-                                // actualIndex = g_calculationHistory.size() - 1 - selIndex
-                                size_t actualIndex = g_calculationHistory.size() - 1 - selIndex;
-                                
-                                // 记录索引转换详情
-                                char logMsg2[300] = {0};
-                                sprintf(logMsg2, "ListView删除: ListView索引=%d -> 实际索引=%zu (计算: %zu - 1 - %d)", 
-                                    (int)selIndex, actualIndex, g_calculationHistory.size(), (int)selIndex);
-                                LogToFile(logMsg2);
-                                
-                                // 记录要删除的记录内容
-                                if (actualIndex < g_calculationHistory.size()) {
-                                    char expression[200] = {0};
-                                    WideCharToMultiByte(CP_ACP, 0, g_calculationHistory[actualIndex].expression.c_str(), -1, expression, sizeof(expression), NULL, NULL);
-                                    char result[200] = {0};
-                                    WideCharToMultiByte(CP_ACP, 0, g_calculationHistory[actualIndex].result.c_str(), -1, result, sizeof(result), NULL, NULL);
-                                    char logMsg3[400] = {0};
-                                    sprintf(logMsg3, "ListView删除: 将删除记录: %s = %s", expression, result);
-                                    LogToFile(logMsg3);
-                                }
-                                
-                                // 从历史记录中删除
-                                LogToFile("ListView删除: 开始执行删除操作");
-                                g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
-                                
-                                // 保存到文件
-                                SaveCalculationHistory();
-                                
-                                // 重新显示历史记录
-                                LogToFile("ListView删除: 删除完成，重新显示历史记录");
-                                DisplayCalculationHistory();
-                                
-                                // 记录删除后状态
-                                char afterStateLog[300] = {0};
-                                sprintf(afterStateLog, "删除完成: g_calculationHistory大小=%zu, ListView项目数=%d", 
-                                    g_calculationHistory.size(), ListView_GetItemCount(g_hListView));
-                                LogToFile(afterStateLog);
-                                
-                                LogToFile("右键菜单: 删除了选中的计算结果");
+                            // 修复索引转换逻辑：
+                            // DisplayCalculationHistory使用反向迭代器显示，所以：
+                            // ListView第0行 = g_calculationHistory的最后一条记录（最新）
+                            // ListView第1行 = g_calculationHistory的倒数第二条记录
+                            // ListView第N行 = g_calculationHistory的第(N+1)条记录
+                            // 因此ListView选中索引selIndex对应的实际索引是：
+                            // actualIndex = g_calculationHistory.size() - 1 - selIndex
+                            size_t actualIndex = g_calculationHistory.size() - 1 - selIndex;
+                            
+                            // 再次验证转换后的索引
+                            if (actualIndex >= g_calculationHistory.size()) {
+                                char errorLog[300] = {0};
+                                sprintf(errorLog, "ListView删除: 索引转换后超出范围: selIndex=%d -> actualIndex=%zu (历史记录总数=%zu)", 
+                                    (int)selIndex, actualIndex, g_calculationHistory.size());
+                                LogToFile(errorLog);
+                                MessageBoxW(g_hMainWindow, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
+                                return 0;
                             }
-                            else
-                            {
-                                LogToFile("ListView删除: 选中索引无效或超出范围");
-                                MessageBoxW(g_hMainWindow, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
-                            }
+                            
+                            // 记录索引转换详情
+                            char logMsg2[300] = {0};
+                            sprintf(logMsg2, "ListView删除: ListView索引=%d -> 实际索引=%zu (计算: %zu - 1 - %d)", 
+                                (int)selIndex, actualIndex, g_calculationHistory.size(), (int)selIndex);
+                            LogToFile(logMsg2);
+                            
+                            // 记录要删除的记录内容
+                            char expression[200] = {0};
+                            WideCharToMultiByte(CP_ACP, 0, g_calculationHistory[actualIndex].expression.c_str(), -1, expression, sizeof(expression), NULL, NULL);
+                            char result[200] = {0};
+                            WideCharToMultiByte(CP_ACP, 0, g_calculationHistory[actualIndex].result.c_str(), -1, result, sizeof(result), NULL, NULL);
+                            char logMsg3[400] = {0};
+                            sprintf(logMsg3, "ListView删除: 将删除记录: %s = %s", expression, result);
+                            LogToFile(logMsg3);
+                            
+                            // 从历史记录中删除
+                            LogToFile("ListView删除: 开始执行删除操作");
+                            g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
+                            
+                            // 保存到文件
+                            SaveCalculationHistory();
+                            
+                            // 重新显示历史记录
+                            LogToFile("ListView删除: 删除完成，重新显示历史记录");
+                            DisplayCalculationHistory();
+                            
+                            // 记录删除后状态
+                            char afterStateLog[300] = {0};
+                            sprintf(afterStateLog, "删除完成: g_calculationHistory大小=%zu, ListView项目数=%d", 
+                                g_calculationHistory.size(), ListView_GetItemCount(g_hListView));
+                            LogToFile(afterStateLog);
+                            
+                            LogToFile("右键菜单: 删除了选中的计算结果");
                         }
                         else if (command == ID_CONTEXT_CLEAR_ALL)
                         {
@@ -2290,6 +3128,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
     LogToFile("Program started");
     g_hInstance = hInstance;
+
+    bool comInitialized = false;
+    HRESULT hrCoInit = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (SUCCEEDED(hrCoInit))
+    {
+        comInitialized = true;
+        LogToFile("CoInitializeEx succeeded with COINIT_APARTMENTTHREADED");
+    }
+    else
+    {
+        char logMsg[200] = {0};
+        sprintf(logMsg, "CoInitializeEx failed: 0x%08X", hrCoInit);
+        LogToFile(logMsg);
+        MessageBoxW(NULL, L"初始化 WebView2 所需的 COM 环境失败，请重启或检查系统设置。", L"Funny Quick", MB_ICONERROR | MB_OK);
+        return 0;
+    }
     
     // 初始化Common Controls，ListView需要用到
     INITCOMMONCONTROLSEX icex;
@@ -2353,8 +3207,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // 加载保存的窗口设置，允许用户调整大小
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int windowWidth = 400;
-    int windowHeight = 300;
+    int windowWidth = 800;
+    int windowHeight = 600;
     int x = (screenWidth - windowWidth) / 2;
     int y = (screenHeight - windowHeight) / 2;
     
@@ -2390,6 +3244,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         DispatchMessageW(&initMsg);
     }
     
+    // 设置初始化标志，防止自动执行
+    g_windowInitializing = true;
+    
     // Now set focus to edit box and display default shortcuts
     if (g_hEdit)
     {
@@ -2402,6 +3259,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         SearchAndDisplayResults(L"");
         LogToFile("Displayed default search results after window creation");
     }
+    
+    // 处理所有待处理的消息，确保初始化消息都已处理
+    MSG initMsg2;
+    int messageCount2 = 0;
+    while (PeekMessageW(&initMsg2, NULL, 0, 0, PM_REMOVE) && messageCount2 < 50)
+    {
+        TranslateMessage(&initMsg2);
+        DispatchMessageW(&initMsg2);
+        messageCount2++;
+    }
+    
+    // 延迟清除初始化标志，确保所有初始化消息都已处理
+    Sleep(200);
+    g_windowInitializing = false;
+    LogToFile("Window initialization complete, auto-execution enabled");
     
     // Register hotkey combination Ctrl+Alt+Q
     if (!RegisterHotKey(g_hMainWindow, HOTKEY_ID, MOD_CONTROL | MOD_ALT, 'Q'))
@@ -2461,6 +3333,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     
     // Clean up
     LogToFile("Exiting, unregistering hotkey");
+    if (comInitialized)
+    {
+        CoUninitialize();
+        LogToFile("COM uninitialized");
+    }
     return (int)msg.wParam;
 }
 
@@ -2482,6 +3359,10 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 char enterLog[1100] = {0};
                 sprintf(enterLog, "  EditSubclassProc: Current edit text: '%s'", currentTextLog);
                 LogToFile(enterLog);
+                
+                // 打印ListView所有内容用于调试
+                LogToFile("  EditSubclassProc: 回车键按下，打印ListView内容:");
+                LogListViewContents();
                 
                 // Handle return key - Ensure it executes the first item
                 {
@@ -2535,30 +3416,57 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                         }
                         else
                         {
-                            // Force select the first item to ensure it's highlighted
-                            INT_PTR firstSelIndex = 0;
-                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
-                            LogToFile("  EditSubclassProc: Force selecting first item");
+                            // 获取第一个实际项目（跳过提示行）
+                            INT_PTR firstSelIndex = GetFirstActualItemIndex();
+                            if (firstSelIndex == -1)
+                            {
+                                LogToFile("  EditSubclassProc: 只有提示行，没有实际项目");
+                                return 0;
+                            }
                             
-                            // Get first item text
+                            // Force select the first actual item to ensure it's highlighted
+                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                            LogToFile("  EditSubclassProc: Force selecting first actual item (跳过提示行)");
+                            
+                            // Get first actual item text
                             WCHAR firstItemText[1024] = {0};
                             LVITEMW lvItem = {0};
+                            lvItem.mask = LVIF_TEXT;  // 添加mask标志
                             lvItem.iItem = (int)firstSelIndex;
                             lvItem.iSubItem = 0;
                             lvItem.pszText = firstItemText;
                             lvItem.cchTextMax = sizeof(firstItemText) / sizeof(WCHAR);
-                            ListView_GetItem(g_hListView, &lvItem);
+                            int getItemResult = ListView_GetItem(g_hListView, &lvItem);
                             char firstItemLog[1024] = {0};
                             WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                            sprintf(logMsg, "  EditSubclassProc: First item text: '%s'", firstItemLog);
+                            sprintf(logMsg, "  EditSubclassProc: First actual item text: '%s' (GetItem返回值: %d, 文本长度: %zu)", 
+                                    firstItemLog, getItemResult, wcslen(firstItemText));
                             LogToFile(logMsg);
+                            
+                            // 如果获取失败，尝试直接使用g_searchResults
+                            if (wcslen(firstItemText) == 0 && !g_searchResults.empty())
+                            {
+                                char fallbackLog[300] = {0};
+                                char fallbackName[256] = {0};
+                                WideCharToMultiByte(CP_UTF8, 0, g_searchResults[0].name, -1, fallbackName, sizeof(fallbackName), NULL, NULL);
+                                sprintf(fallbackLog, "  EditSubclassProc: ListView获取失败，使用g_searchResults[0]: '%s'", fallbackName);
+                                LogToFile(fallbackLog);
+                            }
                             
                             // Verify g_searchResults has items before executing
                             // Also check if the first item is not the "No matching items found" message
-                            if (!g_searchResults.empty() && g_searchResults.size() > 0)
+                            // 只有在不是窗口初始化时才自动执行
+                            // 并且只有在用户明确按回车键时才执行，不允许自动执行
+                            if (!g_windowInitializing && !g_searchResults.empty() && g_searchResults.size() > 0)
                             {
-                                LogToFile("  EditSubclassProc: Search results not empty, executing first item");
+                                // 只有在用户按回车键时才执行，不允许自动执行
+                                // 这里已经是WM_KEYDOWN with VK_RETURN，所以是用户按了回车键
+                                LogToFile("  EditSubclassProc: 用户按回车键，执行第一个搜索结果");
                                 ExecuteSelectedItem(firstSelIndex);
+                            }
+                            else if (g_windowInitializing)
+                            {
+                                LogToFile("  EditSubclassProc: 窗口初始化中，跳过自动执行");
                             }
                             else
                             {
@@ -2569,7 +3477,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 }
                                 else
                                 {
-                                    LogToFile("  EditSubclassProc: Error: search results empty but listbox has actual items");
+                                    LogToFile("  EditSubclassProc: 搜索结果为空，不执行");
                                 }
                             }
                         }
@@ -2648,6 +3556,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 LogToFile("EditSubclassProc: 计算模式下文本框获得焦点，允许正常处理");
                 // 不阻止焦点处理，允许用户正常输入
             }
+            // 不再自动执行程序，只有回车或双击listview时才执行
             break;
 
         case WM_KILLFOCUS:
@@ -2669,8 +3578,10 @@ void EnterCalculatorMode()
 {
     LogToFile("EnterCalculatorMode: 进入计算模式");
     
+    g_settingsMenuMode = false;
     // 设置计算模式标志
     g_calculatorMode = true;
+    g_currentSearch[0] = L'\0';
     
     // 更新模式标签文本 - 已移除模式标签控件
     // SetWindowTextW(g_hModeLabel, L"计算:");
@@ -2678,29 +3589,28 @@ void EnterCalculatorMode()
     // 不显示退出计算模式按钮，通过输入"q"退出
     // ShowWindow(g_hExitCalcButton, SW_SHOW);
     
+    // 在计算模式下不显示Windows控件按钮，使用WebView2内的按钮
+    // ShowWindow(g_hCalcMenuButton, SW_SHOW);
+    
     // 在计算模式下保持设置按钮可见
     // ShowWindow(g_hSettingsButton, SW_HIDE);
     
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
 
-    // 更新提示标签文本
-    SetWindowTextW(g_hInputHintLabel, L"计算模式 - 输入数学表达式按回车计算，输入 q 退出");
+    // 更新ListView列标题
+    UpdateListViewColumns();
 
     // 清空之前的列表框内容
     ListView_DeleteAllItems(g_hListView);
 
-    // 显示模式提示信息
-    LVITEMW lvi = {0};
-    lvi.mask = LVIF_TEXT;
-    lvi.iItem = 0;
-    lvi.iSubItem = 0;
-    lvi.pszText = (WCHAR*)L"计算模式 - 输入数学表达式按回车计算";
-    ListView_InsertItem(g_hListView, &lvi);
-
-    lvi.iItem = 1;
-    lvi.pszText = (WCHAR*)L"输入 q 退出计算模式";
-    ListView_InsertItem(g_hListView, &lvi);
+    // 显示模式提示信息（多行）
+    const WCHAR* hints[] = {
+        L"💡 输入数学表达式",
+        L"💡 按回车计算",
+        L"💡 输入 q 退出计算模式"
+    };
+    AddMultiLineHintsToListView(hints, 3);
 
     // 显示计算历史记录
     DisplayCalculationHistory();
@@ -2714,6 +3624,7 @@ void ExitCalculatorMode()
 {
     LogToFile("ExitCalculatorMode: 退出计算模式");
     
+    g_settingsMenuMode = false;
     // 清除计算模式标志
     g_calculatorMode = false;
     
@@ -2723,16 +3634,17 @@ void ExitCalculatorMode()
     // 隐藏退出计算模式按钮
     ShowWindow(g_hExitCalcButton, SW_HIDE);
     
+    // 隐藏计算模式操作菜单按钮
+    ShowWindow(g_hCalcMenuButton, SW_HIDE);
+    
     // 设置按钮已移除，不再需要显示
     
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
 
-    // 恢复提示标签文本
-    SetWindowTextW(g_hInputHintLabel, L"输入命令或网址；输入 js 进入计算模式；输入 wz 进入网址收藏模式");
-
     // 清空列表框
     ListView_DeleteAllItems(g_hListView);
+    SearchAndDisplayResults(L"");
 
     // 设置焦点到编辑框
     SetFocus(g_hEdit);
@@ -2798,6 +3710,11 @@ void ShowCalculatorHelpInfo()
     ListView_InsertItem(g_hListView, &lvi);
     
     LogToFile("ShowCalculatorHelpInfo: 计算模式帮助信息显示完成");
+    
+    if (g_calculatorMode)
+    {
+        UpdateCalculatorModeWebView();
+    }
 }
 
 // 显示使用帮助信息
@@ -2893,6 +3810,7 @@ void EnterBookmarkMode()
 {
     LogToFile("EnterBookmarkMode: 进入网址收藏模式");
     
+    g_settingsMenuMode = false;
     // 设置网址收藏模式标志
     g_bookmarkMode = true;
     
@@ -2913,23 +3831,19 @@ void EnterBookmarkMode()
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
 
-    // 更新提示标签文本
-    SetWindowTextW(g_hInputHintLabel, L"网址收藏模式 - 搜索或浏览收藏的网址，输入 q 退出");
+    // 更新ListView列标题
+    UpdateListViewColumns();
 
     // 清空之前的列表框内容
     ListView_DeleteAllItems(g_hListView);
     
-    // 显示模式提示信息
-    LVITEMW lvi = {0};
-    lvi.mask = LVIF_TEXT;
-    lvi.iItem = 0;
-    lvi.iSubItem = 0;
-    lvi.pszText = (WCHAR*)L"网址收藏模式 - 搜索或浏览收藏的网址";
-    ListView_InsertItem(g_hListView, &lvi);
-    
-    lvi.iItem = 1;
-    lvi.pszText = (WCHAR*)L"输入 q 退出网址收藏模式";
-    ListView_InsertItem(g_hListView, &lvi);
+    // 显示模式提示信息（多行）
+    const WCHAR* hints[] = {
+        L"💡 搜索或浏览收藏的网址",
+        L"💡 按回车或双击打开",
+        L"💡 输入 q 退出网址收藏模式"
+    };
+    AddMultiLineHintsToListView(hints, 3);
     
     // 加载并显示网址收藏
     LoadBookmarks();
@@ -2944,6 +3858,7 @@ void ExitBookmarkMode()
 {
     LogToFile("ExitBookmarkMode: 退出网址收藏模式");
     
+    g_settingsMenuMode = false;
     // 清除网址收藏模式标志
     g_bookmarkMode = false;
     
@@ -2959,8 +3874,8 @@ void ExitBookmarkMode()
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
 
-    // 恢复提示标签文本
-    SetWindowTextW(g_hInputHintLabel, L"输入命令或网址；输入 js 进入计算模式；输入 wz 进入网址收藏模式");
+    // 更新ListView列标题
+    UpdateListViewColumns();
 
     // 清空列表框
     ListView_DeleteAllItems(g_hListView);
@@ -3694,6 +4609,11 @@ void DisplayCalculationHistory()
     char verifyLog[200] = {0};
     sprintf(verifyLog, "DisplayCalculationHistory: ListView实际项目数 = %d", actualCount);
     LogToFile(verifyLog);
+    
+    if (g_calculatorMode)
+    {
+        UpdateCalculatorModeWebView();
+    }
 }
 
 // 保存计算历史到文件
@@ -4173,36 +5093,39 @@ void DeleteBookmarkFromDialog(HWND hDlg)
 // 显示设置菜单（现在通过set命令调用）
 void ShowSettingsMenu() {
     LogToFile("ShowSettingsMenu: 显示设置菜单");
+    g_settingsMenuMode = true;
+    g_currentSearch[0] = L'\0';
     
     // 清空列表框并显示菜单项
     ListView_DeleteAllItems(g_hListView);
+    g_searchResults.clear();
     
-    // 设置提示文本
-    SetWindowTextW(g_hInputHintLabel, L"设置菜单 - 双击选择项目");
+    // 添加提示行
+    AddHintRowToListView(L"💡 设置菜单 - 双击选择项目");
     
     // 添加菜单项到列表框
     LVITEMW lvi = {0};
     lvi.mask = LVIF_TEXT;
     
     // 添加菜单项
-    lvi.iItem = 0;
+    lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.iSubItem = 0;
     lvi.pszText = (WCHAR*)L"退出程序";
     ListView_InsertItem(g_hListView, &lvi);
     
-    lvi.iItem = 1;
+    lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"网址管理";
     ListView_InsertItem(g_hListView, &lvi);
     
-    lvi.iItem = 2;
+    lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"快捷方式管理";
     ListView_InsertItem(g_hListView, &lvi);
     
-    lvi.iItem = 3;
+    lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"系统设置";
     ListView_InsertItem(g_hListView, &lvi);
     
-    lvi.iItem = 4;
+    lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"关于软件";
     ListView_InsertItem(g_hListView, &lvi);
     
@@ -4211,6 +5134,9 @@ void ShowSettingsMenu() {
     char logMsg[200] = {0};
     sprintf(logMsg, "ShowSettingsMenu: 显示了 %d 个菜单项", itemCount);
     LogToFile(logMsg);
+    
+    // 更新WebView2显示
+    UpdateSettingsMenuWebView();
 }
 
 // 显示快捷方式管理对话框
@@ -4241,21 +5167,40 @@ void ShowAboutDialog() {
 
 // 处理设置菜单项的双击事件
 void HandleSettingsMenuItemClick(INT_PTR itemIndex) {
-    LogToFile("HandleSettingsMenuItemClick: 处理设置菜单项点击");
+    char logMsg[512] = {0};
+    sprintf(logMsg, "HandleSettingsMenuItemClick: 处理设置菜单项点击，索引: %Id", itemIndex);
+    LogToFile(logMsg);
+    
+    // 检查索引是否有效
+    int itemCount = ListView_GetItemCount(g_hListView);
+    if (itemIndex < 0 || itemIndex >= itemCount)
+    {
+        sprintf(logMsg, "HandleSettingsMenuItemClick: 无效索引 %Id，ListView项目数: %d", itemIndex, itemCount);
+        LogToFile(logMsg);
+        return;
+    }
     
     // 获取菜单项文本
     WCHAR itemText[256] = {0};
     LVITEMW lvItem = {0};
+    lvItem.mask = LVIF_TEXT;
     lvItem.iItem = (int)itemIndex;
     lvItem.iSubItem = 0;
     lvItem.pszText = itemText;
     lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
-    ListView_GetItem(g_hListView, &lvItem);
+    
+    BOOL getItemResult = ListView_GetItem(g_hListView, &lvItem);
+    if (!getItemResult)
+    {
+        DWORD error = GetLastError();
+        sprintf(logMsg, "HandleSettingsMenuItemClick: ListView_GetItem失败，错误代码: %lu", error);
+        LogToFile(logMsg);
+        return;
+    }
     
     char itemLog[512] = {0};
     WideCharToMultiByte(CP_UTF8, 0, itemText, -1, itemLog, sizeof(itemLog), NULL, NULL);
-    char logMsg[512] = {0};
-    sprintf(logMsg, "HandleSettingsMenuItemClick: 用户选择了 '%s'", itemLog);
+    sprintf(logMsg, "HandleSettingsMenuItemClick: 用户选择了 '%s' (索引: %Id)", itemLog, itemIndex);
     LogToFile(logMsg);
     
     // 根据选择的菜单项执行相应操作
@@ -4367,8 +5312,8 @@ void SaveWindowSettings() {
 // 从注册表加载窗口大小和位置
 void LoadWindowSettings(int& x, int& y, int& width, int& height) {
     // 默认窗口大小和位置
-    width = 400;
-    height = 300;
+    width = 800;
+    height = 600;
     
     // 获取屏幕工作区域大小
     RECT workArea;
@@ -4409,6 +5354,653 @@ void LoadWindowSettings(int& x, int& y, int& width, int& height) {
     if (y + height > workArea.bottom) y = workArea.bottom - height;
     
     // 确保最小窗口大小
-    if (width < 300) width = 300;
-    if (height < 200) height = 200;
+    if (width < 600) width = 600;
+    if (height < 400) height = 400;
+}
+
+// 初始化 WebView2
+void InitializeWebView2(HWND hwnd)
+{
+    LogToFile("InitializeWebView2: 开始初始化 WebView2");
+    
+    // 使用 CreateCoreWebView2Environment 创建环境（简化版本，不使用选项）
+    HRESULT hr = CreateCoreWebView2Environment(
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+            [hwnd](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+                if (FAILED(result))
+                {
+                    char errorMsg[256] = {0};
+                    sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08X", result);
+                    LogToFile(errorMsg);
+                    
+                    // WebView2初始化失败，显示基本用法界面
+                    LogToFile("InitializeWebView2: 显示基本用法界面（WebView2初始化失败）");
+                    ShowBasicUsage();
+                    return result;
+                }
+                
+                LogToFile("InitializeWebView2: WebView2 环境创建成功");
+                
+                // 创建 WebView2 控制器（使用占位窗口）
+                HWND webViewParent = g_hWebView2 ? g_hWebView2 : hwnd;
+                env->CreateCoreWebView2Controller(webViewParent, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                    [](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+                        if (FAILED(result))
+                        {
+                            char errorMsg[256] = {0};
+                            sprintf(errorMsg, "InitializeWebView2: 创建控制器失败，错误代码: 0x%08X", result);
+                            LogToFile(errorMsg);
+                            
+                            // 控制器创建失败，显示基本用法界面
+                            LogToFile("InitializeWebView2: 显示基本用法界面（控制器创建失败）");
+                            ShowBasicUsage();
+                            return result;
+                        }
+                        
+                        LogToFile("InitializeWebView2: WebView2 控制器创建成功");
+                        
+                        // 保存控制器引用
+                        g_webViewController = controller;
+                        g_webViewController->AddRef();
+                        
+                        // 设置 WebView2 控制器的位置和大小（匹配占位窗口）
+                        if (g_hWebView2)
+                        {
+                            RECT bounds;
+                            if (GetClientRect(g_hWebView2, &bounds))
+                            {
+                                g_webViewController->put_Bounds(bounds);
+                                char logMsg[200] = {0};
+                                sprintf(logMsg, "InitializeWebView2: 设置 WebView2 位置和大小: (%d, %d, %d, %d)", 
+                                        bounds.left, bounds.top, bounds.right, bounds.bottom);
+                                LogToFile(logMsg);
+                            }
+                        }
+                        
+                        // 获取 WebView2 核心对象
+                        g_webViewController->get_CoreWebView2(&g_webView);
+                        if (g_webView)
+                        {
+                            LogToFile("InitializeWebView2: WebView2 核心对象获取成功");
+                            
+                            // 设置消息接收处理器
+                            g_webView->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+                                [](ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+                                    WCHAR* message = nullptr;
+                                    args->TryGetWebMessageAsString(&message);
+                                    if (message)
+                                    {
+                                        // 解析JSON消息
+                                        std::wstring msgStr = message;
+                                        CoTaskMemFree(message);
+                                        
+                                        // 简单的JSON解析（查找type字段）
+                                        if (msgStr.find(L"\"type\":\"itemClick\"") != std::wstring::npos)
+                                        {
+                                            // 处理搜索结果点击
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                int index = _wtoi(indexStr.c_str());
+                                                if (index >= 0 && index < (int)g_searchResults.size())
+                                                {
+                                                    ExecuteSelectedItem(index);
+                                                }
+                                            }
+                                        }
+                                        else if (msgStr.find(L"\"type\":\"itemDblClick\"") != std::wstring::npos)
+                                        {
+                                            // 处理搜索结果双击
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                int index = _wtoi(indexStr.c_str());
+                                                if (index >= 0 && index < (int)g_searchResults.size())
+                                                {
+                                                    ExecuteSelectedItem(index);
+                                                }
+                                            }
+                                        }
+                                        else if (msgStr.find(L"\"type\":\"calcAction\"") != std::wstring::npos)
+                                        {
+                                            // 处理计算模式操作
+                                            std::wstring action;
+                                            int index = -1;
+                                            
+                                            size_t actionPos = msgStr.find(L"\"action\":\"");
+                                            if (actionPos != std::wstring::npos)
+                                            {
+                                                size_t start = actionPos + 10;
+                                                size_t end = msgStr.find(L"\"", start);
+                                                action = msgStr.substr(start, end - start);
+                                            }
+                                            
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                index = _wtoi(indexStr.c_str());
+                                            }
+                                            
+                                            // 处理操作
+                                            if (action == L"copy")
+                                            {
+                                                if (index >= 0 && index < (int)g_calculationHistory.size())
+                                                {
+                                                    size_t actualIndex = g_calculationHistory.size() - 1 - index;
+                                                    if (actualIndex < g_calculationHistory.size())
+                                                    {
+                                                        std::wstring text = g_calculationHistory[actualIndex].expression + L" = " + g_calculationHistory[actualIndex].result;
+                                                        if (OpenClipboard(g_hMainWindow))
+                                                        {
+                                                            EmptyClipboard();
+                                                            size_t byteCount = (text.length() + 1) * sizeof(wchar_t);
+                                                            HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, byteCount);
+                                                            if (hClipboardData)
+                                                            {
+                                                                LPVOID lpMem = GlobalLock(hClipboardData);
+                                                                memcpy(lpMem, text.c_str(), byteCount);
+                                                                GlobalUnlock(hClipboardData);
+                                                                SetClipboardData(CF_UNICODETEXT, hClipboardData);
+                                                            }
+                                                            CloseClipboard();
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if (action == L"delete")
+                                            {
+                                                if (g_calculationHistory.empty() || index < 0)
+                                                {
+                                                    MessageBoxW(g_hMainWindow, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
+                                                    return S_OK;
+                                                }
+                                                
+                                                size_t actualIndex = g_calculationHistory.size() - 1 - index;
+                                                if (actualIndex >= g_calculationHistory.size())
+                                                {
+                                                    MessageBoxW(g_hMainWindow, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
+                                                    return S_OK;
+                                                }
+                                                
+                                                g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
+                                                SaveCalculationHistory();
+                                                DisplayCalculationHistory();
+                                                UpdateCalculatorModeWebView();
+                                            }
+                                            else if (action == L"clearAll")
+                                            {
+                                                if (MessageBoxW(g_hMainWindow, L"确定要清空所有计算历史吗？", 
+                                                    L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                                                {
+                                                    g_calculationHistory.clear();
+                                                    SaveCalculationHistory();
+                                                    DisplayCalculationHistory();
+                                                    UpdateCalculatorModeWebView();
+                                                }
+                                            }
+                                        }
+                                        else if (msgStr.find(L"\"type\":\"settingsAction\"") != std::wstring::npos)
+                                        {
+                                            // 处理设置菜单操作
+                                            int index = -1;
+                                            
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                index = _wtoi(indexStr.c_str());
+                                            }
+                                            
+                                            // 处理设置菜单项点击（需要跳过提示行）
+                                            if (index >= 0)
+                                            {
+                                                INT_PTR actualIndex = index + GetHintRowCount();
+                                                HandleSettingsMenuItemClick(actualIndex);
+                                            }
+                                        }
+                                    }
+                                    return S_OK;
+                                }).Get(), nullptr);
+                            
+                            // WebView2 初始化完成，显示当前的搜索结果
+                            LogToFile("InitializeWebView2: WebView2 初始化完成，更新显示当前搜索结果");
+                            SearchAndDisplayResults(g_currentSearch);
+                        }
+                        
+                        return S_OK;
+                    }).Get());
+                
+                return S_OK;
+            }).Get());
+    
+    if (FAILED(hr))
+    {
+        char errorMsg[256] = {0};
+        sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08X", hr);
+        LogToFile(errorMsg);
+        
+        // 显示基本用法界面
+        LogToFile("InitializeWebView2: 显示基本用法界面（环境创建失败）");
+        ShowBasicUsage();
+    }
+}
+
+// 更新 WebView2 内容
+void UpdateWebView2Content(const WCHAR* htmlContent)
+{
+    if (g_webView && htmlContent)
+    {
+        HRESULT hr = g_webView->NavigateToString(htmlContent);
+        if (SUCCEEDED(hr))
+        {
+            char logMsg[300] = {0};
+            int contentLen = wcslen(htmlContent);
+            sprintf(logMsg, "UpdateWebView2Content: 已更新 WebView2 内容，HTML 长度: %d 字符", contentLen);
+            LogToFile(logMsg);
+        }
+        else
+        {
+            char errorMsg[256] = {0};
+            sprintf(errorMsg, "UpdateWebView2Content: 更新失败，错误代码: 0x%08X", hr);
+            LogToFile(errorMsg);
+        }
+    }
+    else
+    {
+        if (!g_webView)
+        {
+            LogToFile("UpdateWebView2Content: WebView2 未初始化 (g_webView 为空)");
+        }
+        if (!htmlContent)
+        {
+            LogToFile("UpdateWebView2Content: HTML 内容为空");
+        }
+    }
+}
+
+// 创建 WebView2 HTML 内容
+void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vector<std::wstring>& hints, std::wstring& html)
+{
+    html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+    html += L"<style>";
+    html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: #f5f5f5; }";
+    html += L".hint-banner { background: #fffbee; border-left: 4px solid #f7a531; padding: 12px 16px; margin-bottom: 12px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }";
+    html += L".hint-banner .banner-title { font-weight: bold; color: #b15c00; margin-bottom: 6px; display: flex; align-items: center; }";
+    html += L".hint-banner ul { margin: 0; padding-left: 20px; color: #6b4f1d; }";
+    html += L".hint-banner li { margin: 4px 0; }";
+    html += L"table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }";
+    html += L"th { background: #4CAF50; color: white; padding: 12px; text-align: left; font-weight: bold; }";
+    html += L"td { padding: 10px; border-bottom: 1px solid #f0f0f0; }";
+    html += L"tr:hover { background: #f0f7ff; cursor: pointer; }";
+    html += L"tr.selected { background: #e3f2fd; }";
+    html += L"tr.empty-row td { text-align: center; color: #777; font-style: italic; }";
+    html += L"</style>";
+    html += L"<script>";
+    html += L"let selectedIndex = -1;";
+    html += L"function selectRow(index) {";
+    html += L"  let rows = document.querySelectorAll('tr.item-row');";
+    html += L"  rows.forEach((r, i) => r.classList.toggle('selected', i === index));";
+    html += L"  selectedIndex = index;";
+    html += L"}";
+    html += L"function onRowClick(index) {";
+    html += L"  selectRow(index);";
+    html += L"  if (window.chrome && window.chrome.webview) {";
+    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'itemClick', index:index}));";
+    html += L"  }";
+    html += L"}";
+    html += L"function onRowDblClick(index) {";
+    html += L"  if (window.chrome && window.chrome.webview) {";
+    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'itemDblClick', index:index}));";
+    html += L"  }";
+    html += L"}";
+    html += L"</script>";
+    html += L"</head><body>";
+    
+    if (!hints.empty())
+    {
+        html += L"<div class='hint-banner'>";
+        html += L"<div class='banner-title'>💡 操作提示</div><ul>";
+        for (const auto& hint : hints)
+        {
+            html += L"<li>";
+            html += hint;
+            html += L"</li>";
+        }
+        html += L"</ul></div>";
+    }
+    
+    html += L"<table><thead><tr><th>名称</th><th>路径</th></tr></thead><tbody>";
+    
+    if (items.empty())
+    {
+        html += L"<tr class='empty-row'><td colspan='2'>未找到匹配项，试试其他关键字，或输入 <strong>help</strong> 查看可用命令。</td></tr>";
+    }
+    else
+    {
+        for (size_t i = 0; i < items.size(); i++)
+        {
+            html += L"<tr class='item-row' onclick='onRowClick(";
+            html += std::to_wstring(i);
+            html += L")' ondblclick='onRowDblClick(";
+            html += std::to_wstring(i);
+            html += L")'>";
+            html += L"<td>";
+            html += items[i].name;
+            html += L"</td><td>";
+            html += items[i].path;
+            html += L"</td></tr>";
+        }
+    }
+    
+    html += L"</tbody></table></body></html>";
+}
+
+void UpdateCalculatorModeWebView()
+{
+    if (!g_webView)
+    {
+        LogToFile("UpdateCalculatorModeWebView: WebView2 未初始化，无法显示计算模式内容");
+        return;
+    }
+    
+    std::wstring html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+    html += L"<style>";
+    html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: #10131a; color: #f5f8ff; }";
+    html += L".mode-banner { background: linear-gradient(90deg, #ff8a00, #e52e71); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; }";
+    html += L".hint-list { margin: 14px 0; padding: 14px; background: rgba(255,255,255,0.08); border-radius: 8px; }";
+    html += L".hint-list ul { margin: 0; padding-left: 24px; }";
+    html += L".hint-list li { margin: 6px 0; }";
+    html += L".history { margin-top: 14px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); }";
+    html += L"table { width: 100%; border-collapse: collapse; }";
+    html += L"th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }";
+    html += L"th { text-align: left; color: #7dd3fc; font-size: 14px; }";
+    html += L"td { font-size: 14px; color: #f5f8ff; }";
+    html += L"tr:last-child td { border-bottom: none; }";
+    html += L"tr.history-row { cursor: pointer; }";
+    html += L"tr.history-row:hover { background: rgba(255,255,255,0.1); }";
+    html += L"tr.history-row.selected { background: rgba(59, 130, 246, 0.3); }";
+    html += L".empty { text-align: center; color: #9ca3af; font-style: italic; padding: 20px 0; }";
+    html += L".action-button { position: relative; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #f5f8ff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }";
+    html += L".action-button:hover { background: rgba(255,255,255,0.25); }";
+    html += L".dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: rgba(30, 30, 40, 0.98); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 160px; z-index: 1000; display: none; }";
+    html += L".dropdown-menu.show { display: block; }";
+    html += L".dropdown-menu-item { padding: 10px 16px; cursor: pointer; color: #f5f8ff; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); }";
+    html += L".dropdown-menu-item:last-child { border-bottom: none; }";
+    html += L".dropdown-menu-item:hover { background: rgba(255,255,255,0.1); }";
+    html += L".dropdown-menu-separator { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0; }";
+    html += L"</style>";
+    html += L"<script>";
+    html += L"let selectedHistoryIndex = -1;";
+    html += L"function selectHistoryRow(index) {";
+    html += L"  let rows = document.querySelectorAll('tr.history-row');";
+    html += L"  rows.forEach((r, i) => r.classList.toggle('selected', i === index));";
+    html += L"  selectedHistoryIndex = index;";
+    html += L"}";
+    html += L"function onHistoryRowClick(index) {";
+    html += L"  selectHistoryRow(index);";
+    html += L"}";
+    html += L"function toggleDropdown() {";
+    html += L"  let menu = document.getElementById('actionMenu');";
+    html += L"  menu.classList.toggle('show');";
+    html += L"}";
+    html += L"function hideDropdown() {";
+    html += L"  let menu = document.getElementById('actionMenu');";
+    html += L"  menu.classList.remove('show');";
+    html += L"}";
+    html += L"function handleAction(action) {";
+    html += L"  hideDropdown();";
+    html += L"  if (window.chrome && window.chrome.webview) {";
+    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'calcAction', action:action, index:selectedHistoryIndex}));";
+    html += L"  }";
+    html += L"}";
+    html += L"document.addEventListener('click', function(e) {";
+    html += L"  if (!e.target.closest('.action-button-container')) {";
+    html += L"    hideDropdown();";
+    html += L"  }";
+    html += L"});";
+    html += L"</script>";
+    html += L"</head><body>";
+    
+    html += L"<div class='mode-banner'>";
+    html += L"<span>🧮 计算模式 (js) · 输入表达式并按回车即可计算</span>";
+    html += L"<div class='action-button-container' style='position: relative;'>";
+    html += L"<button class='action-button' onclick='toggleDropdown()'>操作 ▼</button>";
+    html += L"<div class='dropdown-menu' id='actionMenu'>";
+    html += L"<div class='dropdown-menu-item' onclick='handleAction(\"copy\")'>复制选中项</div>";
+    html += L"<div class='dropdown-menu-separator'></div>";
+    html += L"<div class='dropdown-menu-item' onclick='handleAction(\"delete\")'>删除选中项</div>";
+    html += L"<div class='dropdown-menu-item' onclick='handleAction(\"clearAll\")'>清空历史记录</div>";
+    html += L"</div></div></div>";
+    
+    html += L"<div class='hint-list'><ul>";
+    html += L"<li>输入数学表达式，例如 <code>2+3*4</code> 或 <code>sqrt(16)</code></li>";
+    html += L"<li>支持函数：sin、cos、tan、sqrt、abs 等</li>";
+    html += L"<li>输入 <strong>q</strong> 退出计算模式</li>";
+    html += L"</ul></div>";
+    
+    html += L"<div class='history'>";
+    if (g_calculationHistory.empty())
+    {
+        html += L"<div class='empty'>暂无计算记录，试着输入表达式开始计算吧。</div>";
+    }
+    else
+    {
+        html += L"<table><thead><tr><th>表达式</th><th>结果</th><th>备注</th></tr></thead><tbody>";
+        for (size_t i = g_calculationHistory.size(); i > 0; --i)
+        {
+            size_t displayIndex = g_calculationHistory.size() - i;
+            html += L"<tr class='history-row' onclick='onHistoryRowClick(";
+            html += std::to_wstring(displayIndex);
+            html += L")'><td>";
+            html += g_calculationHistory[i - 1].expression;
+            html += L"</td><td>";
+            html += g_calculationHistory[i - 1].result;
+            html += L"</td><td>";
+            if (g_calculationHistory[i - 1].comment.empty())
+            {
+                html += L"-";
+            }
+            else
+            {
+                html += g_calculationHistory[i - 1].comment;
+            }
+            html += L"</td></tr>";
+        }
+        html += L"</tbody></table>";
+    }
+    html += L"</div></body></html>";
+    
+    UpdateWebView2Content(html.c_str());
+}
+
+void UpdateSettingsMenuWebView()
+{
+    if (!g_webView)
+    {
+        LogToFile("UpdateSettingsMenuWebView: WebView2 未初始化，无法显示设置菜单");
+        return;
+    }
+    
+    std::wstring html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+    html += L"<style>";
+    html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
+    html += L".mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
+    html += L".hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }";
+    html += L".menu-container { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
+    html += L".menu-item { padding: 16px 20px; margin: 8px 0; background: linear-gradient(90deg, #f8f9fa, #e9ecef); border-left: 4px solid #4a90e2; border-radius: 6px; cursor: pointer; transition: all 0.2s; color: #333; font-size: 16px; }";
+    html += L".menu-item:hover { background: linear-gradient(90deg, #e9ecef, #dee2e6); transform: translateX(5px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }";
+    html += L".menu-item:active { transform: translateX(2px); }";
+    html += L".menu-icon { display: inline-block; width: 24px; margin-right: 12px; text-align: center; font-size: 20px; }";
+    html += L"</style>";
+    html += L"<script>";
+    html += L"function onMenuItemClick(index) {";
+    html += L"  if (window.chrome && window.chrome.webview) {";
+    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'settingsAction', index:index}));";
+    html += L"  }";
+    html += L"}";
+    html += L"</script>";
+    html += L"</head><body>";
+    
+    html += L"<div class='mode-banner'>⚙️ 设置菜单 (set) · 选择功能进行配置</div>";
+    
+    html += L"<div class='hint-banner'>💡 双击或点击菜单项执行操作</div>";
+    
+    html += L"<div class='menu-container'>";
+    
+    // 菜单项列表
+    const WCHAR* menuItems[] = {
+        L"退出程序",
+        L"网址管理",
+        L"快捷方式管理",
+        L"系统设置",
+        L"关于软件"
+    };
+    
+    const WCHAR* menuIcons[] = {
+        L"🚪",
+        L"🔖",
+        L"📁",
+        L"⚙️",
+        L"ℹ️"
+    };
+    
+    for (int i = 0; i < 5; i++)
+    {
+        html += L"<div class='menu-item' onclick='onMenuItemClick(";
+        html += std::to_wstring(i);
+        html += L")' ondblclick='onMenuItemClick(";
+        html += std::to_wstring(i);
+        html += L")'>";
+        html += L"<span class='menu-icon'>";
+        html += menuIcons[i];
+        html += L"</span>";
+        html += menuItems[i];
+        html += L"</div>";
+    }
+    
+    html += L"</div></body></html>";
+    
+    UpdateWebView2Content(html.c_str());
+}
+
+// 显示基本用法界面
+void ShowBasicUsage()
+{
+    LogToFile("ShowBasicUsage: 创建基本用法HTML内容");
+    
+    // 构建基本用法HTML内容
+    std::wstring htmlContent = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+    htmlContent += L"<style>";
+    htmlContent += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }";
+    htmlContent += L".container { max-width: 800px; margin: 0 auto; background: rgba(255,255,255,0.1); border-radius: 15px; padding: 30px; backdrop-filter: blur(10px); }";
+    htmlContent += L"h1 { text-align: center; margin-bottom: 30px; font-size: 2.5em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }";
+    htmlContent += L".section { margin-bottom: 25px; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; border-left: 4px solid #FFD700; }";
+    htmlContent += L".section h2 { color: #FFD700; margin-top: 0; font-size: 1.4em; }";
+    htmlContent += L".step { margin: 15px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; border-left: 3px solid #32CD32; }";
+    htmlContent += L".step-number { display: inline-block; width: 30px; height: 30px; background: #32CD32; border-radius: 50%; text-align: center; line-height: 30px; margin-right: 10px; font-weight: bold; }";
+    htmlContent += L"code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; }";
+    htmlContent += L".warning { background: rgba(255,69,58,0.3); border-left-color: #FF4500; }";
+    htmlContent += L".tip { background: rgba(50,205,50,0.3); border-left-color: #32CD32; }";
+    htmlContent += L"ul { list-style: none; padding-left: 0; }";
+    htmlContent += L"li { margin: 8px 0; padding-left: 25px; position: relative; }";
+    htmlContent += L"li:before { content: '▶'; position: absolute; left: 0; color: #FFD700; }";
+    htmlContent += L"</style>";
+    htmlContent += L"</head><body>";
+    
+    htmlContent += L"<div class='container'>";
+    htmlContent += L"<h1>🚀 Funny Quick 快速入门</h1>";
+    
+    htmlContent += L"<div class='section'>";
+    htmlContent += L"<h2>📋 基本功能</h2>";
+    htmlContent += L"<ul>";
+    htmlContent += L"<li>快速搜索和启动应用程序</li>";
+    htmlContent += L"<li>支持模糊搜索和快捷键操作</li>";
+    htmlContent += L"<li>智能推荐和历史记录</li>";
+    htmlContent += L"<li>自定义快捷方式和分类</li>";
+    htmlContent += L"</ul>";
+    htmlContent += L"</div>";
+    
+    htmlContent += L"<div class='section'>";
+    htmlContent += L"<h2>⌨️ 快捷键操作</h2>";
+    htmlContent += L"<div class='step'>";
+    htmlContent += L"<span class='step-number'>1</span>按 <code>Ctrl + Space</code> 打开搜索窗口";
+    htmlContent += L"</div>";
+    htmlContent += L"<div class='step'>";
+    htmlContent += L"<span class='step-number'>2</span>输入应用名称或关键词进行搜索";
+    htmlContent += L"</div>";
+    htmlContent += L"<div class='step'>";
+    htmlContent += L"<span class='step-number'>3</span>使用方向键选择目标应用";
+    htmlContent += L"</div>";
+    htmlContent += L"<div class='step'>";
+    htmlContent += L"<span class='step-number'>4</span>按 <code>Enter</code> 启动应用或 <code>Esc</code> 取消";
+    htmlContent += L"</div>";
+    htmlContent += L"</div>";
+    
+    htmlContent += L"<div class='section'>";
+    htmlContent += L"<h2>🔍 搜索技巧</h2>";
+    htmlContent += L"<ul>";
+    htmlContent += L"<li>输入应用名称的部分字符即可匹配</li>";
+    htmlContent += L"<li>支持中文和英文搜索</li>";
+    htmlContent += L"<li>支持路径搜索，查找包含特定路径的程序</li>";
+    htmlContent += L"<li>使用上方向键查看搜索历史</li>";
+    htmlContent += L"</ul>";
+    htmlContent += L"</div>";
+    
+    htmlContent += L"<div class='section warning'>";
+    htmlContent += L"<h2>⚠️ WebView2 运行时问题</h2>";
+    htmlContent += L"<p>当前未检测到 Microsoft Edge WebView2 运行时或初始化失败。</p>";
+    htmlContent += L"<p><strong>解决方案：</strong></p>";
+    htmlContent += L"<ul>";
+    htmlContent += L"<li>下载并安装 Microsoft Edge WebView2 运行时</li>";
+    htmlContent += L"<li>从 Microsoft Edge 官网获取最新版本</li>";
+    htmlContent += L"<li>安装后重启应用程序</li>";
+    htmlContent += L"</ul>";
+    htmlContent += L"</div>";
+    
+    htmlContent += L"<div class='section tip'>";
+    htmlContent += L"<h2>💡 使用提示</h2>";
+    htmlContent += L"<ul>";
+    htmlContent += L"<li>双击搜索结果可以直接启动应用</li>";
+    htmlContent += L"<li>右键点击可以进行更多操作</li>";
+    htmlContent += L"<li>程序会自动记忆使用习惯</li>";
+    htmlContent += L"<li>定期更新可获得更好的体验</li>";
+    htmlContent += L"</ul>";
+    htmlContent += L"</div>";
+    
+    htmlContent += L"<div class='section'>";
+    htmlContent += L"<h2>🎯 开始使用</h2>";
+    htmlContent += L"<p>请先解决 WebView2 运行时问题，然后重新启动应用程序以获得完整的用户体验。</p>";
+    htmlContent += L"<p>如果您看到此界面，说明应用程序的核心功能仍然可用，只是Web显示界面暂时无法使用。</p>";
+    htmlContent += L"</div>";
+    
+    htmlContent += L"</div></body></html>";
+    
+    // 更新显示内容
+    if (g_webView)
+    {
+        UpdateWebView2Content(htmlContent.c_str());
+    }
+    else
+    {
+        LogToFile("ShowBasicUsage: WebView2 未初始化，无法显示HTML内容");
+        
+        // 如果没有WebView2，我们可以尝试使用其他方式显示信息
+        // 这里可以添加一个MessageBox来提示用户
+        MessageBoxW(NULL, L"WebView2 运行时未安装或初始化失败！\n\n请下载安装 Microsoft Edge WebView2 运行时后再使用。\n\n下载地址: https://developer.microsoft.com/microsoft-edge/webview2/\n\n基本功能仍然可用，详情请查看日志文件。", L"Funny Quick - 基本用法", MB_OK | MB_ICONINFORMATION);
+    }
 }

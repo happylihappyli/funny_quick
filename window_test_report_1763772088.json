@@ -1,0 +1,62 @@
+{
+  "timestamp": "2025-11-22 08:41:28",
+  "total_windows": 1,
+  "windows": [
+    {
+      "index": 1,
+      "basic_info": {
+        "hwnd": 21300596,
+        "title": "",
+        "class_name": "QuickLauncherClass",
+        "process": {
+          "name": "funny_quick.exe",
+          "pid": 31040,
+          "status": "running",
+          "memory_info": {
+            "rss": 28651520,
+            "vms": 9678848,
+            "num_page_faults": 25427,
+            "peak_wset": 28704768,
+            "wset": 28651520,
+            "peak_paged_pool": 339584,
+            "paged_pool": 283288,
+            "peak_nonpaged_pool": 20232,
+            "nonpaged_pool": 18960,
+            "pagefile": 9678848,
+            "peak_pagefile": 9781248,
+            "private": 9678848
+          }
+        }
+      },
+      "window_properties": {
+        "style": "0x14CF0000",
+        "border_size": "16x39",
+        "has_required_styles": {
+          "caption": true,
+          "thickframe": true,
+          "sysmenu": true,
+          "minimize_box": true,
+          "maximize_box": true
+        },
+        "window_state": {
+          "visible": 1,
+          "enabled": 1
+        }
+      },
+      "functionality_tests": {
+        "error": "(2, 'SetForegroundWindow', '系统找不到指定的文件。')"
+      },
+      "health_status": "healthy",
+      "summary": {
+        "tests_passed": 0,
+        "tests_failed": 0,
+        "health_percentage": 0
+      }
+    }
+  ],
+  "summary": {
+    "all_windows_healthy": true,
+    "total_tests_passed": 0,
+    "total_tests_failed": 0
+  }
+}
