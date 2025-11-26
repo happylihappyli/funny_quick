@@ -38,6 +38,10 @@ extern WCHAR g_currentSearch[1024];
 extern std::vector<CalculationRecord> g_calculationHistory;
 extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;
 extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;
+extern std::wstring g_cachedHelpHtml;  // 缓存的帮助信息HTML
+extern std::wstring g_cachedSettingsHtml;  // 缓存的设置菜单HTML
+extern bool g_helpHtmlCached;  // 帮助信息是否已缓存
+extern bool g_settingsHtmlCached;  // 设置菜单是否已缓存
 
 // 常量定义
 #define IDC_EDIT 1001

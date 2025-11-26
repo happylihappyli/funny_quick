@@ -47,6 +47,11 @@ HWND g_hExitBookmarkButton = NULL;  // 退出网址收藏模式按钮
 HWND g_hCalcMenuButton = NULL;  // 计算模式操作菜单按钮
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
+// WebView2 HTML内容缓存
+std::wstring g_cachedHelpHtml;  // 缓存的帮助信息HTML
+std::wstring g_cachedSettingsHtml;  // 缓存的设置菜单HTML
+bool g_helpHtmlCached = false;  // 帮助信息是否已缓存
+bool g_settingsHtmlCached = false;  // 设置菜单是否已缓存
 bool g_windowInitializing = false;  // 窗口是否正在初始化，防止自动执行
 
 // 字体相关变量
@@ -249,6 +254,8 @@ void UpdateWebView2Content(const WCHAR* htmlContent);  // 更新 WebView2 内容
 void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vector<std::wstring>& hints, std::wstring& html);  // 创建 HTML 内容
 void UpdateCalculatorModeWebView();  // 刷新计算模式的 WebView2 显示
 void UpdateSettingsMenuWebView();  // 刷新设置菜单的 WebView2 显示
+void UpdateHelpInfoWebView();  // 刷新帮助信息的 WebView2 显示
+void UpdateBookmarkModeWebView();  // 刷新网址收藏模式的 WebView2 显示
 void ShowBasicUsage();  // 显示基本用法界面
 
 // 系统托盘相关函数声明
@@ -3151,8 +3158,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     icex.dwICC = ICC_LISTVIEW_CLASSES;
     InitCommonControlsEx(&icex);
     
-    // Initialize common shortcuts
-    InitializeCommonShortcuts();
+    // 注意：快捷方式初始化移到窗口创建后，先显示帮助信息
+    // InitializeCommonShortcuts();  // 移到窗口创建后
     
     // 创建UI字体
     CreateUIFont();
@@ -3247,17 +3254,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // 设置初始化标志，防止自动执行
     g_windowInitializing = true;
     
-    // Now set focus to edit box and display default shortcuts
+    // Now set focus to edit box
     if (g_hEdit)
     {
         SetFocus(g_hEdit);
         LogToFile("Set focus to edit control after window creation");
     }
     
+    // 先显示帮助信息
+    if (g_hListView)
+    {
+        LogToFile("显示启动帮助信息");
+        ShowHelpInfo();
+    }
+    
+    // 然后初始化快捷方式（延迟初始化，确保WebView2已准备好）
+    LogToFile("初始化快捷方式");
+    InitializeCommonShortcuts();
+    
+    // 初始化完成后，显示默认搜索结果
     if (g_hListView)
     {
         SearchAndDisplayResults(L"");
-        LogToFile("Displayed default search results after window creation");
+        LogToFile("Displayed default search results after initialization");
     }
     
     // 处理所有待处理的消息，确保初始化消息都已处理
@@ -3803,6 +3822,9 @@ void ShowHelpInfo()
     ListView_InsertItem(g_hListView, &lvi);
     
     LogToFile("ShowHelpInfo: 使用帮助信息显示完成");
+    
+    // 更新WebView2显示帮助信息
+    UpdateHelpInfoWebView();
 }
 
 // Enter bookmark mode
@@ -3847,7 +3869,15 @@ void EnterBookmarkMode()
     
     // 加载并显示网址收藏
     LoadBookmarks();
+    
+    // 清空搜索查询，显示所有网址
+    g_currentSearch[0] = L'\0';
+    g_bookmarkSearchResults.clear();
+    
     DisplayBookmarkResults();
+    
+    // 更新WebView2显示
+    UpdateBookmarkModeWebView();
     
     // 设置焦点到编辑框
     SetFocus(g_hEdit);
@@ -4134,6 +4164,9 @@ void DisplayBookmarkResults()
     char logMsg[200] = {0};
     sprintf(logMsg, "DisplayBookmarkResults: 显示了 %zu 条网址收藏", displayBookmarks.size());
     LogToFile(logMsg);
+    
+    // 更新WebView2显示
+    UpdateBookmarkModeWebView();
 }
 
 // 检查字符串是否为有效的URL
@@ -4176,6 +4209,8 @@ void SearchBookmarks(const WCHAR* query)
     // 如果查询为空，显示所有网址收藏
     if (!query || wcslen(query) == 0)
     {
+        // 清空搜索结果，显示所有网址
+        g_bookmarkSearchResults.clear();
         DisplayBookmarkResults();
         return;
     }
@@ -5573,13 +5608,60 @@ void InitializeWebView2(HWND hwnd)
                                                 HandleSettingsMenuItemClick(actualIndex);
                                             }
                                         }
+                                        else if (msgStr.find(L"\"type\":\"bookmarkDblClick\"") != std::wstring::npos)
+                                        {
+                                            // 处理网址收藏双击
+                                            int index = -1;
+                                            
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                index = _wtoi(indexStr.c_str());
+                                            }
+                                            
+                                            // 获取要打开的网址
+                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+                                            if (index >= 0 && index < (int)displayBookmarks.size())
+                                            {
+                                                ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                                LogToFile("WebView2消息: 打开了网址收藏");
+                                            }
+                                        }
                                     }
                                     return S_OK;
                                 }).Get(), nullptr);
                             
-                            // WebView2 初始化完成，显示当前的搜索结果
-                            LogToFile("InitializeWebView2: WebView2 初始化完成，更新显示当前搜索结果");
-                            SearchAndDisplayResults(g_currentSearch);
+                            // WebView2 初始化完成，根据当前状态显示内容
+                            LogToFile("InitializeWebView2: WebView2 初始化完成，更新显示内容");
+                            
+                            // 根据当前模式显示相应内容
+                            if (g_settingsMenuMode)
+                            {
+                                UpdateSettingsMenuWebView();
+                            }
+                            else if (g_calculatorMode)
+                            {
+                                UpdateCalculatorModeWebView();
+                            }
+                            else if (g_bookmarkMode)
+                            {
+                                // 网址收藏模式显示所有网址
+                                UpdateBookmarkModeWebView();
+                            }
+                            else if (g_shortcuts.empty())
+                            {
+                                // 如果快捷方式还未初始化，显示帮助信息
+                                UpdateHelpInfoWebView();
+                            }
+                            else
+                            {
+                                // 显示搜索结果
+                                SearchAndDisplayResults(g_currentSearch);
+                            }
                         }
                         
                         return S_OK;
@@ -5605,13 +5687,17 @@ void UpdateWebView2Content(const WCHAR* htmlContent)
 {
     if (g_webView && htmlContent)
     {
+        // 直接使用NavigateToString，这是最快的方法
         HRESULT hr = g_webView->NavigateToString(htmlContent);
         if (SUCCEEDED(hr))
         {
+            // 只在调试时记录日志，减少日志开销
+            #ifdef _DEBUG
             char logMsg[300] = {0};
             int contentLen = wcslen(htmlContent);
             sprintf(logMsg, "UpdateWebView2Content: 已更新 WebView2 内容，HTML 长度: %d 字符", contentLen);
             LogToFile(logMsg);
+            #endif
         }
         else
         {
@@ -5636,6 +5722,8 @@ void UpdateWebView2Content(const WCHAR* htmlContent)
 // 创建 WebView2 HTML 内容
 void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vector<std::wstring>& hints, std::wstring& html)
 {
+    // 预分配内存，减少重新分配开销（估算：每个项目约100字符，基础HTML约2000字符）
+    html.reserve(items.size() * 100 + 2000);
     html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
     html += L"<style>";
     html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: #f5f5f5; }";
@@ -5718,7 +5806,10 @@ void UpdateCalculatorModeWebView()
         return;
     }
     
-    std::wstring html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+    // 预分配内存，减少重新分配开销
+    std::wstring html;
+    html.reserve(g_calculationHistory.size() * 150 + 3000);
+    html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
     html += L"<style>";
     html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: #10131a; color: #f5f8ff; }";
     html += L".mode-banner { background: linear-gradient(90deg, #ff8a00, #e52e71); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; }";
@@ -5836,64 +5927,218 @@ void UpdateSettingsMenuWebView()
         return;
     }
     
-    std::wstring html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+    // 使用缓存，避免重复生成
+    if (!g_settingsHtmlCached)
+    {
+        g_cachedSettingsHtml.reserve(1500);  // 预分配内存
+        g_cachedSettingsHtml = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+        g_cachedSettingsHtml += L"<style>";
+        g_cachedSettingsHtml += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
+        g_cachedSettingsHtml += L".mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
+        g_cachedSettingsHtml += L".hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }";
+        g_cachedSettingsHtml += L".menu-container { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
+        g_cachedSettingsHtml += L".menu-item { padding: 16px 20px; margin: 8px 0; background: linear-gradient(90deg, #f8f9fa, #e9ecef); border-left: 4px solid #4a90e2; border-radius: 6px; cursor: pointer; transition: all 0.2s; color: #333; font-size: 16px; }";
+        g_cachedSettingsHtml += L".menu-item:hover { background: linear-gradient(90deg, #e9ecef, #dee2e6); transform: translateX(5px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }";
+        g_cachedSettingsHtml += L".menu-item:active { transform: translateX(2px); }";
+        g_cachedSettingsHtml += L".menu-icon { display: inline-block; width: 24px; margin-right: 12px; text-align: center; font-size: 20px; }";
+        g_cachedSettingsHtml += L"</style>";
+        g_cachedSettingsHtml += L"<script>";
+        g_cachedSettingsHtml += L"function onMenuItemClick(index) {";
+        g_cachedSettingsHtml += L"  if (window.chrome && window.chrome.webview) {";
+        g_cachedSettingsHtml += L"    window.chrome.webview.postMessage(JSON.stringify({type:'settingsAction', index:index}));";
+        g_cachedSettingsHtml += L"  }";
+        g_cachedSettingsHtml += L"}";
+        g_cachedSettingsHtml += L"</script>";
+        g_cachedSettingsHtml += L"</head><body>";
+        
+        g_cachedSettingsHtml += L"<div class='mode-banner'>⚙️ 设置菜单 (set) · 选择功能进行配置</div>";
+        
+        g_cachedSettingsHtml += L"<div class='hint-banner'>💡 双击或点击菜单项执行操作</div>";
+        
+        g_cachedSettingsHtml += L"<div class='menu-container'>";
+        
+        // 菜单项列表
+        const WCHAR* menuItems[] = {
+            L"退出程序",
+            L"网址管理",
+            L"快捷方式管理",
+            L"系统设置",
+            L"关于软件"
+        };
+        
+        const WCHAR* menuIcons[] = {
+            L"🚪",
+            L"🔖",
+            L"📁",
+            L"⚙️",
+            L"ℹ️"
+        };
+        
+        for (int i = 0; i < 5; i++)
+        {
+            g_cachedSettingsHtml += L"<div class='menu-item' onclick='onMenuItemClick(";
+            g_cachedSettingsHtml += std::to_wstring(i);
+            g_cachedSettingsHtml += L")' ondblclick='onMenuItemClick(";
+            g_cachedSettingsHtml += std::to_wstring(i);
+            g_cachedSettingsHtml += L")'>";
+            g_cachedSettingsHtml += L"<span class='menu-icon'>";
+            g_cachedSettingsHtml += menuIcons[i];
+            g_cachedSettingsHtml += L"</span>";
+            g_cachedSettingsHtml += menuItems[i];
+            g_cachedSettingsHtml += L"</div>";
+        }
+        
+        g_cachedSettingsHtml += L"</div></body></html>";
+        g_settingsHtmlCached = true;
+        LogToFile("UpdateSettingsMenuWebView: 设置菜单HTML已缓存");
+    }
+    
+    UpdateWebView2Content(g_cachedSettingsHtml.c_str());
+}
+
+void UpdateHelpInfoWebView()
+{
+    if (!g_webView)
+    {
+        LogToFile("UpdateHelpInfoWebView: WebView2 未初始化，无法显示帮助信息");
+        return;
+    }
+    
+    // 使用缓存，避免重复生成
+    if (!g_helpHtmlCached)
+    {
+        g_cachedHelpHtml.reserve(2000);  // 预分配内存
+        g_cachedHelpHtml = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+        g_cachedHelpHtml += L"<style>";
+        g_cachedHelpHtml += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
+        g_cachedHelpHtml += L".help-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
+        g_cachedHelpHtml += L".help-section { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: #333; }";
+        g_cachedHelpHtml += L".help-section h2 { color: #4a90e2; margin-top: 0; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #4a90e2; padding-bottom: 8px; }";
+        g_cachedHelpHtml += L".help-section ul { margin: 0; padding-left: 20px; }";
+        g_cachedHelpHtml += L".help-section li { margin: 8px 0; line-height: 1.6; }";
+        g_cachedHelpHtml += L".help-section code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; color: #d63384; }";
+        g_cachedHelpHtml += L".help-tip { background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; padding: 12px; margin: 10px 0; border-radius: 4px; }";
+        g_cachedHelpHtml += L"</style></head><body>";
+        
+        g_cachedHelpHtml += L"<div class='help-banner'>📖 使用帮助 · 快速了解如何使用本工具</div>";
+        
+        g_cachedHelpHtml += L"<div class='help-section'>";
+        g_cachedHelpHtml += L"<h2>基本操作</h2>";
+        g_cachedHelpHtml += L"<ul>";
+        g_cachedHelpHtml += L"<li>在输入框中输入内容，按回车键执行</li>";
+        g_cachedHelpHtml += L"<li>支持实时搜索和快捷启动</li>";
+        g_cachedHelpHtml += L"<li>双击列表项可执行对应操作</li>";
+        g_cachedHelpHtml += L"</ul>";
+        g_cachedHelpHtml += L"</div>";
+        
+        g_cachedHelpHtml += L"<div class='help-section'>";
+        g_cachedHelpHtml += L"<h2>快捷命令</h2>";
+        g_cachedHelpHtml += L"<ul>";
+        g_cachedHelpHtml += L"<li><code>help</code> - 显示此帮助信息</li>";
+        g_cachedHelpHtml += L"<li><code>set</code> - 显示设置菜单</li>";
+        g_cachedHelpHtml += L"<li><code>js</code> - 切换到计算模式</li>";
+        g_cachedHelpHtml += L"<li><code>wz</code> - 切换到网址收藏模式</li>";
+        g_cachedHelpHtml += L"<li><code>q</code> - 退出现有模式</li>";
+        g_cachedHelpHtml += L"</ul>";
+        g_cachedHelpHtml += L"</div>";
+        
+        g_cachedHelpHtml += L"<div class='help-section'>";
+        g_cachedHelpHtml += L"<h2>使用技巧</h2>";
+        g_cachedHelpHtml += L"<ul>";
+        g_cachedHelpHtml += L"<li>使用 <code>Ctrl+Alt+Q</code> 快速显示/隐藏窗口</li>";
+        g_cachedHelpHtml += L"<li>使用 <code>Ctrl+F1</code> 将窗口定位到桌面中央</li>";
+        g_cachedHelpHtml += L"<li>最小化窗口时会自动隐藏到系统托盘</li>";
+        g_cachedHelpHtml += L"<li>支持模糊搜索，输入部分名称即可匹配</li>";
+        g_cachedHelpHtml += L"</ul>";
+        g_cachedHelpHtml += L"</div>";
+        
+        g_cachedHelpHtml += L"<div class='help-tip'>💡 提示：输入任意内容开始搜索，或使用上述命令进入特定模式</div>";
+        
+        g_cachedHelpHtml += L"</body></html>";
+        g_helpHtmlCached = true;
+        LogToFile("UpdateHelpInfoWebView: 帮助信息HTML已缓存");
+    }
+    
+    UpdateWebView2Content(g_cachedHelpHtml.c_str());
+}
+
+void UpdateBookmarkModeWebView()
+{
+    if (!g_webView)
+    {
+        LogToFile("UpdateBookmarkModeWebView: WebView2 未初始化，无法显示网址收藏");
+        return;
+    }
+    
+    // 使用搜索结果（如果有）或全部网址收藏
+    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+    
+    // 预分配内存
+    std::wstring html;
+    html.reserve(displayBookmarks.size() * 200 + 2000);
+    html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
     html += L"<style>";
     html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
     html += L".mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
     html += L".hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }";
-    html += L".menu-container { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
-    html += L".menu-item { padding: 16px 20px; margin: 8px 0; background: linear-gradient(90deg, #f8f9fa, #e9ecef); border-left: 4px solid #4a90e2; border-radius: 6px; cursor: pointer; transition: all 0.2s; color: #333; font-size: 16px; }";
-    html += L".menu-item:hover { background: linear-gradient(90deg, #e9ecef, #dee2e6); transform: translateX(5px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }";
-    html += L".menu-item:active { transform: translateX(2px); }";
-    html += L".menu-icon { display: inline-block; width: 24px; margin-right: 12px; text-align: center; font-size: 20px; }";
+    html += L"table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.95); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
+    html += L"th { background: linear-gradient(90deg, #4a90e2, #357abd); color: white; padding: 12px; text-align: left; font-weight: bold; }";
+    html += L"td { padding: 10px; border-bottom: 1px solid #f0f0f0; color: #333; }";
+    html += L"tr.bookmark-row { cursor: pointer; }";
+    html += L"tr.bookmark-row:hover { background: #f0f7ff; }";
+    html += L"tr.bookmark-row.selected { background: #e3f2fd; }";
+    html += L"tr:last-child td { border-bottom: none; }";
+    html += L".empty { text-align: center; color: #9ca3af; font-style: italic; padding: 20px 0; background: rgba(255,255,255,0.95); border-radius: 10px; }";
+    html += L".url-cell { color: #666; font-size: 13px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }";
     html += L"</style>";
     html += L"<script>";
-    html += L"function onMenuItemClick(index) {";
+    html += L"let selectedBookmarkIndex = -1;";
+    html += L"function selectBookmarkRow(index) {";
+    html += L"  let rows = document.querySelectorAll('tr.bookmark-row');";
+    html += L"  rows.forEach((r, i) => r.classList.toggle('selected', i === index));";
+    html += L"  selectedBookmarkIndex = index;";
+    html += L"}";
+    html += L"function onBookmarkRowClick(index) {";
+    html += L"  selectBookmarkRow(index);";
+    html += L"}";
+    html += L"function onBookmarkRowDblClick(index) {";
     html += L"  if (window.chrome && window.chrome.webview) {";
-    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'settingsAction', index:index}));";
+    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'bookmarkDblClick', index:index}));";
     html += L"  }";
     html += L"}";
     html += L"</script>";
     html += L"</head><body>";
     
-    html += L"<div class='mode-banner'>⚙️ 设置菜单 (set) · 选择功能进行配置</div>";
+    html += L"<div class='mode-banner'>🔖 网址收藏模式 (wz) · 浏览和管理收藏的网址</div>";
     
-    html += L"<div class='hint-banner'>💡 双击或点击菜单项执行操作</div>";
+    html += L"<div class='hint-banner'>💡 双击网址打开，输入关键词搜索，输入 q 退出模式</div>";
     
-    html += L"<div class='menu-container'>";
-    
-    // 菜单项列表
-    const WCHAR* menuItems[] = {
-        L"退出程序",
-        L"网址管理",
-        L"快捷方式管理",
-        L"系统设置",
-        L"关于软件"
-    };
-    
-    const WCHAR* menuIcons[] = {
-        L"🚪",
-        L"🔖",
-        L"📁",
-        L"⚙️",
-        L"ℹ️"
-    };
-    
-    for (int i = 0; i < 5; i++)
+    if (displayBookmarks.empty())
     {
-        html += L"<div class='menu-item' onclick='onMenuItemClick(";
-        html += std::to_wstring(i);
-        html += L")' ondblclick='onMenuItemClick(";
-        html += std::to_wstring(i);
-        html += L")'>";
-        html += L"<span class='menu-icon'>";
-        html += menuIcons[i];
-        html += L"</span>";
-        html += menuItems[i];
-        html += L"</div>";
+        html += L"<div class='empty'>暂无收藏的网址，使用设置菜单添加网址收藏</div>";
+    }
+    else
+    {
+        html += L"<table><thead><tr><th>名称</th><th>网址</th></tr></thead><tbody>";
+        
+        for (size_t i = 0; i < displayBookmarks.size(); i++)
+        {
+            html += L"<tr class='bookmark-row' onclick='onBookmarkRowClick(";
+            html += std::to_wstring(i);
+            html += L")' ondblclick='onBookmarkRowDblClick(";
+            html += std::to_wstring(i);
+            html += L")'>";
+            html += L"<td>";
+            html += displayBookmarks[i].first;
+            html += L"</td><td class='url-cell'>";
+            html += displayBookmarks[i].second;
+            html += L"</td></tr>";
+        }
+        
+        html += L"</tbody></table>";
     }
     
-    html += L"</div></body></html>";
+    html += L"</body></html>";
     
     UpdateWebView2Content(html.c_str());
 }
