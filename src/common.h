@@ -30,6 +30,7 @@ extern bool g_ignoreNextReturn;
 extern bool g_windowInitializing;
 extern bool g_calculatorMode;
 extern bool g_bookmarkMode;
+extern bool g_dirMode;
 extern bool g_updatingEditBox;
 
 extern std::vector<ShortcutItem> g_shortcuts;
