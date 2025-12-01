@@ -88,6 +88,7 @@ void UpdateSettingsMenuWebView();  // 更新设置菜单的 WebView2 显示
 void UpdateHelpInfoWebView();  // 更新帮助信息的 WebView2 显示
 void UpdateBookmarkModeWebView();  // 更新网址收藏模式的 WebView2 显示
 void UpdateDirModeWebView();  // 更新目录浏览模式的 WebView2 显示
+std::wstring ReadHtmlTemplate(const std::wstring& filePath);  // 读取HTML模板文件内容
 
 // 类型定义
 struct ShortcutItem {

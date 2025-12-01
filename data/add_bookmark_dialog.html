@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>添加网址收藏</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.dialog-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 500px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dialog-header {
+    background: linear-gradient(135deg, #4a90e2, #357abd);
+    color: white;
+    padding: 25px 30px;
+    text-align: center;
+    position: relative;
+}
+
+.dialog-header h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.dialog-header p {
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.dialog-body {
+    padding: 30px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: white;
+    color: #2d3748;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.form-input::placeholder {
+    color: #a0aec0;
+}
+
+.input-icon {
+    position: absolute;
+    right: 15px;
+    top: 40px;
+    color: #a0aec0;
+    font-size: 18px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.btn {
+    flex: 1;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #4a90e2, #357abd);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #357abd, #2c6aa8);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(74, 144, 226, 0.3);
+}
+
+.btn-secondary {
+    background: #f7fafc;
+    color: #4a5568;
+    border: 2px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: #edf2f7;
+    border-color: #cbd5e0;
+}
+
+.validation-message {
+    color: #e53e3e;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.success-message {
+    background: #f0fff4;
+    border: 1px solid #9ae6b4;
+    color: #276749;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dialog-container {
+    animation: fadeIn 0.5s ease-out;
+}
+</style>
+</head>
+<body>
+<div class='dialog-container'>
+    <div class='dialog-header'>
+        <button class='close-btn' onclick='closeDialog()'>×</button>
+        <h2>➕ 添加网址收藏</h2>
+        <p>快速添加您常用的网址到收藏列表</p>
+    </div>
+    
+    <div class='dialog-body'>
+        <div class='success-message' id='successMessage'>
+            <span>✓</span>
+            <span>网址添加成功！</span>
+        </div>
+        
+        <div class='form-group'>
+            <label for='bookmarkName'>网站名称</label>
+            <input type='text' id='bookmarkName' class='form-input' placeholder='例如：百度搜索' maxlength='50'>
+            <div class='validation-message' id='nameValidation'>请输入网站名称</div>
+        </div>
+        
+        <div class='form-group'>
+            <label for='bookmarkUrl'>网站地址</label>
+            <input type='text' id='bookmarkUrl' class='form-input' placeholder='例如：https://www.baidu.com' maxlength='500'>
+            <div class='validation-message' id='urlValidation'>请输入有效的网址</div>
+        </div>
+        
+        <div class='form-actions'>
+            <button class='btn btn-secondary' onclick='closeDialog()'>
+                <span>取消</span>
+            </button>
+            <button class='btn btn-primary' onclick='addBookmark()'>
+                <span>添加收藏</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function validateForm() {
+    const name = document.getElementById('bookmarkName').value.trim();
+    const url = document.getElementById('bookmarkUrl').value.trim();
+    let isValid = true;
+    
+    // 验证名称
+    if (name === '') {
+        document.getElementById('nameValidation').style.display = 'block';
+        isValid = false;
+    } else {
+        document.getElementById('nameValidation').style.display = 'none';
+    }
+    
+    // 验证URL
+    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+    if (url === '' || !urlPattern.test(url)) {
+        document.getElementById('urlValidation').style.display = 'block';
+        isValid = false;
+    } else {
+        document.getElementById('urlValidation').style.display = 'none';
+    }
+    
+    return isValid;
+}
+
+function addBookmark() {
+    if (!validateForm()) {
+        return;
+    }
+    
+    const name = document.getElementById('bookmarkName').value.trim();
+    const url = document.getElementById('bookmarkUrl').value.trim();
+    
+    // 确保URL以http://或https://开头
+    let finalUrl = url;
+    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+        finalUrl = 'https://' + finalUrl;
+    }
+    
+    // 发送消息到C++程序
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            type: 'addBookmarkFromDialog',
+            name: name,
+            url: finalUrl
+        }));
+    }
+    
+    // 显示成功消息
+    document.getElementById('successMessage').style.display = 'flex';
+    
+    // 清空表单
+    document.getElementById('bookmarkName').value = '';
+    document.getElementById('bookmarkUrl').value = '';
+    
+    // 3秒后自动关闭对话框
+    setTimeout(() => {
+        closeDialog();
+    }, 3000);
+}
+
+function closeDialog() {
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            type: 'closeBookmarkDialog'
+        }));
+    }
+}
+
+// 按回车键提交表单
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        addBookmark();
+    }
+    if (event.key === 'Escape') {
+        closeDialog();
+    }
+});
+
+// 自动聚焦到名称输入框
+window.onload = function() {
+    document.getElementById('bookmarkName').focus();
+};
+
+// 输入验证
+const inputs = document.querySelectorAll('.form-input');
+inputs.forEach(input => {
+    input.addEventListener('input', function() {
+        // 隐藏验证消息
+        const validationId = this.id === 'bookmarkName' ? 'nameValidation' : 'urlValidation';
+        document.getElementById(validationId).style.display = 'none';
+        
+        // 隐藏成功消息
+        document.getElementById('successMessage').style.display = 'none';
+    });
+});
+</script>
+</body>
+</html>

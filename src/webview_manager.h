@@ -33,6 +33,7 @@ void InitializeWebView2(HWND hwnd);
 
 // 添加网址对话框函数声明
 void ShowSimpleAddBookmarkDialog();
+void ShowHtmlAddBookmarkDialog();
 
 // 网址收藏相关函数声明（在gui_main.cpp中定义）
 void SaveBookmarks();

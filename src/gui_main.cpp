@@ -186,6 +186,9 @@ void ShowAboutDialog(); // 显示关于对话框
 void SaveWindowSettings();
 void LoadWindowSettings(int& x, int& y, int& width, int& height);
 
+// HTML模板读取辅助函数声明
+std::wstring ReadHtmlTemplate(const std::wstring& filePath);
+
 // 日志功能已移至 logger.cpp
 
 // 表达式解析辅助函数实现
@@ -5751,66 +5754,78 @@ void UpdateHelpInfoWebView()
     // 使用缓存，避免重复生成
     if (!g_helpHtmlCached)
     {
-        g_cachedHelpHtml.reserve(2000);  // 预分配内存
-        g_cachedHelpHtml = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-        g_cachedHelpHtml += L"<style>";
-        g_cachedHelpHtml += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
-        g_cachedHelpHtml += L".help-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
-        g_cachedHelpHtml += L".help-section { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: #333; }";
-        g_cachedHelpHtml += L".help-section h2 { color: #4a90e2; margin-top: 0; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #4a90e2; padding-bottom: 8px; }";
-        g_cachedHelpHtml += L".help-section ul { margin: 0; padding-left: 20px; }";
-        g_cachedHelpHtml += L".help-section li { margin: 8px 0; line-height: 1.6; }";
-        g_cachedHelpHtml += L".help-section code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; color: #d63384; }";
-        g_cachedHelpHtml += L".help-tip { background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; padding: 12px; margin: 10px 0; border-radius: 4px; }";
-        g_cachedHelpHtml += L"</style></head><body>";
+        // 从外部模板文件读取HTML内容
+        std::wstring templatePath = L"data/help_template.html";
+        g_cachedHelpHtml = ReadHtmlTemplate(templatePath);
         
-        g_cachedHelpHtml += L"<div class='help-banner'>📖 使用帮助 · 快速了解如何使用本工具</div>";
+        // 如果读取失败，使用默认的HTML内容作为后备
+        if (g_cachedHelpHtml.find(L"错误：无法加载模板文件") != std::wstring::npos)
+        {
+            LogToFile("UpdateHelpInfoWebView: 模板文件读取失败，使用默认HTML内容");
+            
+            // 使用原来的硬编码HTML内容作为后备
+            g_cachedHelpHtml.reserve(2000);  // 预分配内存
+            g_cachedHelpHtml = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+            g_cachedHelpHtml += L"<style>";
+            g_cachedHelpHtml += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
+            g_cachedHelpHtml += L".help-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
+            g_cachedHelpHtml += L".help-section { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: #333; }";
+            g_cachedHelpHtml += L".help-section h2 { color: #4a90e2; margin-top: 0; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #4a90e2; padding-bottom: 8px; }";
+            g_cachedHelpHtml += L".help-section ul { margin: 0; padding-left: 20px; }";
+            g_cachedHelpHtml += L".help-section li { margin: 8px 0; line-height: 1.6; }";
+            g_cachedHelpHtml += L".help-section code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; color: #d63384; }";
+            g_cachedHelpHtml += L".help-tip { background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; padding: 12px; margin: 10px 0; border-radius: 4px; }";
+            g_cachedHelpHtml += L"</style></head><body>";
+            
+            g_cachedHelpHtml += L"<div class='help-banner'>📖 使用帮助 · 快速了解如何使用本工具</div>";
+            
+            g_cachedHelpHtml += L"<div class='help-section'>";
+            g_cachedHelpHtml += L"<h2>基本操作</h2>";
+            g_cachedHelpHtml += L"<ul>";
+            g_cachedHelpHtml += L"<li>在输入框中输入内容，按回车键执行</li>";
+            g_cachedHelpHtml += L"<li>支持实时搜索和快捷启动</li>";
+            g_cachedHelpHtml += L"<li>双击列表项可执行对应操作</li>";
+            g_cachedHelpHtml += L"</ul>";
+            g_cachedHelpHtml += L"</div>";
+            
+            g_cachedHelpHtml += L"<div class='help-section'>";
+            g_cachedHelpHtml += L"<h2>快捷命令</h2>";
+            g_cachedHelpHtml += L"<ul>";
+            g_cachedHelpHtml += L"<li><code>help</code> - 显示此帮助信息</li>";
+            g_cachedHelpHtml += L"<li><code>set</code> - 显示设置菜单</li>";
+            g_cachedHelpHtml += L"<li><code>js</code> - 切换到计算模式</li>";
+            g_cachedHelpHtml += L"<li><code>wz</code> - 切换到网址收藏模式</li>";
+            g_cachedHelpHtml += L"<li><code>dir</code> - 切换到目录浏览模式</li>";
+            g_cachedHelpHtml += L"<li><code>q</code> - 退出现有模式</li>";
+            g_cachedHelpHtml += L"</ul>";
+            g_cachedHelpHtml += L"</div>";
+            
+            g_cachedHelpHtml += L"<div class='help-section'>";
+            g_cachedHelpHtml += L"<h2>模式说明</h2>";
+            g_cachedHelpHtml += L"<ul>";
+            g_cachedHelpHtml += L"<li><strong>设置模式 (set)</strong>：显示设置菜单，可以管理网址收藏、退出程序等</li>";
+            g_cachedHelpHtml += L"<li><strong>计算模式 (js)</strong>：输入数学表达式进行计算，支持常用数学函数</li>";
+            g_cachedHelpHtml += L"<li><strong>网址收藏模式 (wz)</strong>：浏览和管理收藏的网址，支持搜索和快速打开</li>";
+            g_cachedHelpHtml += L"<li><strong>目录浏览模式 (dir)</strong>：浏览文件和文件夹，支持展开目录和打开文件</li>";
+            g_cachedHelpHtml += L"</ul>";
+            g_cachedHelpHtml += L"</div>";
+            
+            g_cachedHelpHtml += L"<div class='help-section'>";
+            g_cachedHelpHtml += L"<h2>使用技巧</h2>";
+            g_cachedHelpHtml += L"<ul>";
+            g_cachedHelpHtml += L"<li>使用 <code>Ctrl+Alt+Q</code> 快速显示/隐藏窗口</li>";
+            g_cachedHelpHtml += L"<li>使用 <code>Ctrl+F1</code> 将窗口定位到桌面中央</li>";
+            g_cachedHelpHtml += L"<li>最小化窗口时会自动隐藏到系统托盘</li>";
+            g_cachedHelpHtml += L"<li>支持模糊搜索，输入部分名称即可匹配</li>";
+            g_cachedHelpHtml += L"<li>在目录浏览模式下，点击目录可展开，双击文件可打开</li>";
+            g_cachedHelpHtml += L"</ul>";
+            g_cachedHelpHtml += L"</div>";
+            
+            g_cachedHelpHtml += L"<div class='help-tip'>💡 提示：输入任意内容开始搜索，或使用上述命令进入特定模式</div>";
+            
+            g_cachedHelpHtml += L"</body></html>";
+        }
         
-        g_cachedHelpHtml += L"<div class='help-section'>";
-        g_cachedHelpHtml += L"<h2>基本操作</h2>";
-        g_cachedHelpHtml += L"<ul>";
-        g_cachedHelpHtml += L"<li>在输入框中输入内容，按回车键执行</li>";
-        g_cachedHelpHtml += L"<li>支持实时搜索和快捷启动</li>";
-        g_cachedHelpHtml += L"<li>双击列表项可执行对应操作</li>";
-        g_cachedHelpHtml += L"</ul>";
-        g_cachedHelpHtml += L"</div>";
-        
-        g_cachedHelpHtml += L"<div class='help-section'>";
-        g_cachedHelpHtml += L"<h2>快捷命令</h2>";
-        g_cachedHelpHtml += L"<ul>";
-        g_cachedHelpHtml += L"<li><code>help</code> - 显示此帮助信息</li>";
-        g_cachedHelpHtml += L"<li><code>set</code> - 显示设置菜单</li>";
-        g_cachedHelpHtml += L"<li><code>js</code> - 切换到计算模式</li>";
-        g_cachedHelpHtml += L"<li><code>wz</code> - 切换到网址收藏模式</li>";
-        g_cachedHelpHtml += L"<li><code>dir</code> - 切换到目录浏览模式</li>";
-        g_cachedHelpHtml += L"<li><code>q</code> - 退出现有模式</li>";
-        g_cachedHelpHtml += L"</ul>";
-        g_cachedHelpHtml += L"</div>";
-        
-        g_cachedHelpHtml += L"<div class='help-section'>";
-        g_cachedHelpHtml += L"<h2>模式说明</h2>";
-        g_cachedHelpHtml += L"<ul>";
-        g_cachedHelpHtml += L"<li><strong>设置模式 (set)</strong>：显示设置菜单，可以管理网址收藏、退出程序等</li>";
-        g_cachedHelpHtml += L"<li><strong>计算模式 (js)</strong>：输入数学表达式进行计算，支持常用数学函数</li>";
-        g_cachedHelpHtml += L"<li><strong>网址收藏模式 (wz)</strong>：浏览和管理收藏的网址，支持搜索和快速打开</li>";
-        g_cachedHelpHtml += L"<li><strong>目录浏览模式 (dir)</strong>：浏览文件和文件夹，支持展开目录和打开文件</li>";
-        g_cachedHelpHtml += L"</ul>";
-        g_cachedHelpHtml += L"</div>";
-        
-        g_cachedHelpHtml += L"<div class='help-section'>";
-        g_cachedHelpHtml += L"<h2>使用技巧</h2>";
-        g_cachedHelpHtml += L"<ul>";
-        g_cachedHelpHtml += L"<li>使用 <code>Ctrl+Alt+Q</code> 快速显示/隐藏窗口</li>";
-        g_cachedHelpHtml += L"<li>使用 <code>Ctrl+F1</code> 将窗口定位到桌面中央</li>";
-        g_cachedHelpHtml += L"<li>最小化窗口时会自动隐藏到系统托盘</li>";
-        g_cachedHelpHtml += L"<li>支持模糊搜索，输入部分名称即可匹配</li>";
-        g_cachedHelpHtml += L"<li>在目录浏览模式下，点击目录可展开，双击文件可打开</li>";
-        g_cachedHelpHtml += L"</ul>";
-        g_cachedHelpHtml += L"</div>";
-        
-        g_cachedHelpHtml += L"<div class='help-tip'>💡 提示：输入任意内容开始搜索，或使用上述命令进入特定模式</div>";
-        
-        g_cachedHelpHtml += L"</body></html>";
         g_helpHtmlCached = true;
         LogToFile("UpdateHelpInfoWebView: 帮助信息HTML已缓存");
     }
@@ -6015,5 +6030,77 @@ void ShowBasicUsage()
         // 这里可以添加一个MessageBox来提示用户
         MessageBoxW(NULL, L"WebView2 运行时未安装或初始化失败！\n\n请下载安装 Microsoft Edge WebView2 运行时后再使用。\n\n下载地址: https://developer.microsoft.com/microsoft-edge/webview2/\n\n基本功能仍然可用，详情请查看日志文件。", L"Funny Quick - 基本用法", MB_OK | MB_ICONINFORMATION);
     }
+}
+
+// HTML模板读取辅助函数实现
+std::wstring ReadHtmlTemplate(const std::wstring& filePath)
+{
+    // 使用二进制方式读取文件，然后手动转换为宽字符串
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open())
+    {
+        std::string errorMsg = "ReadHtmlTemplate: 无法打开HTML模板文件: " + std::string(filePath.begin(), filePath.end());
+        LogToFile(errorMsg.c_str());
+        return L"<html><body><h1>错误：无法加载模板文件</h1></body></html>";
+    }
+    
+    // 读取文件内容到字节缓冲区
+    std::string buffer;
+    file.seekg(0, std::ios::end);
+    buffer.resize(file.tellg());
+    file.seekg(0, std::ios::beg);
+    file.read(&buffer[0], buffer.size());
+    file.close();
+    
+    // 简单的UTF-8到宽字符串转换（假设文件是UTF-8编码）
+    std::wstring content;
+    for (size_t i = 0; i < buffer.size(); )
+    {
+        wchar_t wc = 0;
+        unsigned char c = buffer[i];
+        
+        if ((c & 0x80) == 0) // 单字节字符
+        {
+            wc = c;
+            i += 1;
+        }
+        else if ((c & 0xE0) == 0xC0) // 双字节字符
+        {
+            if (i + 1 < buffer.size())
+            {
+                wc = ((c & 0x1F) << 6) | (buffer[i + 1] & 0x3F);
+                i += 2;
+            }
+            else
+            {
+                wc = L'?'; // 不完整的字符
+                i += 1;
+            }
+        }
+        else if ((c & 0xF0) == 0xE0) // 三字节字符
+        {
+            if (i + 2 < buffer.size())
+            {
+                wc = ((c & 0x0F) << 12) | ((buffer[i + 1] & 0x3F) << 6) | (buffer[i + 2] & 0x3F);
+                i += 3;
+            }
+            else
+            {
+                wc = L'?'; // 不完整的字符
+                i += 1;
+            }
+        }
+        else
+        {
+            wc = L'?'; // 无效的UTF-8字节
+            i += 1;
+        }
+        
+        content += wc;
+    }
+    
+    std::string successMsg = "ReadHtmlTemplate: 成功读取HTML模板文件: " + std::string(filePath.begin(), filePath.end());
+    LogToFile(successMsg.c_str());
+    return content;
 }
 

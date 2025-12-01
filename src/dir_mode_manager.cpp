@@ -220,30 +220,7 @@ void ExitDirMode()
     SetFocus(g_hEdit);
 }
 
-/**
- * @brief 读取HTML模板文件
- * 
- * 此函数从外部文件读取HTML模板内容
- * 
- * @param filePath 模板文件路径
- * @return std::wstring HTML模板内容，如果读取失败返回空字符串
- */
-std::wstring ReadHtmlTemplate(const std::wstring& filePath)
-{
-    std::wifstream file(filePath);
-    if (!file.is_open())
-    {
-        std::string errorMsg = "ReadHtmlTemplate: 无法打开HTML模板文件: " + std::string(filePath.begin(), filePath.end());
-        LogToFile(errorMsg.c_str());
-        return L"";
-    }
-    
-    std::wstringstream buffer;
-    buffer << file.rdbuf();
-    file.close();
-    
-    return buffer.str();
-}
+
 
 /**
  * @brief 生成快捷方式HTML内容

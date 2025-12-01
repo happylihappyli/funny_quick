@@ -10,6 +10,9 @@
 #include <codecvt>
 #include <commctrl.h>
 
+// HTML模板读取函数声明
+std::wstring ReadHtmlTemplate(const std::wstring& filePath);
+
 // WebView2相关全局变量定义
 ComPtr<ICoreWebView2Environment> g_webViewEnvironment;
 ComPtr<ICoreWebView2Controller> g_webViewController;
@@ -265,8 +268,99 @@ void InitializeWebView2(HWND hwnd)
                                             // 处理添加网址请求
                                             LogToFile("WebView2消息: 收到添加网址请求");
                                             
-                                            // 显示添加网址对话框
-                                            ShowSimpleAddBookmarkDialog();
+                                            // 显示HTML添加网址对话框
+                                            ShowHtmlAddBookmarkDialog();
+                                        }
+                                        else if (msgStr.find(L"\"type\":\"addBookmarkFromDialog\"") != std::wstring::npos)
+                                        {
+                                            // 处理从HTML对话框添加网址
+                                            LogToFile("WebView2消息: 收到从HTML对话框添加网址请求");
+                                            
+                                            std::wstring name, url;
+                                            
+                                            // 解析名称
+                                            size_t namePos = msgStr.find(L"\"name\":\"");
+                                            if (namePos != std::wstring::npos)
+                                            {
+                                                namePos += 7;  // 跳过 "name":
+                                                size_t nameEnd = msgStr.find(L"\"", namePos);
+                                                if (nameEnd != std::wstring::npos)
+                                                {
+                                                    name = msgStr.substr(namePos, nameEnd - namePos);
+                                                }
+                                            }
+                                            
+                                            // 解析URL
+                                            size_t urlPos = msgStr.find(L"\"url\":\"");
+                                            if (urlPos != std::wstring::npos)
+                                            {
+                                                urlPos += 6;  // 跳过 "url":
+                                                size_t urlEnd = msgStr.find(L"\"", urlPos);
+                                                if (urlEnd != std::wstring::npos)
+                                                {
+                                                    url = msgStr.substr(urlPos, urlEnd - urlPos);
+                                                }
+                                            }
+                                            
+                                            // 验证输入
+                                            if (name.empty() || url.empty())
+                                            {
+                                                LogToFile("WebView2消息: 从HTML对话框添加网址失败 - 名称或URL为空");
+                                                return S_OK;
+                                            }
+                                            
+                                            // 验证URL格式
+                                            if (url.find(L"http://") != 0 && url.find(L"https://") != 0 && 
+                                                url.find(L"ftp://") != 0 && url.find(L"file://") != 0)
+                                            {
+                                                LogToFile("WebView2消息: 从HTML对话框添加网址失败 - URL格式无效");
+                                                return S_OK;
+                                            }
+                                            
+                                            // 检查是否已存在相同URL
+                                            for (const auto& bookmark : g_bookmarks)
+                                            {
+                                                if (bookmark.second == url)
+                                                {
+                                                    LogToFile("WebView2消息: 从HTML对话框添加网址失败 - 网址已存在");
+                                                    return S_OK;
+                                                }
+                                            }
+                                            
+                                            // 添加网址收藏
+                                            g_bookmarks.push_back(std::make_pair(name, url));
+                                            
+                                            // 保存收藏列表
+                                            SaveBookmarks();
+                                            
+                                            // 更新WebView显示
+                                            if (g_bookmarkMode)
+                                            {
+                                                UpdateBookmarkModeWebView();
+                                            }
+                                            else
+                                            {
+                                                // 返回到原来的界面
+                                                UpdateHelpInfoWebView();
+                                            }
+                                            
+                                            std::string logMsg = "WebView2消息: 从HTML对话框成功添加网址收藏 - " + std::string(name.begin(), name.end()) + " -> " + std::string(url.begin(), url.end());
+                                            LogToFile(logMsg.c_str());
+                                        }
+                                        else if (msgStr.find(L"\"type\":\"closeBookmarkDialog\"") != std::wstring::npos)
+                                        {
+                                            // 处理关闭HTML对话框
+                                            LogToFile("WebView2消息: 收到关闭HTML对话框请求");
+                                            
+                                            // 返回到原来的界面
+                                            if (g_bookmarkMode)
+                                            {
+                                                UpdateBookmarkModeWebView();
+                                            }
+                                            else
+                                            {
+                                                UpdateHelpInfoWebView();
+                                            }
                                         }
                                         else if (msgStr.find(L"\"type\":\"dirExpand\"") != std::wstring::npos)
                                         {
@@ -445,6 +539,24 @@ void InitializeWebView2(HWND hwnd)
         LogToFile("InitializeWebView2: 显示基本用法界面（环境创建失败）");
         ShowBasicUsage();
     }
+}
+
+// 显示HTML添加网址对话框
+void ShowHtmlAddBookmarkDialog()
+{
+    LogToFile("ShowHtmlAddBookmarkDialog: 显示HTML添加网址对话框");
+    
+    // 读取HTML对话框模板
+    std::wstring dialogHtml = ReadHtmlTemplate(L"data/add_bookmark_dialog.html");
+    if (dialogHtml.empty())
+    {
+        LogToFile("ShowHtmlAddBookmarkDialog: 无法读取HTML对话框模板，使用简单对话框");
+        ShowSimpleAddBookmarkDialog();
+        return;
+    }
+    
+    // 更新WebView2内容为对话框
+    UpdateWebView2Content(dialogHtml.c_str());
 }
 
 // 显示简单添加网址对话框
