@@ -19,6 +19,8 @@
 #include <basetsd.h>   // For INT_PTR definition
 #include "resource.h"
 #include "logger.h"
+#include "webview_manager.h"  // WebView2 管理功能
+#include "dir_mode_manager.h"  // 目录浏览模式管理功能
 
 // WebView2 相关头文件
 #include <WebView2.h>
@@ -39,9 +41,6 @@ HINSTANCE g_hInstance = NULL;
 HWND g_hMainWindow = NULL;
 HWND g_hEdit = NULL;
 HWND g_hListView = NULL;  // ListView控件（保留用于兼容）
-HWND g_hWebView2 = NULL;  // WebView2 控件窗口
-ICoreWebView2Controller* g_webViewController = nullptr;  // WebView2 控制器
-ICoreWebView2* g_webView = nullptr;  // WebView2 核心对象
 HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
 HWND g_hSettingsButton = NULL;   // 设置按钮
 HWND g_hExitBookmarkButton = NULL;  // 退出网址收藏模式按钮
@@ -128,12 +127,9 @@ bool g_bookmarkMode = false;  // 是否处于网址收藏模式
 std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网址收藏列表 (名称, URL)
 std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;  // 网址搜索结果
 HWND g_hAddBookmarkButton = NULL;  // 添加网址按钮
-bool g_settingsMenuMode = false;  // 当前是否显示设置菜单
 
 // 目录浏览模式相关变量
 bool g_dirMode = false;  // 是否处于目录浏览模式
-std::wstring g_currentDirPath;  // 当前浏览的目录路径
-std::set<std::wstring> g_expandedPaths;  // 已展开的路径集合
 
 // 表达式解析辅助函数声明
 void EnterCalculatorMode();
@@ -158,12 +154,7 @@ void DisplayBookmarkResults();
 bool IsURL(const WCHAR* text);
 
 // 目录浏览功能函数声明
-void EnterDirMode();
-void ExitDirMode();
-void UpdateDirModeWebView();
-std::vector<std::wstring> GetDrives();
-std::vector<std::pair<std::wstring, bool>> GetCommonPaths();  // 返回路径和是否为目录的pair
-std::vector<std::pair<std::wstring, bool>> GetDirectoryContents(const WCHAR* path);  // 返回文件名和是否为目录的pair
+
 
 // 网址管理对话框函数声明
 INT_PTR CALLBACK BookmarkDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -5433,391 +5424,7 @@ void LoadWindowSettings(int& x, int& y, int& width, int& height) {
 }
 
 // 初始化 WebView2
-void InitializeWebView2(HWND hwnd)
-{
-    LogToFile("InitializeWebView2: 开始初始化 WebView2");
-    
-    // 使用 CreateCoreWebView2Environment 创建环境（简化版本，不使用选项）
-    HRESULT hr = CreateCoreWebView2Environment(
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [hwnd](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
-                if (FAILED(result))
-                {
-                    char errorMsg[256] = {0};
-                    sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08X", result);
-                    LogToFile(errorMsg);
-                    
-                    // WebView2初始化失败，显示基本用法界面
-                    LogToFile("InitializeWebView2: 显示基本用法界面（WebView2初始化失败）");
-                    ShowBasicUsage();
-                    return result;
-                }
-                
-                LogToFile("InitializeWebView2: WebView2 环境创建成功");
-                
-                // 创建 WebView2 控制器（使用占位窗口）
-                HWND webViewParent = g_hWebView2 ? g_hWebView2 : hwnd;
-                env->CreateCoreWebView2Controller(webViewParent, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                    [](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
-                        if (FAILED(result))
-                        {
-                            char errorMsg[256] = {0};
-                            sprintf(errorMsg, "InitializeWebView2: 创建控制器失败，错误代码: 0x%08X", result);
-                            LogToFile(errorMsg);
-                            
-                            // 控制器创建失败，显示基本用法界面
-                            LogToFile("InitializeWebView2: 显示基本用法界面（控制器创建失败）");
-                            ShowBasicUsage();
-                            return result;
-                        }
-                        
-                        LogToFile("InitializeWebView2: WebView2 控制器创建成功");
-                        
-                        // 保存控制器引用
-                        g_webViewController = controller;
-                        g_webViewController->AddRef();
-                        
-                        // 设置 WebView2 控制器的位置和大小（匹配占位窗口）
-                        if (g_hWebView2)
-                        {
-                            RECT bounds;
-                            if (GetClientRect(g_hWebView2, &bounds))
-                            {
-                                g_webViewController->put_Bounds(bounds);
-                                char logMsg[200] = {0};
-                                sprintf(logMsg, "InitializeWebView2: 设置 WebView2 位置和大小: (%d, %d, %d, %d)", 
-                                        bounds.left, bounds.top, bounds.right, bounds.bottom);
-                                LogToFile(logMsg);
-                            }
-                        }
-                        
-                        // 获取 WebView2 核心对象
-                        g_webViewController->get_CoreWebView2(&g_webView);
-                        if (g_webView)
-                        {
-                            LogToFile("InitializeWebView2: WebView2 核心对象获取成功");
-                            
-                            // 设置消息接收处理器
-                            g_webView->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-                                [](ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
-                                    WCHAR* message = nullptr;
-                                    args->TryGetWebMessageAsString(&message);
-                                    if (message)
-                                    {
-                                        // 解析JSON消息
-                                        std::wstring msgStr = message;
-                                        CoTaskMemFree(message);
-                                        
-                                        // 简单的JSON解析（查找type字段）
-                                        if (msgStr.find(L"\"type\":\"itemClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理搜索结果点击
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                int index = _wtoi(indexStr.c_str());
-                                                if (index >= 0 && index < (int)g_searchResults.size())
-                                                {
-                                                    ExecuteSelectedItem(index);
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"itemDblClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理搜索结果双击
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                int index = _wtoi(indexStr.c_str());
-                                                if (index >= 0 && index < (int)g_searchResults.size())
-                                                {
-                                                    ExecuteSelectedItem(index);
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"calcAction\"") != std::wstring::npos)
-                                        {
-                                            // 处理计算模式操作
-                                            std::wstring action;
-                                            int index = -1;
-                                            
-                                            size_t actionPos = msgStr.find(L"\"action\":\"");
-                                            if (actionPos != std::wstring::npos)
-                                            {
-                                                size_t start = actionPos + 10;
-                                                size_t end = msgStr.find(L"\"", start);
-                                                action = msgStr.substr(start, end - start);
-                                            }
-                                            
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 处理操作
-                                            if (action == L"copy")
-                                            {
-                                                if (index >= 0 && index < (int)g_calculationHistory.size())
-                                                {
-                                                    size_t actualIndex = g_calculationHistory.size() - 1 - index;
-                                                    if (actualIndex < g_calculationHistory.size())
-                                                    {
-                                                        std::wstring text = g_calculationHistory[actualIndex].expression + L" = " + g_calculationHistory[actualIndex].result;
-                                                        if (OpenClipboard(g_hMainWindow))
-                                                        {
-                                                            EmptyClipboard();
-                                                            size_t byteCount = (text.length() + 1) * sizeof(wchar_t);
-                                                            HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, byteCount);
-                                                            if (hClipboardData)
-                                                            {
-                                                                LPVOID lpMem = GlobalLock(hClipboardData);
-                                                                memcpy(lpMem, text.c_str(), byteCount);
-                                                                GlobalUnlock(hClipboardData);
-                                                                SetClipboardData(CF_UNICODETEXT, hClipboardData);
-                                                            }
-                                                            CloseClipboard();
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            else if (action == L"delete")
-                                            {
-                                                if (g_calculationHistory.empty() || index < 0)
-                                                {
-                                                    MessageBoxW(g_hMainWindow, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
-                                                    return S_OK;
-                                                }
-                                                
-                                                size_t actualIndex = g_calculationHistory.size() - 1 - index;
-                                                if (actualIndex >= g_calculationHistory.size())
-                                                {
-                                                    MessageBoxW(g_hMainWindow, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
-                                                    return S_OK;
-                                                }
-                                                
-                                                g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
-                                                SaveCalculationHistory();
-                                                DisplayCalculationHistory();
-                                                UpdateCalculatorModeWebView();
-                                            }
-                                            else if (action == L"clearAll")
-                                            {
-                                                if (MessageBoxW(g_hMainWindow, L"确定要清空所有计算历史吗？", 
-                                                    L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
-                                                {
-                                                    g_calculationHistory.clear();
-                                                    SaveCalculationHistory();
-                                                    DisplayCalculationHistory();
-                                                    UpdateCalculatorModeWebView();
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"settingsAction\"") != std::wstring::npos)
-                                        {
-                                            // 处理设置菜单操作
-                                            int index = -1;
-                                            
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 处理设置菜单项点击（需要跳过提示行）
-                                            if (index >= 0)
-                                            {
-                                                INT_PTR actualIndex = index + GetHintRowCount();
-                                                HandleSettingsMenuItemClick(actualIndex);
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"bookmarkDblClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理网址收藏双击
-                                            int index = -1;
-                                            
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 获取要打开的网址
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                LogToFile("WebView2消息: 打开了网址收藏");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"dirExpand\"") != std::wstring::npos)
-                                        {
-                                            // 处理目录展开
-                                            std::wstring path;
-                                            
-                                            size_t pathPos = msgStr.find(L"\"path\":\"");
-                                            if (pathPos != std::wstring::npos)
-                                            {
-                                                pathPos += 8;  // 跳过 "path":"
-                                                size_t pathEnd = msgStr.find(L"\"", pathPos);
-                                                if (pathEnd != std::wstring::npos)
-                                                {
-                                                    path = msgStr.substr(pathPos, pathEnd - pathPos);
-                                                    
-                                                    // 处理转义的路径
-                                                    size_t pos = 0;
-                                                    while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
-                                                    {
-                                                        path.replace(pos, 2, L"\\");
-                                                        pos += 1;
-                                                    }
-                                                    
-                                                    // 切换展开状态
-                                                    if (g_expandedPaths.find(path) != g_expandedPaths.end())
-                                                    {
-                                                        g_expandedPaths.erase(path);
-                                                        if (g_currentDirPath == path)
-                                                        {
-                                                            g_currentDirPath.clear();
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        g_expandedPaths.insert(path);
-                                                        g_currentDirPath = path;
-                                                    }
-                                                    
-                                                    UpdateDirModeWebView();
-                                                    LogToFile("WebView2消息: 展开/收起目录");
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"dirOpen\"") != std::wstring::npos)
-                                        {
-                                            // 处理文件/目录打开
-                                            std::wstring path;
-                                            bool isDir = false;
-                                            
-                                            size_t pathPos = msgStr.find(L"\"path\":\"");
-                                            if (pathPos != std::wstring::npos)
-                                            {
-                                                pathPos += 8;  // 跳过 "path":"
-                                                size_t pathEnd = msgStr.find(L"\"", pathPos);
-                                                if (pathEnd != std::wstring::npos)
-                                                {
-                                                    path = msgStr.substr(pathPos, pathEnd - pathPos);
-                                                    
-                                                    // 处理转义的路径
-                                                    size_t pos = 0;
-                                                    while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
-                                                    {
-                                                        path.replace(pos, 2, L"\\");
-                                                        pos += 1;
-                                                    }
-                                                    
-                                                    // 检查是否为目录
-                                                    size_t isDirPos = msgStr.find(L"\"isDir\":");
-                                                    if (isDirPos != std::wstring::npos)
-                                                    {
-                                                        size_t isDirStart = msgStr.find(L":", isDirPos) + 1;
-                                                        size_t isDirEnd = msgStr.find(L",", isDirStart);
-                                                        if (isDirEnd == std::wstring::npos) isDirEnd = msgStr.find(L"}", isDirStart);
-                                                        std::wstring isDirStr = msgStr.substr(isDirStart, isDirEnd - isDirStart);
-                                                        isDir = (isDirStr.find(L"true") != std::wstring::npos);
-                                                    }
-                                                    
-                                                    if (isDir)
-                                                    {
-                                                        // 展开目录
-                                                        g_expandedPaths.insert(path);
-                                                        g_currentDirPath = path;
-                                                        UpdateDirModeWebView();
-                                                        LogToFile("WebView2消息: 打开目录");
-                                                    }
-                                                    else
-                                                    {
-                                                        // 打开文件
-                                                        ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                        LogToFile("WebView2消息: 打开文件");
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    return S_OK;
-                                }).Get(), nullptr);
-                            
-                            // WebView2 初始化完成，根据当前状态显示内容
-                            LogToFile("InitializeWebView2: WebView2 初始化完成，更新显示内容");
-                            
-                            // 根据当前模式显示相应内容
-                            if (g_settingsMenuMode)
-                            {
-                                UpdateSettingsMenuWebView();
-                            }
-                            else if (g_calculatorMode)
-                            {
-                                UpdateCalculatorModeWebView();
-                            }
-                            else if (g_bookmarkMode)
-                            {
-                                // 网址收藏模式显示所有网址
-                                UpdateBookmarkModeWebView();
-                            }
-                            else if (g_dirMode)
-                            {
-                                // 目录浏览模式显示目录浏览界面
-                                UpdateDirModeWebView();
-                            }
-                            else if (g_shortcuts.empty())
-                            {
-                                // 如果快捷方式还未初始化，显示帮助信息
-                                UpdateHelpInfoWebView();
-                            }
-                            else
-                            {
-                                // 显示搜索结果
-                                SearchAndDisplayResults(g_currentSearch);
-                            }
-                        }
-                        
-                        return S_OK;
-                    }).Get());
-                
-                return S_OK;
-            }).Get());
-    
-    if (FAILED(hr))
-    {
-        char errorMsg[256] = {0};
-        sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08X", hr);
-        LogToFile(errorMsg);
-        
-        // 显示基本用法界面
-        LogToFile("InitializeWebView2: 显示基本用法界面（环境创建失败）");
-        ShowBasicUsage();
-    }
-}
+
 
 // 更新 WebView2 内容
 void UpdateWebView2Content(const WCHAR* htmlContent)
@@ -6224,12 +5831,15 @@ void UpdateBookmarkModeWebView()
     
     // 预分配内存
     std::wstring html;
-    html.reserve(displayBookmarks.size() * 200 + 2000);
+    html.reserve(displayBookmarks.size() * 200 + 3000);
     html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
     html += L"<style>";
     html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
     html += L".mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
     html += L".hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }";
+    html += L".add-button { background: linear-gradient(90deg, #28a745, #20c997); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; }";
+    html += L".add-button:hover { background: linear-gradient(90deg, #20c997, #17a2b8); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }";
+    html += L".add-button:active { transform: translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }";
     html += L"table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.95); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
     html += L"th { background: linear-gradient(90deg, #4a90e2, #357abd); color: white; padding: 12px; text-align: left; font-weight: bold; }";
     html += L"td { padding: 10px; border-bottom: 1px solid #f0f0f0; color: #333; }";
@@ -6255,16 +5865,24 @@ void UpdateBookmarkModeWebView()
     html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'bookmarkDblClick', index:index}));";
     html += L"  }";
     html += L"}";
+    html += L"function onAddBookmarkClick() {";
+    html += L"  if (window.chrome && window.chrome.webview) {";
+    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'addBookmark'}));";
+    html += L"  }";
+    html += L"}";
     html += L"</script>";
     html += L"</head><body>";
     
     html += L"<div class='mode-banner'>🔖 网址收藏模式 (wz) · 浏览和管理收藏的网址</div>";
     
-    html += L"<div class='hint-banner'>💡 双击网址打开，输入关键词搜索，输入 q 退出模式</div>";
+    html += L"<div class='hint-banner'>💡 双击网址打开，输入关键词搜索，输入 q 退出模式，点击下方按钮添加新网址</div>";
+    
+    // 添加网址按钮
+    html += L"<button class='add-button' onclick='onAddBookmarkClick()'>➕ 添加新网址</button>";
     
     if (displayBookmarks.empty())
     {
-        html += L"<div class='empty'>暂无收藏的网址，使用设置菜单添加网址收藏</div>";
+        html += L"<div class='empty'>暂无收藏的网址，点击上方按钮添加网址收藏</div>";
     }
     else
     {
@@ -6399,373 +6017,3 @@ void ShowBasicUsage()
     }
 }
 
-// 获取所有驱动器
-std::vector<std::wstring> GetDrives()
-{
-    std::vector<std::wstring> drives;
-    WCHAR driveStrings[MAX_PATH] = {0};
-    DWORD result = GetLogicalDriveStringsW(MAX_PATH, driveStrings);
-    
-    if (result > 0 && result < MAX_PATH)
-    {
-        WCHAR* drive = driveStrings;
-        while (*drive)
-        {
-            drives.push_back(std::wstring(drive));
-            drive += wcslen(drive) + 1;
-        }
-    }
-    
-    return drives;
-}
-
-// 获取常用路径
-std::vector<std::pair<std::wstring, bool>> GetCommonPaths()
-{
-    std::vector<std::pair<std::wstring, bool>> paths;
-    WCHAR path[MAX_PATH] = {0};
-    
-    // 桌面
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_DESKTOP, FALSE))
-    {
-        paths.push_back({std::wstring(L"📁 桌面"), true});
-    }
-    
-    // 文档
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_MYDOCUMENTS, FALSE))
-    {
-        paths.push_back({std::wstring(L"📁 文档"), true});
-    }
-    
-    // 下载
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_MYDOCUMENTS, FALSE))
-    {
-        std::wstring downloads = std::wstring(path) + L"\\Downloads";
-        DWORD attrs = GetFileAttributesW(downloads.c_str());
-        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY))
-        {
-            paths.push_back({std::wstring(L"📁 下载"), true});
-        }
-    }
-    
-    // 图片
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_MYPICTURES, FALSE))
-    {
-        paths.push_back({std::wstring(L"📁 图片"), true});
-    }
-    
-    // 视频
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_MYVIDEO, FALSE))
-    {
-        paths.push_back({std::wstring(L"📁 视频"), true});
-    }
-    
-    // 音乐
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_MYMUSIC, FALSE))
-    {
-        paths.push_back({std::wstring(L"📁 音乐"), true});
-    }
-    
-    // 用户目录
-    if (SHGetSpecialFolderPathW(NULL, path, CSIDL_PROFILE, FALSE))
-    {
-        paths.push_back({std::wstring(L"📁 用户目录"), true});
-    }
-    
-    return paths;
-}
-
-// 获取目录内容
-std::vector<std::pair<std::wstring, bool>> GetDirectoryContents(const WCHAR* path)
-{
-    std::vector<std::pair<std::wstring, bool>> contents;
-    std::wstring searchPath = std::wstring(path);
-    
-    // 确保路径以\结尾
-    if (searchPath.back() != L'\\')
-    {
-        searchPath += L"\\";
-    }
-    searchPath += L"*";
-    
-    WIN32_FIND_DATAW findData;
-    HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
-    
-    if (hFind != INVALID_HANDLE_VALUE)
-    {
-        do
-        {
-            // 跳过 . 和 ..
-            if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0)
-            {
-                continue;
-            }
-            
-            bool isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            contents.push_back({std::wstring(findData.cFileName), isDir});
-        } while (FindNextFileW(hFind, &findData));
-        
-        FindClose(hFind);
-    }
-    
-    // 排序：目录在前，然后按名称排序
-    std::sort(contents.begin(), contents.end(), [](const std::pair<std::wstring, bool>& a, const std::pair<std::wstring, bool>& b) {
-        if (a.second != b.second)
-        {
-            return a.second > b.second;  // 目录在前
-        }
-        return a.first < b.first;  // 按名称排序
-    });
-    
-    return contents;
-}
-
-// 进入目录浏览模式
-void EnterDirMode()
-{
-    LogToFile("EnterDirMode: 进入目录浏览模式");
-    
-    g_settingsMenuMode = false;
-    g_dirMode = true;
-    g_currentDirPath.clear();
-    g_expandedPaths.clear();
-    
-    // 隐藏其他按钮
-    ShowWindow(g_hExitCalcButton, SW_HIDE);
-    ShowWindow(g_hExitBookmarkButton, SW_HIDE);
-    ShowWindow(g_hSettingsButton, SW_SHOW);
-    
-    // 显示列表框
-    ShowWindow(g_hListView, SW_SHOW);
-    
-    // 清空编辑框
-    SetWindowTextW(g_hEdit, L"");
-    
-    // 更新ListView列标题
-    UpdateListViewColumns();
-    
-    // 清空列表框
-    ListView_DeleteAllItems(g_hListView);
-    
-    // 显示模式提示信息
-    const WCHAR* hints[] = {
-        L"💡 浏览常用路径和驱动器",
-        L"💡 点击展开目录，双击打开文件",
-        L"💡 输入 q 退出目录浏览模式"
-    };
-    AddMultiLineHintsToListView(hints, 3);
-    
-    // 更新WebView2显示
-    UpdateDirModeWebView();
-    
-    // 设置焦点到编辑框
-    SetFocus(g_hEdit);
-}
-
-// 退出目录浏览模式
-void ExitDirMode()
-{
-    LogToFile("ExitDirMode: 退出目录浏览模式");
-    
-    g_settingsMenuMode = false;
-    g_dirMode = false;
-    g_currentDirPath.clear();
-    g_expandedPaths.clear();
-    
-    // 显示设置按钮
-    ShowWindow(g_hSettingsButton, SW_SHOW);
-    
-    // 清空编辑框
-    SetWindowTextW(g_hEdit, L"");
-    
-    // 更新ListView列标题
-    UpdateListViewColumns();
-    
-    // 清空列表框
-    ListView_DeleteAllItems(g_hListView);
-    
-    // 设置焦点到编辑框
-    SetFocus(g_hEdit);
-}
-
-// 更新目录浏览模式的WebView2显示
-void UpdateDirModeWebView()
-{
-    if (!g_webView)
-    {
-        LogToFile("UpdateDirModeWebView: WebView2 未初始化，无法显示目录浏览");
-        return;
-    }
-    
-    std::wstring html;
-    html.reserve(5000);
-    html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += L"<style>";
-    html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
-    html += L".mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
-    html += L".hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }";
-    html += L".dir-container { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
-    html += L".dir-item { padding: 10px; margin: 5px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; }";
-    html += L".dir-item:hover { background: #f0f7ff; }";
-    html += L".dir-item.dir { color: #333; }";
-    html += L".dir-item.file { color: #666; }";
-    html += L".dir-icon { margin-right: 8px; font-size: 18px; }";
-    html += L".dir-name { flex: 1; }";
-    html += L".dir-expand { color: #999; font-size: 12px; margin-left: 10px; }";
-    html += L".dir-children { margin-left: 30px; margin-top: 5px; display: none; }";
-    html += L".dir-children.expanded { display: block; }";
-    html += L"</style>";
-    html += L"<script>";
-    html += L"function toggleDir(path) {";
-    html += L"  if (window.chrome && window.chrome.webview) {";
-    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'dirExpand', path:path}));";
-    html += L"  }";
-    html += L"}";
-    html += L"function openFile(path, isDir) {";
-    html += L"  if (window.chrome && window.chrome.webview) {";
-    html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'dirOpen', path:path, isDir:isDir}));";
-    html += L"  }";
-    html += L"}";
-    html += L"</script>";
-    html += L"</head><body>";
-    
-    html += L"<div class='mode-banner'>📂 目录浏览模式 (dir) · 浏览文件和文件夹</div>";
-    html += L"<div class='hint-banner'>💡 点击展开目录，双击打开文件或文件夹，输入 q 退出模式</div>";
-    html += L"<div class='dir-container'>";
-    
-    // 显示驱动器
-    html += L"<div style='font-weight: bold; margin-bottom: 10px; color: #333;'>💾 驱动器</div>";
-    std::vector<std::wstring> drives = GetDrives();
-    for (const auto& drive : drives)
-    {
-        std::wstring driveName = drive;
-        if (driveName.back() == L'\\')
-        {
-            driveName.pop_back();
-        }
-        html += L"<div class='dir-item dir' onclick='toggleDir(\"" + drive + L"\")' ondblclick='openFile(\"" + drive + L"\", true)'>";
-        html += L"<span class='dir-icon'>💾</span>";
-        html += L"<span class='dir-name'>" + driveName + L"</span>";
-        html += L"<span class='dir-expand'>点击展开</span>";
-        html += L"</div>";
-    }
-    
-    // 显示常用路径
-    html += L"<div style='font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #333;'>📁 常用路径</div>";
-    std::vector<std::pair<std::wstring, bool>> commonPaths = GetCommonPaths();
-    WCHAR pathBuf[MAX_PATH] = {0};
-    
-    for (size_t i = 0; i < commonPaths.size(); i++)
-    {
-        std::wstring displayName = commonPaths[i].first;
-        std::wstring actualPath;
-        
-        // 根据显示名称获取实际路径
-        if (displayName == L"📁 桌面")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_DESKTOP, FALSE);
-            actualPath = pathBuf;
-        }
-        else if (displayName == L"📁 文档")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_MYDOCUMENTS, FALSE);
-            actualPath = pathBuf;
-        }
-        else if (displayName == L"📁 下载")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_MYDOCUMENTS, FALSE);
-            actualPath = std::wstring(pathBuf) + L"\\Downloads";
-        }
-        else if (displayName == L"📁 图片")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_MYPICTURES, FALSE);
-            actualPath = pathBuf;
-        }
-        else if (displayName == L"📁 视频")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_MYVIDEO, FALSE);
-            actualPath = pathBuf;
-        }
-        else if (displayName == L"📁 音乐")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_MYMUSIC, FALSE);
-            actualPath = pathBuf;
-        }
-        else if (displayName == L"📁 用户目录")
-        {
-            SHGetSpecialFolderPathW(NULL, pathBuf, CSIDL_PROFILE, FALSE);
-            actualPath = pathBuf;
-        }
-        
-        if (!actualPath.empty())
-        {
-            // 转义路径中的引号
-            std::wstring escapedPath = actualPath;
-            size_t pos = 0;
-            while ((pos = escapedPath.find(L"\\", pos)) != std::wstring::npos)
-            {
-                escapedPath.replace(pos, 1, L"\\\\");
-                pos += 2;
-            }
-            
-            html += L"<div class='dir-item dir' onclick='toggleDir(\"" + escapedPath + L"\")' ondblclick='openFile(\"" + escapedPath + L"\", true)'>";
-            html += L"<span class='dir-icon'>📁</span>";
-            html += L"<span class='dir-name'>" + displayName + L"</span>";
-            html += L"<span class='dir-expand'>点击展开</span>";
-            html += L"</div>";
-        }
-    }
-    
-    // 显示已展开的目录内容
-    if (!g_expandedPaths.empty())
-    {
-        html += L"<div style='font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #333;'>📂 已展开的目录</div>";
-        
-        // 显示所有已展开的目录内容
-        for (const auto& expandedPath : g_expandedPaths)
-        {
-            html += L"<div style='font-weight: bold; margin-top: 15px; margin-bottom: 8px; color: #555; font-size: 14px;'>📂 " + expandedPath + L"</div>";
-            std::vector<std::pair<std::wstring, bool>> contents = GetDirectoryContents(expandedPath.c_str());
-            
-            for (const auto& item : contents)
-            {
-                std::wstring fullPath = expandedPath;
-                if (fullPath.back() != L'\\')
-                {
-                    fullPath += L"\\";
-                }
-                fullPath += item.first;
-                
-                // 转义路径
-                std::wstring escapedPath = fullPath;
-                size_t pos = 0;
-                while ((pos = escapedPath.find(L"\\", pos)) != std::wstring::npos)
-                {
-                    escapedPath.replace(pos, 1, L"\\\\");
-                    pos += 2;
-                }
-                
-                std::wstring icon = item.second ? L"📁" : L"📄";
-                std::wstring className = item.second ? L"dir-item dir" : L"dir-item file";
-                
-                html += L"<div class='" + className + L"' style='margin-left: 20px;'";
-                if (item.second)
-                {
-                    html += L" onclick='toggleDir(\"" + escapedPath + L"\")'";
-                }
-                html += L" ondblclick='openFile(\"" + escapedPath + L"\", " + (item.second ? L"true" : L"false") + L")'>";
-                html += L"<span class='dir-icon'>" + icon + L"</span>";
-                html += L"<span class='dir-name'>" + item.first + L"</span>";
-                if (item.second)
-                {
-                    html += L"<span class='dir-expand'>点击展开</span>";
-                }
-                html += L"</div>";
-            }
-        }
-    }
-    
-    html += L"</div></body></html>";
-    
-    UpdateWebView2Content(html.c_str());
-}

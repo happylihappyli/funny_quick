@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }
+        .mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        .hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }
+        .dir-container { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .dir-item { padding: 10px; margin: 5px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; }
+        .dir-item:hover { background: #f0f7ff; }
+        .dir-item.dir { color: #333; }
+        .dir-item.file { color: #666; }
+        .dir-icon { margin-right: 8px; font-size: 18px; }
+        .dir-name { flex: 1; }
+        .dir-expand { color: #999; font-size: 12px; margin-left: 10px; }
+        .dir-children { margin-left: 30px; margin-top: 5px; display: none; }
+        .dir-children.expanded { display: block; }
+    </style>
+    <script>
+        function toggleDir(path) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({type:'dirExpand', path:path}));
+            }
+        }
+        function openFile(path, isDir) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({type:'dirOpen', path:path, isDir:isDir}));
+            }
+        }
+        function openShortcut(command) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({type:'openShortcut', command:command}));
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class='mode-banner'>📂 目录浏览模式 (dir) · 浏览文件和文件夹</div>
+    <div class='hint-banner'>💡 点击展开目录，双击打开文件或文件夹，输入 q 退出模式</div>
+    <div class='dir-container'>
+        <!-- QUICK_SHORTCUTS_PLACEHOLDER -->
+        <!-- DRIVES_PLACEHOLDER -->
+        <!-- COMMON_PATHS_PLACEHOLDER -->
+        <!-- EXPANDED_DIRS_PLACEHOLDER -->
+    </div>
+</body>
+</html>

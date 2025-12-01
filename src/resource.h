@@ -1,4 +1,4 @@
-#ifndef RESOURCE_H
+﻿#ifndef RESOURCE_H
 #define RESOURCE_H
 
 // 网址管理对话框资源ID

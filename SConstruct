@@ -131,7 +131,7 @@ else:
     env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
 
 # 源文件 - 使用Windows API版本（文件已移动到src目录）
-sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp']
+sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp']
 
 # Windows环境下添加资源文件（resource.rc和resource.h在根目录）
 if os.name == 'nt':
@@ -194,6 +194,29 @@ if os.path.exists('app_icon.ico'):
     print("将复制图标文件到bin目录")
 else:
     print("警告：未找到app_icon.ico文件")
+
+# 复制HTML模板文件到bin/data目录
+def copy_html_templates():
+    """复制HTML模板文件到bin/data目录"""
+    data_dir = os.path.join(bin_dir, 'data')
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+        print(f"已创建data目录: {os.path.abspath(data_dir)}")
+    
+    # 复制dir_mode_template.html
+    html_source = 'data/dir_mode_template.html'
+    if os.path.exists(html_source):
+        html_target = os.path.join(data_dir, 'dir_mode_template.html')
+        # 使用env.Command创建复制任务
+        html_copy = env.Command(html_target, html_source, Copy('$TARGET', '$SOURCE'))
+        # 确保HTML复制在构建时执行
+        env.Depends(executable, html_copy)
+        print("将复制HTML模板文件到bin/data目录")
+    else:
+        print(f"警告：未找到HTML模板文件: {html_source}")
+
+# 执行HTML模板复制
+copy_html_templates()
 
 # 设置清理目标
 Clean(executable, os.path.join(bin_dir, 'funny_quick.exe'))

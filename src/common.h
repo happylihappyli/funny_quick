@@ -1,4 +1,4 @@
-#ifndef COMMON_H
+﻿#ifndef COMMON_H
 #define COMMON_H
 
 #define _CRT_SECURE_NO_WARNINGS 1
@@ -76,6 +76,18 @@ void UpdateWebView2Content(const WCHAR* htmlContent);  // 更新 WebView2 内容
 void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vector<std::wstring>& hints, std::wstring& html);  // 创建 HTML 内容
 void UpdateCalculatorModeWebView();  // 更新计算模式下的 WebView2 显示
 void ShowBasicUsage();  // 显示基本用法界面
+
+// 其他函数声明（在gui_main.cpp中实现）
+void ExecuteSelectedItem(INT_PTR index);  // 执行选中的项目
+void SearchAndDisplayResults(const WCHAR* query);  // 搜索并显示结果
+void DisplayCalculationHistory();  // 显示计算历史
+void SaveCalculationHistory();  // 保存计算历史
+void HandleSettingsMenuItemClick(INT_PTR itemIndex);  // 处理设置菜单项点击
+int GetHintRowCount();  // 获取提示行数量
+void UpdateSettingsMenuWebView();  // 更新设置菜单的 WebView2 显示
+void UpdateHelpInfoWebView();  // 更新帮助信息的 WebView2 显示
+void UpdateBookmarkModeWebView();  // 更新网址收藏模式的 WebView2 显示
+void UpdateDirModeWebView();  // 更新目录浏览模式的 WebView2 显示
 
 // 类型定义
 struct ShortcutItem {

@@ -1,4 +1,4 @@
-#include "ui_manager.h"
+﻿#include "ui_manager.h"
 #include <iostream>
 #include <string>
 #ifdef _WIN32
