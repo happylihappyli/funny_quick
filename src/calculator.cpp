@@ -17,6 +17,9 @@ extern HWND g_hEdit;
 extern bool g_calculatorMode;
 extern std::vector<CalculationRecord> g_calculationHistory;
 
+// 前向声明
+extern void UpdateWindowTitle();
+
 /**
  * @brief 表达式解析辅助函数 - 解析数字
  * @param expr 表达式字符串
@@ -183,6 +186,9 @@ void EnterCalculatorMode()
     // 更新计算模式WebView显示
     UpdateCalculatorModeWebView();
     
+    // 更新窗口标题
+    UpdateWindowTitle();
+    
     LogToFile("EnterCalculatorMode: 进入计算模式");
 }
 
@@ -201,6 +207,9 @@ void ExitCalculatorMode()
     
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
+    
+    // 更新窗口标题
+    UpdateWindowTitle();
     
     LogToFile("ExitCalculatorMode: 退出计算模式");
 }

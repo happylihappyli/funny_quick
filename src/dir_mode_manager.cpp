@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <string>
 
+// 前向声明
+extern void UpdateWindowTitle();
+
 /**
  * @brief 获取系统所有驱动器列表
  * 
@@ -186,6 +189,9 @@ void EnterDirMode()
     // 更新WebView2显示
     UpdateDirModeWebView();
     
+    // 更新窗口标题
+    UpdateWindowTitle();
+    
     // 设置焦点到编辑框
     SetFocus(g_hEdit);
 }
@@ -211,6 +217,12 @@ void ExitDirMode()
     
     // 更新ListView列标题
     UpdateListViewColumns();
+    
+    // 清空编辑框
+    SetWindowTextW(g_hEdit, L"");
+    
+    // 更新窗口标题
+    UpdateWindowTitle();
     
     // 设置焦点到编辑框
     SetFocus(g_hEdit);

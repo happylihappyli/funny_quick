@@ -139,6 +139,7 @@ void HandleSettingsMenuItemClick(INT_PTR itemIndex); // 处理设置菜单项双
 void ShowShortcutManagementDialog(); // 显示快捷方式管理对话框
 void ShowSystemSettingsDialog(); // 显示系统设置对话框
 void ShowAboutDialog(); // 显示关于对话框
+void UpdateWindowTitle(); // 根据当前模式更新窗口标题
 
 // 收藏相关函数声明
 void CopyToClipboard(const std::wstring& text);
@@ -1425,19 +1426,22 @@ void SearchAndDisplayResults(const WCHAR* query)
             item.usageCount = 0;
             g_searchResults.push_back(item);
         }
+        
+        // WZ模式搜索时，显示专门的网址收藏页面，而不是普通搜索页面
+        UpdateBookmarkModeWebView();
     }
     else
     {
         // 普通模式：同时搜索快捷方式和网址收藏
         SearchBookmarks(query);
         HandleShortcutSearch(query);
+        
+        // 默认模式搜索时，显示普通搜索页面
+        UpdateWebViewForSearch(webViewHints);
     }
     
     // 显示搜索结果到ListView
     DisplaySearchResults();
-    
-    // 更新WebView2内容
-    UpdateWebViewForSearch(webViewHints);
 }
 
 // 打印ListView所有内容到日志
@@ -2139,7 +2143,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     else
     {
         char logMsg[200] = {0};
-        sprintf(logMsg, "CoInitializeEx failed: 0x%08X", hrCoInit);
+        sprintf(logMsg, "CoInitializeEx failed: 0x%08lX", hrCoInit);
         LogToFile(logMsg);
         MessageBoxW(NULL, L"初始化 WebView2 所需的 COM 环境失败，请重启或检查系统设置。", L"Funny Quick", MB_ICONERROR | MB_OK);
         return 0;
@@ -2394,8 +2398,8 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                             return 0; // 特殊命令处理完成，不执行搜索结果
                         }
                         
-                        // 检查是否在计算模式或目录浏览模式，优先处理"q"退出命令
-                        if (g_calculatorMode || g_dirMode)
+                        // 检查是否在计算模式、目录浏览模式或网址模式，优先处理"q"退出命令
+                        if (g_calculatorMode || g_dirMode || g_bookmarkMode)
                         {
                             // 在特殊模式下，首先检查"q"退出命令
                             if (wcscmp(currentText, L"q") == 0)
@@ -2409,6 +2413,11 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 if (g_dirMode)
                                 {
                                     ExitDirMode();
+                                }
+
+                                if (g_bookmarkMode)
+                                {
+                                    ExitBookmarkMode();
                                 }
                             }
                             else
@@ -2470,8 +2479,39 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                             {
                                 // 只有在用户按回车键时才执行，不允许自动执行
                                 // 这里已经是WM_KEYDOWN with VK_RETURN，所以是用户按了回车键
-                                LogToFile("  EditSubclassProc: 用户按回车键，执行第一个搜索结果");
-                                ExecuteSelectedItem(firstSelIndex);
+                                
+                                // WZ模式下的特殊处理：直接打开网址收藏
+                                if (g_bookmarkMode)
+                                {
+                                    LogToFile("  EditSubclassProc: WZ模式下用户按回车键，打开第一个网址收藏");
+                                    
+                                    // 获取要显示的网址列表（搜索结果或全部网址）
+                                    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+                                    
+                                    if (firstSelIndex >= 0 && firstSelIndex < (INT_PTR)displayBookmarks.size())
+                                    {
+                                        // 直接打开网址
+                                        ShellExecuteW(NULL, L"open", displayBookmarks[firstSelIndex].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                        
+                                        char logMsg[500] = {0};
+                                        char nameLog[256] = {0};
+                                        char urlLog[256] = {0};
+                                        WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].first.c_str(), -1, nameLog, sizeof(nameLog), NULL, NULL);
+                                        WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].second.c_str(), -1, urlLog, sizeof(urlLog), NULL, NULL);
+                                        sprintf(logMsg, "  EditSubclassProc: 已打开网址收藏[%Id] '%s' -> '%s'", firstSelIndex, nameLog, urlLog);
+                                        LogToFile(logMsg);
+                                    }
+                                    else
+                                    {
+                                        LogToFile("  EditSubclassProc: WZ模式下索引无效，无法打开网址");
+                                    }
+                                }
+                                else
+                                {
+                                    // 普通模式下的处理
+                                    LogToFile("  EditSubclassProc: 用户按回车键，执行第一个搜索结果");
+                                    ExecuteSelectedItem(firstSelIndex);
+                                }
                             }
                             else if (g_windowInitializing)
                             {
@@ -2499,8 +2539,8 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                             sprintf(logMsg, "  EditSubclassProc: List empty, processing input as command: '%s'", currentTextLog);
                             LogToFile(logMsg);
                             
-                            // 检查是否在计算模式或目录浏览模式，优先处理"q"退出命令
-                            if ((g_calculatorMode || g_dirMode) && wcscmp(currentText, L"q") == 0)
+                            // 检查是否在计算模式、目录浏览模式或网址模式，优先处理"q"退出命令
+                            if ((g_calculatorMode || g_dirMode || g_bookmarkMode) && wcscmp(currentText, L"q") == 0)
                             {
                                 LogToFile("  EditSubclassProc: 检测到特殊模式下输入'q'，退出当前模式");
                                 if (g_calculatorMode)
@@ -2511,6 +2551,11 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 if (g_dirMode)
                                 {
                                     ExitDirMode();
+                                }
+
+                                if (g_bookmarkMode)
+                                {
+                                    ExitBookmarkMode();
                                 }
                                 return 0; // 特殊模式退出处理完成
                             }
@@ -2528,6 +2573,15 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 {
                                     LogToFile("  EditSubclassProc: 计算模式下，调用EvaluateExpression");
                                     EvaluateExpression(currentText);
+                                }
+                                // 如果在WZ模式下且不是"js"/"wz"/"q"命令，则进行书签搜索
+                                else if (g_bookmarkMode && 
+                                         wcscmp(currentText, L"js") != 0 && 
+                                         wcscmp(currentText, L"wz") != 0 &&
+                                         wcscmp(currentText, L"q") != 0)
+                                {
+                                    LogToFile("  EditSubclassProc: WZ模式下，进行书签搜索");
+                                    SearchBookmarks(currentText);
                                 }
 
                             }
@@ -2948,7 +3002,7 @@ void UpdateWebView2Content(const WCHAR* htmlContent)
         else
         {
             char errorMsg[256] = {0};
-            sprintf(errorMsg, "UpdateWebView2Content: 更新失败，错误代码: 0x%08X", hr);
+            sprintf(errorMsg, "UpdateWebView2Content: 更新失败，错误代码: 0x%08lX", hr);
             LogToFile(errorMsg);
         }
     }
@@ -3471,6 +3525,45 @@ void ClearListView()
 
 // 全局变量定义
 HWND g_hExitBookmarkButton = NULL;
+
+/**
+ * @brief 根据当前模式更新窗口标题
+ * 根据当前激活的模式（计算模式、目录浏览模式、网址收藏模式、普通模式）设置不同的窗口标题
+ */
+void UpdateWindowTitle()
+{
+    if (!g_hMainWindow)
+    {
+        LogToFile("UpdateWindowTitle: 主窗口句柄为空，无法更新标题");
+        return;
+    }
+    
+    std::wstring title;
+    
+    if (g_calculatorMode)
+    {
+        title = L"快速启动--计算模式";
+        LogToFile("UpdateWindowTitle: 设置为计算模式标题");
+    }
+    else if (g_dirMode)
+    {
+        title = L"快速启动--目录模式";
+        LogToFile("UpdateWindowTitle: 设置为目录模式标题");
+    }
+    else if (g_bookmarkMode)
+    {
+        title = L"快速启动--网址模式";
+        LogToFile("UpdateWindowTitle: 设置为网址模式标题");
+    }
+    else
+    {
+        title = L"快速启动";
+        LogToFile("UpdateWindowTitle: 设置为普通模式标题");
+    }
+    
+    SetWindowTextW(g_hMainWindow, title.c_str());
+    LogToFile("UpdateWindowTitle: 窗口标题已更新");
+}
 
 
 

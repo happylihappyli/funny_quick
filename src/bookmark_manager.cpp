@@ -11,6 +11,9 @@
 #include <codecvt>
 #include <commctrl.h>
 
+// 前向声明
+extern void UpdateWindowTitle();
+
 /**
  * @brief 网址管理模块实现文件
  * 
@@ -860,6 +863,9 @@ void EnterBookmarkMode()
     // 更新WebView2显示
     UpdateBookmarkModeWebView();
     
+    // 更新窗口标题
+    UpdateWindowTitle();
+    
     LogToFile("EnterBookmarkMode: 网址收藏模式已激活，文本框已清空");
 }
 
@@ -881,5 +887,11 @@ void ExitBookmarkMode()
     // 清空列表框
     ListView_DeleteAllItems(g_hListView);
     
-    LogToFile("ExitBookmarkMode: 网址收藏模式已退出");
+    // 清空文本框中的"q"内容
+    SetWindowTextW(g_hEdit, L"");
+    
+    // 更新窗口标题
+    UpdateWindowTitle();
+    
+    LogToFile("ExitBookmarkMode: 网址收藏模式已退出，文本框已清空");
 }

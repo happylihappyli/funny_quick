@@ -112,22 +112,119 @@ if os.name == 'nt':
     # 使用Windows API版本
     print("使用Windows API版本")
     
-        # 尝试检测可用的编译器
+        # 强制使用Clang编译器
     try:
-        # 首先尝试使用Visual Studio编译器
-        env.Tool('msvc')
-        env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
-        # 添加src目录到头文件搜索路径
-        env.Append(CPPPATH=['src', '.'])
-        print("使用Visual Studio编译器")
-    except:
+        # 首先检测Clang版本是否兼容
+        import subprocess
+        clang_version_ok = False
         try:
-            # 如果MSVC不可用，尝试使用Clang编译器
+            # 获取Clang版本信息
+            result = subprocess.run(['clang', '--version'], capture_output=True, text=True, shell=True)
+            if result.returncode == 0:
+                version_output = result.stdout
+                # 提取版本号
+                import re
+                version_match = re.search(r'clang version (\d+)\.(\d+)\.(\d+)', version_output)
+                if version_match:
+                    major_version = int(version_match.group(1))
+                    if major_version >= 19:
+                        print(f"检测到兼容的Clang编译器版本: {major_version}")
+                        clang_version_ok = True
+                    else:
+                        print(f"警告：检测到Clang版本 {major_version}，需要Clang 19.0.0或更高版本")
+                        print("将使用Visual Studio编译器")
+                        clang_version_ok = False
+                else:
+                    print("无法解析Clang版本信息，将使用Visual Studio编译器")
+                    clang_version_ok = False
+            else:
+                print("无法获取Clang版本信息，将使用Visual Studio编译器")
+                clang_version_ok = False
+        except Exception as e:
+            print(f"Clang版本检测失败: {e}")
+            clang_version_ok = False
+        
+        # 如果Clang版本兼容，则使用Clang编译器
+        if clang_version_ok:
+            # 首先尝试使用Clang编译器
             env.Tool('clang')
-            env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations']
+            # 设置Clang特定的编译标志
+            env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations', '-fms-extensions', '-fms-compatibility']
+            # 设置Clang特定的编译命令格式
+            env['CXXCOM'] = '$CXX -o $TARGET -c $CXXFLAGS $_CPPDEFFLAGS $_CPPINCFLAGS $SOURCES'
             # 添加src目录到头文件搜索路径
             env.Append(CPPPATH=['src', '.'])
             print("使用Clang编译器")
+        else:
+            # 如果Clang版本不兼容，强制使用Visual Studio编译器
+            raise Exception("Clang版本不兼容，强制使用Visual Studio编译器")
+    except:
+        try:
+            # 如果Clang不可用，尝试手动配置Clang
+            # 设置Clang编译器路径
+            clang_paths = [
+                r"C:\Program Files\LLVM\bin",
+                r"C:\Program Files (x86)\LLVM\bin",
+                r"D:\Code\LLVM\bin"
+            ]
+            
+            clang_found = False
+            clang_version_ok = False
+            
+            for clang_path in clang_paths:
+                if os.path.exists(clang_path):
+                    # 检测Clang版本是否兼容
+                    try:
+                        # 获取Clang版本信息
+                        clang_exe = os.path.join(clang_path, 'clang.exe')
+                        result = subprocess.run([clang_exe, '--version'], capture_output=True, text=True, shell=True)
+                        if result.returncode == 0:
+                            version_output = result.stdout
+                            # 提取版本号
+                            import re
+                            version_match = re.search(r'clang version (\d+)\.(\d+)\.(\d+)', version_output)
+                            if version_match:
+                                major_version = int(version_match.group(1))
+                                if major_version >= 19:
+                                    print(f"检测到兼容的Clang编译器版本: {major_version}")
+                                    clang_version_ok = True
+                                else:
+                                    print(f"警告：检测到Clang版本 {major_version}，需要Clang 19.0.0或更高版本")
+                                    print("将跳过此路径，继续查找其他编译器")
+                                    continue
+                            else:
+                                print("无法解析Clang版本信息，将跳过此路径")
+                                continue
+                        else:
+                            print("无法获取Clang版本信息，将跳过此路径")
+                            continue
+                    except Exception as e:
+                        print(f"Clang版本检测失败: {e}")
+                        continue
+                    
+                    # 如果Clang版本兼容，则配置编译器
+                    if clang_version_ok:
+                        # 设置编译器路径
+                        env['ENV']['PATH'] = clang_path + ";" + os.environ.get('PATH', '')
+                        env['CXX'] = 'clang++.exe'
+                        # 设置Clang特定的编译标志
+                        env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations', '-fms-extensions', '-fms-compatibility']
+                        # 设置Clang特定的编译命令格式
+                        env['CXXCOM'] = '$CXX -o $TARGET -c $CXXFLAGS $_CPPDEFFLAGS $_CPPINCFLAGS $SOURCES'
+                        # 添加src目录到头文件搜索路径
+                        env.Append(CPPPATH=['src', '.'])
+                        print(f"手动配置Clang编译器成功: {clang_path}")
+                        clang_found = True
+                        break
+            
+            if not clang_found:
+                # 如果Clang不可用，回退到Visual Studio编译器
+                env.Tool('msvc')
+                env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
+                # 添加src目录到头文件搜索路径
+                env.Append(CPPPATH=['src', '.'])
+                print("Clang不可用，使用Visual Studio编译器")
+                
         except:
             # 如果都不可用，尝试手动设置Visual Studio环境
             try:
@@ -166,9 +263,22 @@ if os.name == 'nt':
                     raise Exception("Visual Studio路径不存在")
             except Exception as e:
                 print(f"手动配置编译器失败: {e}")
-                print("使用默认编译设置")
-                env['CXXFLAGS'] = []
-                env.Append(CPPPATH=['src', '.'])
+                print("\n" + "="*60)
+                print("错误：系统中未找到可用的C++编译器！")
+                print("="*60)
+                print("\n请安装以下编译器之一：")
+                print("1. Clang编译器（推荐）：")
+                print("   - 下载地址：https://github.com/llvm/llvm-project/releases")
+                print("   - 安装到D:\\Code\\LLVM\\bin目录")
+                print("2. Visual Studio 2022：")
+                print("   - 下载地址：https://visualstudio.microsoft.com/")
+                print("   - 安装到D:\\Code\\VS2022\\Community目录")
+                print("3. MinGW-w64：")
+                print("   - 下载地址：https://www.mingw-w64.org/")
+                print("\n安装完成后，请重新运行scons命令。")
+                print("="*60)
+                # 退出构建过程
+                Exit(1)
 else:
     # 非Windows环境
     env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
@@ -184,11 +294,15 @@ else:
 
 # Windows GUI应用程序设置
 if os.name == 'nt':
-    # 检测编译器类型并设置相应的链接标志
-    if 'clang' in str(env.get('CXX', '')).lower():
-        # Clang编译器使用不同的链接标志
-        env.Append(LINKFLAGS=['-Wl,--subsystem,windows', '-Wl,--entry,WinMainCRTStartup'])
-        print("使用Clang链接器标志")
+    # 检测编译器类型并设置相应的编译和链接标志
+    if 'clang' in str(env.get('CXX', '')).lower() or 'clang++' in str(env.get('CXX', '')).lower():
+        # Clang编译器使用不同的编译和链接标志
+        # 设置Clang特定的编译标志
+        env['CXXCOM'] = '$CXX -o $TARGET -c $CXXFLAGS $_CPPDEFFLAGS $_CPPINCFLAGS $SOURCES'
+        # 设置Clang特定的链接标志
+        env['LINKCOM'] = '$CXX -o $TARGET $LINKFLAGS $SOURCES $_LIBDIRFLAGS $_LIBFLAGS'
+        env.Append(LINKFLAGS=['-Wl,--subsystem,windows', '-Wl,--entry,WinMainCRTStartup', '-static', '-lmsvcrt'])
+        print("使用Clang编译器和链接器标志")
     else:
         # MSVC编译器使用标准链接标志
         env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS', '/ENTRY:WinMainCRTStartup'])

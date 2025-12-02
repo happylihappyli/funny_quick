@@ -1,4 +1,4 @@
-﻿#include "webview_manager.h"
+#include "webview_manager.h"
 #include "common.h"
 #include "calculator.h"  // 计算器功能定义
 #include "logger.h"
@@ -38,7 +38,7 @@ void InitializeWebView2(HWND hwnd)
                 if (FAILED(result))
                 {
                     char errorMsg[256] = {0};
-                    sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08X", result);
+                    sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08lX", result);
                     LogToFile(errorMsg);
                     
                     // WebView2初始化失败，显示基本用法界面
@@ -56,7 +56,7 @@ void InitializeWebView2(HWND hwnd)
                         if (FAILED(result))
                         {
                             char errorMsg[256] = {0};
-                            sprintf(errorMsg, "InitializeWebView2: 创建控制器失败，错误代码: 0x%08X", result);
+                            sprintf(errorMsg, "InitializeWebView2: 创建控制器失败，错误代码: 0x%08lX", result);
                             LogToFile(errorMsg);
                             
                             // 控制器创建失败，显示基本用法界面
@@ -241,6 +241,29 @@ void InitializeWebView2(HWND hwnd)
                                                 HandleSettingsMenuItemClick(actualIndex);
                                             }
                                         }
+                                        else if (msgStr.find(L"\"type\":\"bookmarkClick\"") != std::wstring::npos)
+                                        {
+                                            // 处理网址收藏单击（回车键应该调用这个）
+                                            int index = -1;
+                                            
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                index = _wtoi(indexStr.c_str());
+                                            }
+                                            
+                                            // 获取要打开的网址
+                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+                                            if (index >= 0 && index < (int)displayBookmarks.size())
+                                            {
+                                                ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                                LogToFile("WebView2消息: 通过单击打开了网址收藏");
+                                            }
+                                        }
                                         else if (msgStr.find(L"\"type\":\"bookmarkDblClick\"") != std::wstring::npos)
                                         {
                                             // 处理网址收藏双击
@@ -261,7 +284,7 @@ void InitializeWebView2(HWND hwnd)
                                             if (index >= 0 && index < (int)displayBookmarks.size())
                                             {
                                                 ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                LogToFile("WebView2消息: 打开了网址收藏");
+                                                LogToFile("WebView2消息: 通过双击打开了网址收藏");
                                             }
                                         }
                                         else if (msgStr.find(L"\"type\":\"addBookmark\"") != std::wstring::npos)
@@ -790,7 +813,7 @@ void InitializeWebView2(HWND hwnd)
     if (FAILED(hr))
     {
         char errorMsg[256] = {0};
-        sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08X", hr);
+        sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08lX", hr);
         LogToFile(errorMsg);
         
         // 显示基本用法界面
@@ -1191,34 +1214,34 @@ void UpdateBookmarkModeWebView()
     htmlContent += L"<meta charset=\"UTF-8\">\n";
     htmlContent += L"<title>网址收藏管理</title>\n";
     htmlContent += L"<style>\n";
-    htmlContent += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 0; background: #f5f5f5; }\n";
-    htmlContent += L".header { background: #2c3e50; color: white; padding: 15px; position: relative; }\n";
+    htmlContent += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }\n";
+    htmlContent += L".header { background: linear-gradient(90deg, #4a90e2, #357abd); color: white; padding: 15px; position: relative; border-radius: 0 0 10px 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }\n";
     htmlContent += L".header h2 { margin: 0; text-align: center; }\n";
     htmlContent += L".action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; }\n";
-    htmlContent += L".action-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }\n";
-    htmlContent += L".action-btn:hover { background: #2980b9; }\n";
-    htmlContent += L".action-btn.delete { background: #e74c3c; }\n";
-    htmlContent += L".action-btn.delete:hover { background: #c0392b; }\n";
+    htmlContent += L".action-btn { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }\n";
+    htmlContent += L".action-btn:hover { background: linear-gradient(135deg, #45a049, #3d8b40); }\n";
+    htmlContent += L".action-btn.delete { background: linear-gradient(135deg, #e74c3c, #c0392b); }\n";
+    htmlContent += L".action-btn.delete:hover { background: linear-gradient(135deg, #c0392b, #a93226); }\n";
     htmlContent += L".bookmark-list { padding: 20px; }\n";
-    htmlContent += L".bookmark-item { background: white; margin: 10px 0; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; border-left: 4px solid #3498db; }\n";
-    htmlContent += L".bookmark-item:hover { background: #e8f4fd; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }\n";
-    htmlContent += L".bookmark-item.search-result { border-left: 4px solid #e74c3c; background: linear-gradient(135deg, #fff 0%, #ffe8e8 100%); }\n";
-    htmlContent += L".bookmark-item.search-result:hover { background: linear-gradient(135deg, #ffe8e8 0%, #ffd6d6 100%); }\n";
-    htmlContent += L".bookmark-icon { display: inline-block; width: 20px; height: 20px; margin-right: 8px; vertical-align: middle; background: #3498db; border-radius: 50%; position: relative; }\n";
+    htmlContent += L".bookmark-item { background: rgba(255,255,255,0.95); margin: 10px 0; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; border-left: 4px solid #4a90e2; }\n";
+    htmlContent += L".bookmark-item:hover { background: rgba(255,255,255,0.98); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }\n";
+    htmlContent += L".bookmark-item.search-result { border-left: 4px solid #4a90e2; background: rgba(255,255,255,0.95); }\n";
+    htmlContent += L".bookmark-item.search-result:hover { background: rgba(255,255,255,0.98); }\n";
+    htmlContent += L".bookmark-icon { display: inline-block; width: 20px; height: 20px; margin-right: 8px; vertical-align: middle; background: linear-gradient(135deg, #4a90e2, #357abd); border-radius: 50%; position: relative; }\n";
     htmlContent += L".bookmark-icon::before { content: '🔗'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; }\n";
-    htmlContent += L".bookmark-icon.search-result { background: #e74c3c; }\n";
-    htmlContent += L".bookmark-icon.search-result::before { content: '🔍'; }\n";
+    htmlContent += L".bookmark-icon.search-result { background: linear-gradient(135deg, #4a90e2, #357abd); }\n";
+    htmlContent += L".bookmark-icon.search-result::before { content: '🔗'; }\n";
     htmlContent += L".bookmark-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: flex; align-items: center; }\n";
     htmlContent += L".bookmark-url { color: #666; font-size: 0.9em; word-break: break-all; margin-left: 28px; }\n";
     htmlContent += L".bookmark-actions { position: absolute; right: 15px; top: 15px; display: flex; gap: 5px; }\n";
-    htmlContent += L".bookmark-btn { background: #95a5a6; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.8em; }\n";
-    htmlContent += L".bookmark-btn:hover { background: #7f8c8d; }\n";
-    htmlContent += L".bookmark-btn.edit { background: #f39c12; }\n";
-    htmlContent += L".bookmark-btn.edit:hover { background: #d35400; }\n";
-    htmlContent += L".bookmark-btn.delete { background: #e74c3c; }\n";
-    htmlContent += L".bookmark-btn.delete:hover { background: #c0392b; }\n";
-    htmlContent += L".empty-state { text-align: center; padding: 40px; color: #999; }\n";
-    htmlContent += L".search-info { background: #e8f4fd; padding: 10px 15px; margin: 10px 0; border-radius: 5px; border-left: 3px solid #3498db; font-size: 0.9em; color: #2c3e50; }\n";
+    htmlContent += L".bookmark-btn { background: linear-gradient(135deg, #95a5a6, #7f8c8d); color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.8em; }\n";
+    htmlContent += L".bookmark-btn:hover { background: linear-gradient(135deg, #7f8c8d, #6c7b7d); }\n";
+    htmlContent += L".bookmark-btn.edit { background: linear-gradient(135deg, #f39c12, #d35400); }\n";
+    htmlContent += L".bookmark-btn.edit:hover { background: linear-gradient(135deg, #d35400, #b34700); }\n";
+    htmlContent += L".bookmark-btn.delete { background: linear-gradient(135deg, #e74c3c, #c0392b); }\n";
+    htmlContent += L".bookmark-btn.delete:hover { background: linear-gradient(135deg, #c0392b, #a93226); }\n";
+    htmlContent += L".empty-state { text-align: center; padding: 40px; color: rgba(255,255,255,0.8); }\n";
+    htmlContent += L".search-info { background: rgba(255,255,255,0.15); border-left: 4px solid #4a90e2; padding: 10px 15px; margin: 10px 0; border-radius: 5px; font-size: 0.9em; color: rgba(255,255,255,0.9); }\n";
     htmlContent += L"</style>\n";
     htmlContent += L"</head>\n";
     htmlContent += L"<body>\n";
