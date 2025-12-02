@@ -112,26 +112,69 @@ if os.name == 'nt':
     # 使用Windows API版本
     print("使用Windows API版本")
     
-    # 尝试检测可用的编译器
+        # 尝试检测可用的编译器
     try:
-        # 尝试使用Visual Studio编译器
+        # 首先尝试使用Visual Studio编译器
         env.Tool('msvc')
-        env['CXXFLAGS'] = ['/EHsc', '/W3']
+        env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
         # 添加src目录到头文件搜索路径
         env.Append(CPPPATH=['src', '.'])
         print("使用Visual Studio编译器")
     except:
-        # 如果Visual Studio不可用，尝试使用其他编译器设置
-        print("未检测到Visual Studio编译器，使用默认编译设置")
-        env['CXXFLAGS'] = []
-        # 添加src目录到头文件搜索路径
-        env.Append(CPPPATH=['src', '.'])
+        try:
+            # 如果MSVC不可用，尝试使用Clang编译器
+            env.Tool('clang')
+            env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations']
+            # 添加src目录到头文件搜索路径
+            env.Append(CPPPATH=['src', '.'])
+            print("使用Clang编译器")
+        except:
+            # 如果都不可用，尝试手动设置Visual Studio环境
+            try:
+                # 设置Visual Studio 2022路径
+                vs_path = r"D:\Code\VS2022\Community"
+                vc_path = os.path.join(vs_path, "VC", "Tools", "MSVC", "14.44.35207")
+                
+                if os.path.exists(vc_path):
+                    # 设置编译器路径
+                    env['ENV']['PATH'] = os.path.join(vc_path, "bin", "Hostx64", "x64") + ";" + os.environ.get('PATH', '')
+                    env['ENV']['INCLUDE'] = os.path.join(vc_path, "include") + ";" + os.environ.get('INCLUDE', '')
+                    env['ENV']['LIB'] = os.path.join(vc_path, "lib", "x64") + ";" + os.environ.get('LIB', '')
+                    
+                    # 设置Windows SDK路径
+                    windows_sdk_path = r"C:\Program Files (x86)\Windows Kits\10"
+                    if os.path.exists(windows_sdk_path):
+                        # 查找最新的Windows SDK版本
+                        sdk_versions = []
+                        for item in os.listdir(os.path.join(windows_sdk_path, "Include")):
+                            if item.startswith("10."):
+                                sdk_versions.append(item)
+                        
+                        if sdk_versions:
+                            latest_sdk = max(sdk_versions)
+                            include_path = os.path.join(windows_sdk_path, "Include", latest_sdk, "um")
+                            lib_path = os.path.join(windows_sdk_path, "Lib", latest_sdk, "um", "x64")
+                            
+                            env['ENV']['INCLUDE'] += ";" + include_path
+                            env['ENV']['LIB'] += ";" + lib_path
+                    
+                    env['CXX'] = 'cl.exe'
+                    env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
+                    env.Append(CPPPATH=['src', '.'])
+                    print("手动配置Visual Studio编译器成功")
+                else:
+                    raise Exception("Visual Studio路径不存在")
+            except Exception as e:
+                print(f"手动配置编译器失败: {e}")
+                print("使用默认编译设置")
+                env['CXXFLAGS'] = []
+                env.Append(CPPPATH=['src', '.'])
 else:
     # 非Windows环境
     env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
 
 # 源文件 - 使用Windows API版本（文件已移动到src目录）
-sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp']
+sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp']
 
 # Windows环境下添加资源文件（resource.rc和resource.h在根目录）
 if os.name == 'nt':
@@ -141,8 +184,15 @@ else:
 
 # Windows GUI应用程序设置
 if os.name == 'nt':
-    # 设置为GUI子系统
-    env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS', '/ENTRY:WinMainCRTStartup'])
+    # 检测编译器类型并设置相应的链接标志
+    if 'clang' in str(env.get('CXX', '')).lower():
+        # Clang编译器使用不同的链接标志
+        env.Append(LINKFLAGS=['-Wl,--subsystem,windows', '-Wl,--entry,WinMainCRTStartup'])
+        print("使用Clang链接器标志")
+    else:
+        # MSVC编译器使用标准链接标志
+        env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS', '/ENTRY:WinMainCRTStartup'])
+        print("使用MSVC链接器标志")
 
 # 在构建前执行预处理任务
 bin_dir = ensure_bin_directory()

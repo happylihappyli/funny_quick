@@ -1,4 +1,4 @@
-#ifndef LOGGER_H
+﻿#ifndef LOGGER_H
 #define LOGGER_H
 
 #ifdef __cplusplus

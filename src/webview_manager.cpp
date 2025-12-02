@@ -1,5 +1,6 @@
 ﻿#include "webview_manager.h"
 #include "common.h"
+#include "calculator.h"  // 计算器功能定义
 #include "logger.h"
 #include <vector>
 #include <set>
@@ -720,4 +721,96 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
     DestroyWindow(hEdit);
     
     return bResult;
+}
+
+/**
+ * @brief 更新书签模式的WebView2显示
+ * 
+ * 此函数用于在书签模式下更新WebView2的内容，
+ * 显示当前的书签列表和搜索结果
+ */
+void UpdateBookmarkModeWebView()
+{
+    LogToFile("UpdateBookmarkModeWebView: 开始更新书签模式WebView显示");
+    
+    // 检查WebView2是否已初始化
+    if (!g_webView)
+    {
+        LogToFile("UpdateBookmarkModeWebView: WebView2未初始化，无法更新显示");
+        return;
+    }
+    
+    // 创建HTML内容
+    std::wstring htmlContent;
+    
+    // HTML头部
+    htmlContent += L"<!DOCTYPE html>\n";
+    htmlContent += L"<html>\n";
+    htmlContent += L"<head>\n";
+    htmlContent += L"<meta charset=\"UTF-8\">\n";
+    htmlContent += L"<title>网址收藏管理</title>\n";
+    htmlContent += L"<style>\n";
+    htmlContent += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 0; background: #f5f5f5; }\n";
+    htmlContent += L".header { background: #2c3e50; color: white; padding: 15px; text-align: center; }\n";
+    htmlContent += L".bookmark-list { padding: 20px; }\n";
+    htmlContent += L".bookmark-item { background: white; margin: 10px 0; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; }\n";
+    htmlContent += L".bookmark-item:hover { background: #e8f4fd; }\n";
+    htmlContent += L".bookmark-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; }\n";
+    htmlContent += L".bookmark-url { color: #666; font-size: 0.9em; word-break: break-all; }\n";
+    htmlContent += L".empty-state { text-align: center; padding: 40px; color: #999; }\n";
+    htmlContent += L"</style>\n";
+    htmlContent += L"</head>\n";
+    htmlContent += L"<body>\n";
+    
+    // 头部
+    htmlContent += L"<div class=\"header\">\n";
+    htmlContent += L"<h2>网址收藏管理</h2>\n";
+    htmlContent += L"</div>\n";
+    
+    // 书签列表
+    htmlContent += L"<div class=\"bookmark-list\">\n";
+    
+    // 获取要显示的书签列表（搜索结果或全部书签）
+    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+    
+    if (displayBookmarks.empty())
+    {
+        // 空状态
+        htmlContent += L"<div class=\"empty-state\">\n";
+        htmlContent += L"<h3>暂无网址收藏</h3>\n";
+        htmlContent += L"<p>点击右上角的添加按钮来添加第一个网址收藏</p>\n";
+        htmlContent += L"</div>\n";
+    }
+    else
+    {
+        // 显示书签列表
+        for (size_t i = 0; i < displayBookmarks.size(); i++)
+        {
+            const auto& bookmark = displayBookmarks[i];
+            htmlContent += L"<div class=\"bookmark-item\" onclick=\"window.chrome.webview.postMessage('{";
+            htmlContent += L"\\\"type\\\":\\\"bookmarkClick\\\",";
+            htmlContent += L"\\\"index\\\":";
+            htmlContent += std::to_wstring(i);
+            htmlContent += L"}');\">\n";
+            htmlContent += L"<div class=\"bookmark-name\">";
+            htmlContent += bookmark.first;
+            htmlContent += L"</div>\n";
+            htmlContent += L"<div class=\"bookmark-url\">";
+            htmlContent += bookmark.second;
+            htmlContent += L"</div>\n";
+            htmlContent += L"</div>\n";
+        }
+    }
+    
+    htmlContent += L"</div>\n";
+    htmlContent += L"</body>\n";
+    htmlContent += L"</html>\n";
+    
+    // 更新WebView2内容
+    UpdateWebView2Content(htmlContent.c_str());
+    
+    // 记录更新状态
+    char logMsg[200] = {0};
+    sprintf(logMsg, "UpdateBookmarkModeWebView: 更新完成，显示 %zu 条书签", displayBookmarks.size());
+    LogToFile(logMsg);
 }

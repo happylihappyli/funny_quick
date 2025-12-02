@@ -1,4 +1,4 @@
-﻿#include "dir_mode_manager.h"
+#include "dir_mode_manager.h"
 #include "common.h"
 #include "webview_manager.h"
 #include "logger.h"
@@ -199,7 +199,6 @@ void ExitDirMode()
 {
     LogToFile("ExitDirMode: 退出目录浏览模式");
     
-    g_settingsMenuMode = false;
     g_dirMode = false;
     g_currentDirPath.clear();
     g_expandedPaths.clear();
@@ -207,77 +206,14 @@ void ExitDirMode()
     // 显示设置按钮
     ShowWindow(g_hSettingsButton, SW_SHOW);
     
-    // 清空编辑框
-    SetWindowTextW(g_hEdit, L"");
+    // 清空列表框
+    ListView_DeleteAllItems(g_hListView);
     
     // 更新ListView列标题
     UpdateListViewColumns();
     
-    // 清空列表框
-    ListView_DeleteAllItems(g_hListView);
-    
     // 设置焦点到编辑框
     SetFocus(g_hEdit);
-}
-
-
-
-/**
- * @brief 生成快捷方式HTML内容
- * 
- * 此函数生成常用系统快捷方式的HTML内容
- * 
- * @return std::wstring 快捷方式HTML内容
- */
-std::wstring GenerateQuickShortcutsHtml()
-{
-    std::wstring shortcutsHtml;
-    shortcutsHtml += L"<div style='font-weight: bold; margin-bottom: 10px; color: #333;'>🚀 快捷方式</div>";
-    
-    // 定义常用快捷方式列表
-    struct Shortcut {
-        std::wstring name;
-        std::wstring command;
-        std::wstring icon;
-    };
-    
-    std::vector<Shortcut> shortcuts = {
-        {L"📝 记事本", L"notepad", L"📝"},
-        {L"🧮 计算器", L"calc", L"🧮"},
-        {L"⚙️ 控制面板", L"control", L"⚙️"},
-        {L"🗑️ 删除程序", L"appwiz.cpl", L"🗑️"},
-        {L"🔧 高级设置", L"ms-settings:", L"🔧"},
-        {L"💻 任务管理器", L"taskmgr", L"💻"},
-        {L"🌐 网络连接", L"ncpa.cpl", L"🌐"},
-        {L"🖥️ 显示设置", L"desk.cpl", L"🖥️"},
-        {L"🔊 声音设置", L"mmsys.cpl", L"🔊"},
-        {L"⌨️ 键盘设置", L"main.cpl keyboard", L"⌨️"},
-        {L"🖱️ 鼠标设置", L"main.cpl", L"🖱️"},
-        {L"📅 日期时间", L"timedate.cpl", L"📅"},
-        {L"💡 电源选项", L"powercfg.cpl", L"💡"},
-        {L"🔐 用户账户", L"netplwiz", L"🔐"},
-        {L"📊 系统信息", L"msinfo32", L"📊"}
-    };
-    
-    for (const auto& shortcut : shortcuts)
-    {
-        // 转义命令中的特殊字符
-        std::wstring escapedCommand = shortcut.command;
-        size_t pos = 0;
-        while ((pos = escapedCommand.find(L'"', pos)) != std::wstring::npos)
-        {
-            escapedCommand.replace(pos, 1, L"\\\"");
-            pos += 3;
-        }
-        
-        shortcutsHtml += L"<div class='dir-item file' onclick='openShortcut(\"" + escapedCommand + L"\")' ondblclick='openShortcut(\"" + escapedCommand + L"\")'>";
-        shortcutsHtml += L"<span class='dir-icon'>" + shortcut.icon + L"</span>";
-        shortcutsHtml += L"<span class='dir-name'>" + shortcut.name + L"</span>";
-        shortcutsHtml += L"<span class='dir-expand'>点击运行</span>";
-        shortcutsHtml += L"</div>";
-    }
-    
-    return shortcutsHtml;
 }
 
 /**
@@ -459,6 +395,37 @@ std::wstring GenerateExpandedDirsHtml()
     }
     
     return expandedDirsHtml;
+}
+
+/**
+ * @brief 生成快捷方式HTML内容
+ * 
+ * 此函数生成快捷方式列表的HTML内容
+ * 
+ * @return std::wstring 快捷方式HTML内容
+ */
+std::wstring GenerateQuickShortcutsHtml()
+{
+    std::wstring shortcutsHtml;
+    shortcutsHtml += L"<div style='font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #333;'>⚡ 快捷方式</div>";
+    
+    // 添加常用快捷方式
+    std::vector<std::pair<std::wstring, std::wstring>> shortcuts = {
+        {L"📊 计算器", L"js"},
+        {L"📁 目录浏览", L"dir"},
+        {L"⚙️ 设置", L"set"},
+        {L"❓ 帮助", L"help"}
+    };
+    
+    for (const auto& shortcut : shortcuts)
+    {
+        shortcutsHtml += L"<div class='dir-item shortcut' onclick='executeShortcut(\"" + shortcut.second + L"\")'>";
+        shortcutsHtml += L"<span class='dir-icon'>⚡</span>";
+        shortcutsHtml += L"<span class='dir-name'>" + shortcut.first + L"</span>";
+        shortcutsHtml += L"</div>";
+    }
+    
+    return shortcutsHtml;
 }
 
 /**

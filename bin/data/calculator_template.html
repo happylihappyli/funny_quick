@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='UTF-8'>
+<style>
+body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: #10131a; color: #f5f8ff; }
+.mode-banner { background: linear-gradient(90deg, #ff8a00, #e52e71); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; }
+.hint-list { margin: 14px 0; padding: 14px; background: rgba(255,255,255,0.08); border-radius: 8px; }
+.hint-list ul { margin: 0; padding-left: 24px; }
+.hint-list li { margin: 6px 0; }
+.history { margin-top: 14px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+th { text-align: left; color: #7dd3fc; font-size: 14px; }
+td { font-size: 14px; color: #f5f8ff; }
+tr:last-child td { border-bottom: none; }
+tr.history-row { cursor: pointer; }
+tr.history-row:hover { background: rgba(255,255,255,0.1); }
+tr.history-row.selected { background: rgba(59, 130, 246, 0.3); }
+.empty { text-align: center; color: #9ca3af; font-style: italic; padding: 20px 0; }
+.action-button { position: relative; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #f5f8ff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+.action-button:hover { background: rgba(255,255,255,0.25); }
+.dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: rgba(30, 30, 40, 0.98); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 160px; z-index: 1000; display: none; }
+.dropdown-menu.show { display: block; }
+.dropdown-menu-item { padding: 10px 16px; cursor: pointer; color: #f5f8ff; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.dropdown-menu-item:last-child { border-bottom: none; }
+.dropdown-menu-item:hover { background: rgba(255,255,255,0.1); }
+.dropdown-menu-separator { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0; }
+</style>
+<script>
+let selectedHistoryIndex = -1;
+function selectHistoryRow(index) {
+  let rows = document.querySelectorAll('tr.history-row');
+  rows.forEach((r, i) => r.classList.toggle('selected', i === index));
+  selectedHistoryIndex = index;
+}
+function onHistoryRowClick(index) {
+  selectHistoryRow(index);
+}
+function toggleDropdown() {
+  let menu = document.getElementById('actionMenu');
+  menu.classList.toggle('show');
+}
+function hideDropdown() {
+  let menu = document.getElementById('actionMenu');
+  menu.classList.remove('show');
+}
+function handleAction(action) {
+  hideDropdown();
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'calcAction', action:action, index:selectedHistoryIndex}));
+  }
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.action-button-container')) {
+    hideDropdown();
+  }
+});
+</script>
+</head>
+<body>
+<div class='mode-banner'>
+<span>🧮 计算模式 (js) · 输入表达式并按回车即可计算</span>
+<div class='action-button-container' style='position: relative;'>
+<button class='action-button' onclick='toggleDropdown()'>操作 ▼</button>
+<div class='dropdown-menu' id='actionMenu'>
+<div class='dropdown-menu-item' onclick='handleAction("copy")'>复制选中项</div>
+<div class='dropdown-menu-separator'></div>
+<div class='dropdown-menu-item' onclick='handleAction("delete")'>删除选中项</div>
+<div class='dropdown-menu-item' onclick='handleAction("clearAll")'>清空历史记录</div>
+</div></div></div>
+
+<div class='hint-list'><ul>
+<li>输入数学表达式，例如 <code>2+3*4</code> 或 <code>sqrt(16)</code></li>
+<li>支持函数：sin、cos、tan、sqrt、abs 等</li>
+<li>输入 <strong>q</strong> 退出计算模式</li>
+</ul></div>
+
+<div class='history'>
+<!-- HISTORY_PLACEHOLDER -->
+</div>
+</body>
+</html>

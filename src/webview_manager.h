@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #ifndef WEBVIEW_MANAGER_H
 #define WEBVIEW_MANAGER_H
@@ -37,6 +37,9 @@ void ShowHtmlAddBookmarkDialog();
 
 // 网址收藏相关函数声明（在gui_main.cpp中定义）
 void SaveBookmarks();
+
+// 书签模式WebView更新函数声明
+void UpdateBookmarkModeWebView();
 
 // 简单输入框函数声明
 BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWSTR lpResult, int nResultSize);

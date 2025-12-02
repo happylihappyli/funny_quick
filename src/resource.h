@@ -1,4 +1,4 @@
-﻿#ifndef RESOURCE_H
+#ifndef RESOURCE_H
 #define RESOURCE_H
 
 // 网址管理对话框资源ID
@@ -12,5 +12,11 @@
 #define IDC_BOOKMARK_CLOSE         2007
 #define IDC_BOOKMARK_NAME_LABEL    2012
 #define IDC_BOOKMARK_URL_LABEL     2013
+
+// 按钮和菜单资源ID
+#define IDC_EXIT_BOOKMARK_BUTTON   2014
+#define ID_SETTINGS_BOOKMARK       2015
+#define ID_CONTEXT_DELETE_BOOKMARK 2016
+#define ID_CONTEXT_SYNC_CHROME     2017
 
 #endif // RESOURCE_H

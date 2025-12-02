@@ -19,37 +19,38 @@ extern HWND g_hMainWindow;
 extern HWND g_hEdit;
 extern HWND g_hListView;
 extern HWND g_hExitCalcButton;
-extern HWND g_hSettingsButton;
 extern HWND g_hExitBookmarkButton;
+extern HWND g_hSettingsButton;
 extern HWND g_hCalcMenuButton;
 extern HWND g_hInputHintLabel;
-extern HWND g_hAddBookmarkButton;
 extern HFONT g_hFont;
 
 extern bool g_ignoreNextReturn;
 extern bool g_windowInitializing;
 extern bool g_calculatorMode;
-extern bool g_bookmarkMode;
 extern bool g_dirMode;
 extern bool g_updatingEditBox;
+extern bool g_settingsMenuMode;
 
 extern std::vector<ShortcutItem> g_shortcuts;
 extern std::vector<ShortcutItem> g_searchResults;
 extern WCHAR g_currentSearch[1024];
 extern std::vector<CalculationRecord> g_calculationHistory;
-extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;
-extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;
 extern std::wstring g_cachedHelpHtml;  // 缓存的帮助信息HTML
 extern std::wstring g_cachedSettingsHtml;  // 缓存的设置菜单HTML
 extern bool g_helpHtmlCached;  // 帮助信息是否已缓存
 extern bool g_settingsHtmlCached;  // 设置菜单是否已缓存
+
+// 书签管理相关全局变量声明
+extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网址收藏列表
+extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;  // 网址收藏搜索结果
+extern bool g_bookmarkMode;  // 书签模式标志
 
 // 常量定义
 #define IDC_EDIT 1001
 #define IDC_LISTVIEW 1002
 #define IDC_EXIT_CALC_BUTTON 1003
 #define IDC_SETTINGS_BUTTON 1004
-#define IDC_EXIT_BOOKMARK_BUTTON 1013
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
@@ -60,11 +61,14 @@ extern bool g_settingsHtmlCached;  // 设置菜单是否已缓存
 #define ID_CONTEXT_CLEAR_ALL 1008
 #define ID_ADD_BOOKMARK_BUTTON 1009
 #define ID_SYNC_CHROME_BUTTON 1010
-#define ID_CONTEXT_DELETE_BOOKMARK 1011
-#define ID_CONTEXT_SYNC_CHROME 1012
-#define ID_CONTEXT_COPY 1013
-#define ID_SETTINGS_BOOKMARK 1014
-#define ID_SETTINGS_EXIT 1015
+#define ID_CONTEXT_COPY 1011
+#define ID_SETTINGS_EXIT 1012
+
+// 新增的标识符定义
+#define ID_CALC_MENU_CLEAR 1019
+#define ID_CALC_MENU_COPY_RESULT 1020
+#define ID_CALC_MENU_EXIT 1021
+#define IDC_CALC_MENU_BUTTON 1016  // 计算模式操作菜单按钮ID
 
 #ifndef EN_RETURN
 #define EN_RETURN 0x0100
@@ -84,11 +88,42 @@ void DisplayCalculationHistory();  // 显示计算历史
 void SaveCalculationHistory();  // 保存计算历史
 void HandleSettingsMenuItemClick(INT_PTR itemIndex);  // 处理设置菜单项点击
 int GetHintRowCount();  // 获取提示行数量
+INT_PTR GetFirstActualItemIndex();  // 获取第一个实际项目（跳过提示行）的索引
 void UpdateSettingsMenuWebView();  // 更新设置菜单的 WebView2 显示
 void UpdateHelpInfoWebView();  // 更新帮助信息的 WebView2 显示
-void UpdateBookmarkModeWebView();  // 更新网址收藏模式的 WebView2 显示
 void UpdateDirModeWebView();  // 更新目录浏览模式的 WebView2 显示
 std::wstring ReadHtmlTemplate(const std::wstring& filePath);  // 读取HTML模板文件内容
+void SaveWindowSettings();  // 保存窗口设置
+void LoadWindowSettings(int& x, int& y, int& width, int& height);  // 加载窗口设置
+
+// 新增函数声明（在gui_main.cpp中实现）
+void ShowHelpInfo();  // 显示使用帮助信息
+void EvaluateExpression(const WCHAR* expression);  // 计算表达式
+
+void ShowSettingsMenu();  // 显示设置菜单
+void CopySelectedListItem();  // 复制选中的列表项
+void ShowLauncherWindow();  // 显示启动器窗口
+void LogListViewContents();  // 打印ListView所有内容到日志
+
+// SearchAndDisplayResults函数分解后的子函数声明
+bool InitializeListViewForSearch();  // 初始化ListView用于搜索显示
+void ProcessSearchQuery(const WCHAR* query);  // 处理搜索查询
+void HandleShortcutSearch(const WCHAR* query);  // 处理快捷方式搜索
+void DisplaySearchResults();  // 显示搜索结果
+void UpdateWebViewForSearch();  // 更新WebView2显示搜索结果
+
+// WindowProc函数分解后的子函数声明
+LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct);  // 处理WM_CREATE消息
+LRESULT HandleWMHotkey(HWND hwnd, WPARAM wParam);  // 处理WM_HOTKEY消息
+LRESULT HandleWMDestroy(HWND hwnd);  // 处理WM_DESTROY消息
+LRESULT HandleWMTimer(HWND hwnd, WPARAM wParam);  // 处理WM_TIMER消息
+LRESULT HandleWMSize(HWND hwnd, WPARAM wParam, LPARAM lParam);  // 处理WM_SIZE消息
+LRESULT HandleWMExitSizeMove(HWND hwnd);  // 处理WM_EXITSIZEMOVE消息
+LRESULT HandleWMSetFocus(HWND hwnd, WPARAM wParam);  // 处理WM_SETFOCUS消息
+LRESULT HandleWMNotify(HWND hwnd, WPARAM wParam, LPARAM lParam);  // 处理WM_NOTIFY消息
+LRESULT HandleWMCommand(HWND hwnd, WPARAM wParam, LPARAM lParam);  // 处理WM_COMMAND消息
+LRESULT HandleWMKeyDown(HWND hwnd, WPARAM wParam, LPARAM lParam);  // 处理WM_KEYDOWN消息
+LRESULT HandleWMContextMenu(HWND hwnd, WPARAM wParam);  // 处理WM_CONTEXTMENU消息
 
 // 类型定义
 struct ShortcutItem {
@@ -96,12 +131,6 @@ struct ShortcutItem {
     WCHAR path[256];
     int type; // 0 = directory, 1 = URL, 2 = application
     int usageCount;
-};
-
-struct CalculationRecord {
-    std::wstring expression;
-    std::wstring result;
-    std::wstring comment;
 };
 
 #endif // COMMON_H
