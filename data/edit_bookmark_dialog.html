@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>编辑网址收藏</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.dialog-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 500px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dialog-header {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    padding: 25px 30px;
+    text-align: center;
+    position: relative;
+}
+
+.dialog-header h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.dialog-header p {
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.dialog-body {
+    padding: 30px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: white;
+    color: #2d3748;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #f39c12;
+    box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1);
+}
+
+.form-input::placeholder {
+    color: #a0aec0;
+}
+
+.input-icon {
+    position: absolute;
+    right: 15px;
+    top: 40px;
+    color: #a0aec0;
+    font-size: 18px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.btn {
+    flex: 1;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(243, 156, 18, 0.3);
+}
+
+.btn-secondary {
+    background: #f7fafc;
+    color: #4a5568;
+    border: 2px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: #edf2f7;
+    border-color: #cbd5e0;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    flex: 0.5;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(231, 76, 60, 0.3);
+}
+
+.validation-message {
+    color: #e53e3e;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.success-message {
+    background: #f0fff4;
+    border: 1px solid #9ae6b4;
+    color: #276749;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dialog-container {
+    animation: fadeIn 0.5s ease-out;
+}
+</style>
+</head>
+<body>
+<div class='dialog-container'>
+    <div class='dialog-header'>
+        <button class='close-btn' onclick='closeDialog()'>×</button>
+        <h2>✏️ 编辑网址收藏</h2>
+        <p>修改选中的网址名称和URL</p>
+    </div>
+    
+    <div class='dialog-body'>
+        <div class='success-message' id='successMessage'>
+            <span>✓</span>
+            <span>网址编辑成功！</span>
+        </div>
+        
+        <div class='form-group'>
+            <label for='bookmarkName'>
+                <span>📝 网址名称</span>
+            </label>
+            <input type='text' id='bookmarkName' class='form-input' placeholder='请输入网址名称...' required>
+            <div class='validation-message' id='nameValidation'>请输入有效的网址名称</div>
+        </div>
+        
+        <div class='form-group'>
+            <label for='bookmarkUrl'>
+                <span>🌐 网址URL</span>
+            </label>
+            <input type='url' id='bookmarkUrl' class='form-input' placeholder='https://example.com' required>
+            <div class='validation-message' id='urlValidation'>请输入有效的URL（以http://、https://等开头）</div>
+        </div>
+        
+        <div class='form-actions'>
+            <button class='btn btn-danger' onclick='deleteBookmark()'>
+                <span>🗑️</span>
+                <span>删除</span>
+            </button>
+            <button class='btn btn-secondary' onclick='closeDialog()'>
+                <span>❌</span>
+                <span>取消</span>
+            </button>
+            <button class='btn btn-primary' onclick='saveBookmark()'>
+                <span>💾</span>
+                <span>保存</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 当前编辑的书签索引
+let currentBookmarkIndex = -1;
+
+// 初始化对话框数据
+function initializeDialog(index, name, url) {
+    currentBookmarkIndex = index;
+    
+    // 设置输入框的值
+    document.getElementById('bookmarkName').value = name || '';
+    document.getElementById('bookmarkUrl').value = url || '';
+    
+    // 设置输入框焦点
+    document.getElementById('bookmarkName').focus();
+}
+
+// 页面加载完成后初始化
+window.addEventListener('DOMContentLoaded', function() {
+    // 从URL参数获取书签索引
+    const urlParams = new URLSearchParams(window.location.search);
+    currentBookmarkIndex = parseInt(urlParams.get('index')) || -1;
+    
+    // 如果URL参数中有索引，则加载书签数据
+    if (currentBookmarkIndex !== -1) {
+        loadBookmarkData();
+    }
+    
+    // 设置输入框焦点
+    document.getElementById('bookmarkName').focus();
+});
+
+// 加载书签数据
+function loadBookmarkData() {
+    if (currentBookmarkIndex === -1) {
+        showError('无效的书签索引');
+        return;
+    }
+    
+    // 通过WebView2消息获取书签数据
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            type: 'getBookmarkData',
+            index: currentBookmarkIndex
+        }));
+    }
+}
+
+// 验证表单
+function validateForm() {
+    const name = document.getElementById('bookmarkName').value.trim();
+    const url = document.getElementById('bookmarkUrl').value.trim();
+    
+    // 验证名称
+    if (name === '') {
+        showValidationError('nameValidation', '请输入网址名称');
+        return false;
+    }
+    
+    // 验证URL
+    if (url === '') {
+        showValidationError('urlValidation', '请输入网址URL');
+        return false;
+    }
+    
+    if (!isValidUrl(url)) {
+        showValidationError('urlValidation', '请输入有效的URL（以http://、https://等开头）');
+        return false;
+    }
+    
+    // 清除所有验证错误
+    clearValidationErrors();
+    return true;
+}
+
+// 验证URL格式
+function isValidUrl(url) {
+    const urlPattern = /^(https?:\/\/|ftp:\/\/|file:\/\/)/i;
+    return urlPattern.test(url);
+}
+
+// 显示验证错误
+function showValidationError(elementId, message) {
+    const element = document.getElementById(elementId);
+    element.textContent = message;
+    element.style.display = 'block';
+}
+
+// 清除验证错误
+function clearValidationErrors() {
+    const validationElements = document.querySelectorAll('.validation-message');
+    validationElements.forEach(element => {
+        element.style.display = 'none';
+    });
+}
+
+// 保存书签
+function saveBookmark() {
+    if (!validateForm()) {
+        return;
+    }
+    
+    const name = document.getElementById('bookmarkName').value.trim();
+    const url = document.getElementById('bookmarkUrl').value.trim();
+    
+    // 发送保存消息到WebView2
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            type: 'editBookmarkFromDialog',
+            index: currentBookmarkIndex,
+            name: name,
+            url: url
+        }));
+    }
+    
+    // 显示成功消息
+    showSuccessMessage();
+}
+
+// 删除书签
+function deleteBookmark() {
+    if (confirm('确定要删除这个网址吗？此操作不可撤销。')) {
+        // 发送删除消息到WebView2
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage(JSON.stringify({
+                type: 'deleteBookmarkFromDialog',
+                index: currentBookmarkIndex
+            }));
+        }
+    }
+}
+
+// 关闭对话框
+function closeDialog() {
+    // 发送关闭消息到WebView2
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            type: 'closeBookmarkDialog'
+        }));
+    }
+}
+
+// 显示成功消息
+function showSuccessMessage() {
+    const successMessage = document.getElementById('successMessage');
+    successMessage.style.display = 'flex';
+    
+    // 3秒后自动隐藏
+    setTimeout(() => {
+        successMessage.style.display = 'none';
+    }, 3000);
+}
+
+// 显示错误消息
+function showError(message) {
+    alert(message);
+}
+
+// 处理WebView2消息（用于接收书签数据）
+window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'bookmarkData') {
+        const bookmark = event.data.bookmark;
+        if (bookmark) {
+            document.getElementById('bookmarkName').value = bookmark.name || '';
+            document.getElementById('bookmarkUrl').value = bookmark.url || '';
+        }
+    }
+});
+
+// 键盘快捷键
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeDialog();
+    } else if (event.key === 'Enter' && event.ctrlKey) {
+        saveBookmark();
+    }
+});
+</script>
+</body>
+</html>

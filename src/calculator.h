@@ -19,6 +19,7 @@ struct CalculationRecord
 void UpdateListViewColumns();
 void ClearListView();
 void AddHintRowToListView(const WCHAR* hintText);
+void UpdateCalculatorModeWebView();
 
 /**
  * @brief 表达式解析辅助函数 - 解析数字

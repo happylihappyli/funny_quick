@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #ifndef BOOKMARK_MANAGER_H
 #define BOOKMARK_MANAGER_H
@@ -142,5 +142,19 @@ void UpdateBookmarkFromDialog(HWND hDlg);
  * @param hDlg 对话框句柄
  */
 void DeleteBookmarkFromDialog(HWND hDlg);
+
+/**
+ * @brief 进入网址收藏模式
+ * 
+ * 此函数切换到网址收藏模式，显示网址收藏列表
+ */
+void EnterBookmarkMode();
+
+/**
+ * @brief 退出网址收藏模式
+ * 
+ * 此函数退出网址收藏模式，返回到正常模式
+ */
+void ExitBookmarkMode();
 
 #endif // BOOKMARK_MANAGER_H

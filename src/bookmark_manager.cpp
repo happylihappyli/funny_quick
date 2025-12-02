@@ -2,6 +2,7 @@
 #include "common.h"
 #include "logger.h"
 #include "resource.h"
+#include "webview_manager.h"
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -841,16 +842,25 @@ void EnterBookmarkMode()
 {
     LogToFile("EnterBookmarkMode: 进入网址收藏模式");
     
+    // 设置书签模式标志
+    g_bookmarkMode = true;
+    
+    // 清空文本框中的"wz"内容
+    SetWindowTextW(g_hEdit, L"");
+    
     // 加载网址收藏
     LoadBookmarks();
     
     // 清空搜索结果
     g_bookmarkSearchResults.clear();
     
-    // 显示网址收藏列表
+    // 显示网址收藏列表到ListView
     DisplayBookmarkResults();
     
-    LogToFile("EnterBookmarkMode: 网址收藏模式已激活");
+    // 更新WebView2显示
+    UpdateBookmarkModeWebView();
+    
+    LogToFile("EnterBookmarkMode: 网址收藏模式已激活，文本框已清空");
 }
 
 /**
@@ -861,6 +871,9 @@ void EnterBookmarkMode()
 void ExitBookmarkMode()
 {
     LogToFile("ExitBookmarkMode: 退出网址收藏模式");
+    
+    // 清除书签模式标志
+    g_bookmarkMode = false;
     
     // 清空搜索结果
     g_bookmarkSearchResults.clear();

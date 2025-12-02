@@ -21,6 +21,7 @@
 #include "webview_manager.h"  // WebView2 管理功能
 #include "dir_mode_manager.h"  // 目录浏览模式管理功能
 #include "window_size_handler.h"  // 窗口大小处理功能
+#include "bookmark_manager.h"  // 网址收藏管理功能
 
 // WebView2 相关头文件
 #include <WebView2.h>
@@ -834,6 +835,14 @@ void ProcessCommand(const WCHAR* command)
         return;
     }
     
+    // 检查是否是"wz"命令，用于进入网址收藏模式
+    if (wcscmp(command, L"wz") == 0)
+    {
+        LogToFile("ProcessCommand: 识别为'wz'命令，进入网址收藏模式");
+        EnterBookmarkMode();
+        return;
+    }
+    
     // Clear previous results
     ListView_DeleteAllItems(g_hListView);
     
@@ -1199,7 +1208,21 @@ void ProcessSearchQuery(const WCHAR* query, std::vector<std::wstring>& webViewHi
             webViewHints.emplace_back(hints[i]);
         }
     }
-
+    else if (g_bookmarkMode)
+    {
+        // wz模式（网址收藏模式）：添加多行提示
+        const WCHAR* hints[] = {
+            L"💡 网址收藏模式",
+            L"💡 输入网址名称或URL搜索",
+            L"💡 按回车或双击打开网址",
+            L"💡 输入 q 退出网址收藏模式"
+        };
+        AddMultiLineHintsToListView(hints, 4);
+        for (int i = 0; i < 4; ++i)
+        {
+            webViewHints.emplace_back(hints[i]);
+        }
+    }
     else
     {
         // 普通模式：添加多行提示
@@ -1386,11 +1409,29 @@ void SearchAndDisplayResults(const WCHAR* query)
     // 处理搜索查询和模式判断
     ProcessSearchQuery(query, webViewHints);
     
-    // 处理收藏网址搜索
-    
-    
-    // 处理快捷方式搜索
-    HandleShortcutSearch(query);
+    if (g_bookmarkMode)
+    {
+        // wz模式：只搜索网址收藏
+        SearchBookmarks(query);
+        
+        // 将网址收藏搜索结果转换为ShortcutItem格式并添加到g_searchResults
+        g_searchResults.clear();
+        for (const auto& bookmark : g_bookmarkSearchResults)
+        {
+            ShortcutItem item;
+            wcscpy_s(item.name, bookmark.first.c_str());
+            wcscpy_s(item.path, bookmark.second.c_str());
+            item.type = 1; // URL类型
+            item.usageCount = 0;
+            g_searchResults.push_back(item);
+        }
+    }
+    else
+    {
+        // 普通模式：同时搜索快捷方式和网址收藏
+        SearchBookmarks(query);
+        HandleShortcutSearch(query);
+    }
     
     // 显示搜索结果到ListView
     DisplaySearchResults();
@@ -2628,209 +2669,6 @@ void ShowHelpInfo()
 }
 
 
-// Evaluate mathematical expression
-void EvaluateExpression(const WCHAR* expression)
-{
-    LogToFile("EvaluateExpression: 函数开始");
-    
-    if (!expression || wcslen(expression) == 0)
-    {
-        LogToFile("EvaluateExpression: 表达式为空");
-        return;
-    }
-    
-    // 记录表达式
-    char exprLog[1024] = {0};
-    WideCharToMultiByte(CP_UTF8, 0, expression, -1, exprLog, sizeof(exprLog), NULL, NULL);
-    char logMsg[1100] = {0};
-    sprintf(logMsg, "EvaluateExpression: 计算表达式 '%s'", exprLog);
-    LogToFile(logMsg);
-    
-    // 这里应该实现表达式计算逻辑
-    // 为了简单起见，我们只实现基本的加减乘除
-    // 在实际应用中，可以使用更复杂的表达式解析器
-    
-    try
-    {
-        LogToFile("EvaluateExpression: 进入try块");
-        
-        // 将表达式转换为字符串以便处理
-        std::wstring expr = expression;
-        LogToFile("EvaluateExpression: 创建了wstring表达式");
-        
-        // 检查并提取注释内容（#后面的内容）
-        std::wstring comment;
-        size_t hashPos = expr.find(L'#');
-        if (hashPos != std::wstring::npos) {
-            comment = expr.substr(hashPos + 1);
-            expr = expr.substr(0, hashPos);
-            // 移除注释前后的空格
-            size_t start = comment.find_first_not_of(L' ');
-            size_t end = comment.find_last_not_of(L' ');
-            if (start != std::wstring::npos && end != std::wstring::npos) {
-                comment = comment.substr(start, end - start + 1);
-            } else {
-                comment = L"";
-            }
-            
-            char commentLog[1024] = {0};
-            WideCharToMultiByte(CP_UTF8, 0, comment.c_str(), -1, commentLog, sizeof(commentLog), NULL, NULL);
-            sprintf(logMsg, "EvaluateExpression: 提取到注释 '%s'", commentLog);
-            LogToFile(logMsg);
-        }
-        
-        // 检查表达式中是否包含等号，如果包含则只取等号前的部分
-        size_t equalPos = expr.find(L'=');
-        if (equalPos != std::wstring::npos) {
-            expr = expr.substr(0, equalPos);
-            char trimmedLog[1024] = {0};
-            WideCharToMultiByte(CP_UTF8, 0, expr.c_str(), -1, trimmedLog, sizeof(trimmedLog), NULL, NULL);
-            sprintf(logMsg, "EvaluateExpression: 发现等号，截取表达式为 '%s'", trimmedLog);
-            LogToFile(logMsg);
-        }
-        
-        // 移除空格
-        expr.erase(std::remove(expr.begin(), expr.end(), L' '), expr.end());
-        LogToFile("EvaluateExpression: 移除了空格");
-        
-        // 简单的表达式计算（这里只是示例，实际应该使用更健壮的方法）
-        double result = 0.0;
-        bool success = false;
-        
-        // 尝试解析为数字
-        try
-        {
-            LogToFile("EvaluateExpression: 尝试解析为数字");
-            
-            // 检查表达式是否只包含数字和小数点
-            bool isPureNumber = true;
-            for (wchar_t c : expr) {
-                if (!isdigit(c) && c != L'.' && c != L'-') {
-                    isPureNumber = false;
-                    break;
-                }
-            }
-            
-            if (isPureNumber) {
-                result = std::stod(expr);
-                success = true;
-                LogToFile("EvaluateExpression: 成功解析为单个数字");
-            } else {
-                LogToFile("EvaluateExpression: 表达式包含非数字字符，尝试解析表达式");
-                throw std::exception(); // 强制进入表达式解析逻辑
-            }
-        }
-        catch (...)
-        {
-            LogToFile("EvaluateExpression: 不是单个数字，尝试解析表达式");
-            // 不是简单的数字，需要更复杂的解析
-            // 使用递归下降法解析表达式，支持多个运算符
-            
-            try {
-                size_t pos = 0;
-                result = parseExpression(expr, pos);
-                success = true;
-                
-                char resultLog[256] = {0};
-                sprintf(resultLog, "EvaluateExpression: 表达式计算结果为 %f", result);
-                LogToFile(resultLog);
-            } catch (...) {
-                LogToFile("EvaluateExpression: 表达式解析失败");
-                success = false;
-            }
-        }
-        
-        LogToFile("EvaluateExpression: 表达式解析完成");
-        
-        if (success)
-        {
-            LogToFile("EvaluateExpression: 开始处理成功结果");
-            
-            // 创建结果字符串
-            WCHAR resultStr[256] = {0};
-            swprintf(resultStr, sizeof(resultStr)/sizeof(WCHAR), L"%.6g", result);
-            LogToFile("EvaluateExpression: 创建了结果字符串");
-            
-            // 创建历史记录条目（只使用去除注释的表达式）
-            std::wstring displayExpr = expr;  // 使用去除注释的表达式
-            displayExpr += L" = ";
-            displayExpr += resultStr;
-            LogToFile("EvaluateExpression: 创建了历史记录条目");
-            
-            // 创建历史记录结构体，包含完整表达式（表达式+结果）和注释
-            CalculationRecord record;
-            record.expression = displayExpr;  // 使用包含结果的完整表达式（不包含注释）
-            record.result = resultStr;
-            record.comment = comment;
-            LogToFile("EvaluateExpression: 创建了计算记录结构体");
-            
-            // 添加到计算历史
-            g_calculationHistory.push_back(record);
-            LogToFile("EvaluateExpression: 添加到历史记录");
-            
-            // 限制历史记录数量
-            if (g_calculationHistory.size() > 50)
-            {
-                g_calculationHistory.erase(g_calculationHistory.begin());
-            }
-            LogToFile("EvaluateExpression: 检查了历史记录数量");
-            
-            // 保存计算历史到文件
-            SaveCalculationHistory();
-            LogToFile("EvaluateExpression: 保存了计算历史到文件");
-            
-            // 显示计算历史
-            LogToFile("EvaluateExpression: 准备显示计算历史");
-            DisplayCalculationHistory();
-            LogToFile("EvaluateExpression: 显示了计算历史");
-            
-            // 记录结果
-            char resultLog[256] = {0};
-            WideCharToMultiByte(CP_UTF8, 0, resultStr, -1, resultLog, sizeof(resultLog), NULL, NULL);
-            sprintf(logMsg, "EvaluateExpression: 计算结果为 %s", resultLog);
-            LogToFile(logMsg);
-            
-            // 将结果复制到编辑框
-            LogToFile("EvaluateExpression: 准备设置编辑框文本");
-            g_updatingEditBox = true;  // 设置标志，防止触发EN_CHANGE
-            SetWindowTextW(g_hEdit, resultStr);
-            g_updatingEditBox = false; // 清除标志
-            LogToFile("EvaluateExpression: 设置了编辑框文本");
-            
-            LogToFile("EvaluateExpression: 准备选择编辑框文本");
-            SendMessageW(g_hEdit, EM_SETSEL, 0, -1); // 全选文本
-            LogToFile("EvaluateExpression: 选择了编辑框文本");
-            
-            LogToFile("EvaluateExpression: 成功处理结果");
-        }
-        else
-        {
-            LogToFile("EvaluateExpression: 表达式计算失败");
-            MessageBoxW(g_hMainWindow, L"无法计算表达式", L"计算错误", MB_OK | MB_ICONERROR);
-        }
-    }
-    catch (...)
-    {
-        LogToFile("EvaluateExpression: 表达式计算异常");
-        MessageBoxW(g_hMainWindow, L"表达式计算异常", L"计算错误", MB_OK | MB_ICONERROR);
-    }
-    
-    LogToFile("EvaluateExpression: 函数结束");
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // 显示设置菜单（现在通过set命令调用）
 void ShowSettingsMenu() {
@@ -3204,8 +3042,63 @@ void UpdateCalculatorModeWebView()
     {
         LogToFile("UpdateCalculatorModeWebView: 模板文件读取失败，使用默认HTML内容");
         
-        // 预分配内存，减少重新分配开销
-        html.reserve(g_calculationHistory.size() * 150 + 3000);
+        // 生成默认的计算模式HTML内容
+        html = L"<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+        html += L"<style>";
+        html += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }";
+        html += L".mode-banner { background: linear-gradient(90deg, #4a90e2, #357abd); padding: 16px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }";
+        html += L".hint-banner { background: rgba(255,255,255,0.15); border-left: 4px solid #FFD700; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px; }";
+        html += L".history-container { background: rgba(255,255,255,0.95); border-radius: 10px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }";
+        html += L"table { width: 100%; border-collapse: collapse; }";
+        html += L"th { background: #4a90e2; color: white; padding: 12px; text-align: left; }";
+        html += L"td { padding: 10px; border-bottom: 1px solid #ddd; }";
+        html += L".history-row:hover { background: #f5f5f5; cursor: pointer; }";
+        html += L".empty { text-align: center; padding: 40px; color: #666; font-size: 16px; }";
+        html += L"</style>";
+        html += L"<script>";
+        html += L"function onHistoryRowClick(index) {";
+        html += L"  if (window.chrome && window.chrome.webview) {";
+        html += L"    window.chrome.webview.postMessage(JSON.stringify({type:'calculatorHistory', index:index}));";
+        html += L"  }";
+        html += L"}";
+        html += L"</script>";
+        html += L"</head><body>";
+        
+        html += L"<div class='mode-banner'>🧮 计算模式 (js) · 输入数学表达式进行计算</div>";
+        html += L"<div class='hint-banner'>💡 提示：支持加减乘除运算，以#开头添加注释，输入'q'退出计算模式</div>";
+        html += L"<div class='history-container'>";
+        
+        if (g_calculationHistory.empty())
+        {
+            html += L"<div class='empty'>暂无计算记录，试着输入表达式开始计算吧。</div>";
+        }
+        else
+        {
+            html += L"<table><thead><tr><th>表达式</th><th>结果</th><th>备注</th></tr></thead><tbody>";
+            for (size_t i = g_calculationHistory.size(); i > 0; --i)
+            {
+                size_t displayIndex = g_calculationHistory.size() - i;
+                html += L"<tr class='history-row' onclick='onHistoryRowClick(";
+                html += std::to_wstring(displayIndex);
+                html += L")'><td>";
+                html += g_calculationHistory[i - 1].expression;
+                html += L"</td><td>";
+                html += g_calculationHistory[i - 1].result;
+                html += L"</td><td>";
+                if (g_calculationHistory[i - 1].comment.empty())
+                {
+                    html += L"-";
+                }
+                else
+                {
+                    html += g_calculationHistory[i - 1].comment;
+                }
+                html += L"</td></tr>";
+            }
+            html += L"</tbody></table>";
+        }
+        
+        html += L"</div></body></html>";
     }
     else
     {
@@ -3246,6 +3139,11 @@ void UpdateCalculatorModeWebView()
     UpdateWebView2Content(html.c_str());
 }
 
+/**
+ * @brief 更新设置菜单WebView显示
+ * 
+ * 此函数更新WebView2中设置菜单的显示内容
+ */
 void UpdateSettingsMenuWebView()
 {
     if (!g_webView)
@@ -3323,6 +3221,47 @@ void UpdateSettingsMenuWebView()
             }
             
             g_cachedSettingsHtml += L"</div></body></html>";
+        }
+        else
+        {
+            // 模板文件读取成功，需要替换占位符
+            LogToFile("UpdateSettingsMenuWebView: 模板文件读取成功，开始替换占位符");
+            
+            // 生成菜单项HTML内容
+            std::wstring menuItemsHtml;
+            
+            // 菜单项列表
+            const WCHAR* menuItems[] = {
+                L"退出程序",
+                L"快捷方式管理",
+                L"系统设置",
+                L"关于软件"
+            };
+            
+            const WCHAR* menuIcons[] = {
+                L"🚪",
+                L"📁",
+                L"⚙️",
+                L"ℹ️"
+            };
+            
+            for (int i = 0; i < 4; i++)
+            {
+                menuItemsHtml += L"<div class='menu-item' onclick='onMenuItemClick(";
+                menuItemsHtml += std::to_wstring(i);
+                menuItemsHtml += L")' ondblclick='onMenuItemClick(";
+                menuItemsHtml += std::to_wstring(i);
+                menuItemsHtml += L")'>";
+                menuItemsHtml += L"<span class='menu-icon'>";
+                menuItemsHtml += menuIcons[i];
+                menuItemsHtml += L"</span>";
+                menuItemsHtml += menuItems[i];
+                menuItemsHtml += L"</div>";
+            }
+            
+            // 替换模板中的占位符
+            ReplaceStringInPlace(g_cachedSettingsHtml, L"<!-- MENU_ITEMS_PLACEHOLDER -->", menuItemsHtml);
+            LogToFile("UpdateSettingsMenuWebView: 占位符替换完成");
         }
         
         g_settingsHtmlCached = true;

@@ -44,4 +44,9 @@ void UpdateBookmarkModeWebView();
 // 简单输入框函数声明
 BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWSTR lpResult, int nResultSize);
 
+// 编辑和删除书签函数声明
+void ShowEditBookmarkDialog(int index);
+void DeleteBookmarkFromDisplayList(int index);
+void ShowHtmlEditBookmarkDialog(int index);
+
 #endif // WEBVIEW_MANAGER_H

@@ -180,6 +180,9 @@ void EnterCalculatorMode()
     // 清空编辑框
     SetWindowTextW(g_hEdit, L"");
     
+    // 更新计算模式WebView显示
+    UpdateCalculatorModeWebView();
+    
     LogToFile("EnterCalculatorMode: 进入计算模式");
 }
 
@@ -356,4 +359,202 @@ void ShowCalculatorHelpInfo()
     }
     
     LogToFile("ShowCalculatorHelpInfo: 显示计算器帮助信息");
+}
+
+/**
+ * @brief 评估数学表达式并计算结果
+ * @param expression 要计算的表达式字符串
+ */
+void EvaluateExpression(const WCHAR* expression)
+{
+    LogToFile("EvaluateExpression: 函数开始");
+    
+    if (!expression || wcslen(expression) == 0)
+    {
+        LogToFile("EvaluateExpression: 表达式为空");
+        return;
+    }
+    
+    // 记录表达式
+    char exprLog[1024] = {0};
+    WideCharToMultiByte(CP_UTF8, 0, expression, -1, exprLog, sizeof(exprLog), NULL, NULL);
+    char logMsg[1100] = {0};
+    sprintf(logMsg, "EvaluateExpression: 计算表达式 '%s'", exprLog);
+    LogToFile(logMsg);
+    
+    // 这里应该实现表达式计算逻辑
+    // 为了简单起见，我们只实现基本的加减乘除
+    // 在实际应用中，可以使用更复杂的表达式解析器
+    
+    try
+    {
+        LogToFile("EvaluateExpression: 进入try块");
+        
+        // 将表达式转换为字符串以便处理
+        std::wstring expr = expression;
+        LogToFile("EvaluateExpression: 创建了wstring表达式");
+        
+        // 检查并提取注释内容（#后面的内容）
+        std::wstring comment;
+        size_t hashPos = expr.find(L'#');
+        if (hashPos != std::wstring::npos) {
+            comment = expr.substr(hashPos + 1);
+            expr = expr.substr(0, hashPos);
+            // 移除注释前后的空格
+            size_t start = comment.find_first_not_of(L' ');
+            size_t end = comment.find_last_not_of(L' ');
+            if (start != std::wstring::npos && end != std::wstring::npos) {
+                comment = comment.substr(start, end - start + 1);
+            } else {
+                comment = L"";
+            }
+            
+            char commentLog[1024] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, comment.c_str(), -1, commentLog, sizeof(commentLog), NULL, NULL);
+            sprintf(logMsg, "EvaluateExpression: 提取到注释 '%s'", commentLog);
+            LogToFile(logMsg);
+        }
+        
+        // 检查表达式中是否包含等号，如果包含则只取等号前的部分
+        size_t equalPos = expr.find(L'=');
+        if (equalPos != std::wstring::npos) {
+            expr = expr.substr(0, equalPos);
+            char trimmedLog[1024] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, expr.c_str(), -1, trimmedLog, sizeof(trimmedLog), NULL, NULL);
+            sprintf(logMsg, "EvaluateExpression: 发现等号，截取表达式为 '%s'", trimmedLog);
+            LogToFile(logMsg);
+        }
+        
+        // 移除空格
+        expr.erase(std::remove(expr.begin(), expr.end(), L' '), expr.end());
+        LogToFile("EvaluateExpression: 移除了空格");
+        
+        // 简单的表达式计算（这里只是示例，实际应该使用更健壮的方法）
+        double result = 0.0;
+        bool success = false;
+        
+        // 尝试解析为数字
+        try
+        {
+            LogToFile("EvaluateExpression: 尝试解析为数字");
+            
+            // 检查表达式是否只包含数字和小数点
+            bool isPureNumber = true;
+            for (wchar_t c : expr) {
+                if (!isdigit(c) && c != L'.' && c != L'-') {
+                    isPureNumber = false;
+                    break;
+                }
+            }
+            
+            if (isPureNumber) {
+                result = std::stod(expr);
+                success = true;
+                LogToFile("EvaluateExpression: 成功解析为单个数字");
+            } else {
+                LogToFile("EvaluateExpression: 表达式包含非数字字符，尝试解析表达式");
+                throw std::exception(); // 强制进入表达式解析逻辑
+            }
+        }
+        catch (...)
+        {
+            LogToFile("EvaluateExpression: 不是单个数字，尝试解析表达式");
+            // 不是简单的数字，需要更复杂的解析
+            // 使用递归下降法解析表达式，支持多个运算符
+            
+            try {
+                size_t pos = 0;
+                result = parseExpression(expr, pos);
+                success = true;
+                
+                char resultLog[256] = {0};
+                sprintf(resultLog, "EvaluateExpression: 表达式计算结果为 %f", result);
+                LogToFile(resultLog);
+            } catch (...) {
+                LogToFile("EvaluateExpression: 表达式解析失败");
+                success = false;
+            }
+        }
+        
+        LogToFile("EvaluateExpression: 表达式解析完成");
+        
+        if (success)
+        {
+            LogToFile("EvaluateExpression: 开始处理成功结果");
+            
+            // 创建结果字符串
+            WCHAR resultStr[256] = {0};
+            swprintf(resultStr, sizeof(resultStr)/sizeof(WCHAR), L"%.6g", result);
+            LogToFile("EvaluateExpression: 创建了结果字符串");
+            
+            // 创建历史记录条目（只使用去除注释的表达式）
+            std::wstring displayExpr = expr;  // 使用去除注释的表达式
+            displayExpr += L" = ";
+            displayExpr += resultStr;
+            LogToFile("EvaluateExpression: 创建了历史记录条目");
+            
+            // 创建历史记录结构体，包含完整表达式（表达式+结果）和注释
+            CalculationRecord record;
+            record.expression = displayExpr;  // 使用包含结果的完整表达式（不包含注释）
+            record.result = resultStr;
+            record.comment = comment;
+            LogToFile("EvaluateExpression: 创建了计算记录结构体");
+            
+            // 添加到计算历史
+            g_calculationHistory.push_back(record);
+            LogToFile("EvaluateExpression: 添加到历史记录");
+            
+            // 限制历史记录数量
+            if (g_calculationHistory.size() > 50)
+            {
+                g_calculationHistory.erase(g_calculationHistory.begin());
+            }
+            LogToFile("EvaluateExpression: 检查了历史记录数量");
+            
+            // 保存计算历史到文件
+            SaveCalculationHistory();
+            LogToFile("EvaluateExpression: 保存了计算历史到文件");
+            
+            // 显示计算历史
+            LogToFile("EvaluateExpression: 准备显示计算历史");
+            DisplayCalculationHistory();
+            LogToFile("EvaluateExpression: 显示了计算历史");
+            
+            // 更新计算模式WebView显示
+            LogToFile("EvaluateExpression: 准备更新WebView显示");
+            UpdateCalculatorModeWebView();
+            LogToFile("EvaluateExpression: 更新了WebView显示");
+            
+            // 记录结果
+            char resultLog[256] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, resultStr, -1, resultLog, sizeof(resultLog), NULL, NULL);
+            sprintf(logMsg, "EvaluateExpression: 计算结果为 %s", resultLog);
+            LogToFile(logMsg);
+            
+            // 将结果复制到编辑框
+            LogToFile("EvaluateExpression: 准备设置编辑框文本");
+            g_updatingEditBox = true;  // 设置标志，防止触发EN_CHANGE
+            SetWindowTextW(g_hEdit, resultStr);
+            g_updatingEditBox = false; // 清除标志
+            LogToFile("EvaluateExpression: 设置了编辑框文本");
+            
+            LogToFile("EvaluateExpression: 准备选择编辑框文本");
+            SendMessageW(g_hEdit, EM_SETSEL, 0, -1); // 全选文本
+            LogToFile("EvaluateExpression: 选择了编辑框文本");
+            
+            LogToFile("EvaluateExpression: 成功处理结果");
+        }
+        else
+        {
+            LogToFile("EvaluateExpression: 表达式计算失败");
+            MessageBoxW(g_hMainWindow, L"无法计算表达式", L"计算错误", MB_OK | MB_ICONERROR);
+        }
+    }
+    catch (...)
+    {
+        LogToFile("EvaluateExpression: 表达式计算异常");
+        MessageBoxW(g_hMainWindow, L"表达式计算异常", L"计算错误", MB_OK | MB_ICONERROR);
+    }
+    
+    LogToFile("EvaluateExpression: 函数结束");
 }
