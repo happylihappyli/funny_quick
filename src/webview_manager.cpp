@@ -137,6 +137,34 @@ void InitializeWebView2(HWND hwnd)
                                                 }
                                             }
                                         }
+                                        else if (msgStr.find(L"\"type\":\"editItem\"") != std::wstring::npos)
+                                        {
+                                            // 处理编辑快捷方式请求
+                                            LogToFile("WebView2消息: 收到编辑快捷方式请求");
+                                            
+                                            int index = -1;
+                                            
+                                            // 解析索引
+                                            size_t indexPos = msgStr.find(L"\"index\":");
+                                            if (indexPos != std::wstring::npos)
+                                            {
+                                                size_t start = msgStr.find(L":", indexPos) + 1;
+                                                size_t end = msgStr.find(L",", start);
+                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+                                                std::wstring indexStr = msgStr.substr(start, end - start);
+                                                index = _wtoi(indexStr.c_str());
+                                            }
+                                            
+                                            if (index >= 0 && index < (int)g_searchResults.size())
+                                            {
+                                                // 显示编辑快捷方式对话框
+                                                ShowEditShortcutDialog(index);
+                                            }
+                                            else
+                                            {
+                                                LogToFile("WebView2消息: 编辑快捷方式失败 - 索引无效");
+                                            }
+                                        }
                                         else if (msgStr.find(L"\"type\":\"calcAction\"") != std::wstring::npos)
                                         {
                                             // 处理计算模式操作
@@ -1185,6 +1213,232 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
     DestroyWindow(hEdit);
     
     return bResult;
+}
+
+/**
+ * @brief 显示编辑快捷方式对话框
+ * 
+ * 此函数显示编辑快捷方式的对话框，允许用户修改快捷方式的备注和路径
+ * 
+ * @param index 要编辑的快捷方式索引
+ */
+void ShowEditShortcutDialog(int index)
+{
+    LogToFile("ShowEditShortcutDialog: 显示编辑快捷方式对话框");
+    
+    // 检查索引是否有效
+    if (index < 0 || index >= (int)g_shortcuts.size())
+    {
+        MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("ShowEditShortcutDialog: 无效索引");
+        return;
+    }
+    
+    // 获取当前快捷方式信息
+    ShortcutItem& shortcut = g_shortcuts[index];
+    WCHAR name[256] = {0};
+    WCHAR path[1024] = {0};
+    WCHAR comment[512] = {0};
+    
+    // 复制当前值到缓冲区
+    wcscpy_s(name, 255, shortcut.name);
+    wcscpy_s(path, 1023, shortcut.path);
+    wcscpy_s(comment, 511, shortcut.comment);
+    
+    // 获取名称 - 使用简单的输入框
+    if (!GetSimpleInput(L"编辑快捷方式", L"请输入快捷方式名称:", name, name, 255))
+    {
+        LogToFile("ShowEditShortcutDialog: 用户取消输入名称");
+        return;
+    }
+    
+    // 检查名称是否为空
+    if (wcslen(name) == 0)
+    {
+        MessageBoxW(g_hMainWindow, L"快捷方式名称不能为空", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("ShowEditShortcutDialog: 名称为空");
+        return;
+    }
+    
+    // 获取路径 - 使用简单的输入框
+    if (!GetSimpleInput(L"编辑快捷方式", L"请输入快捷方式路径:", path, path, 1023))
+    {
+        LogToFile("ShowEditShortcutDialog: 用户取消输入路径");
+        return;
+    }
+    
+    // 检查路径是否为空
+    if (wcslen(path) == 0)
+    {
+        MessageBoxW(g_hMainWindow, L"快捷方式路径不能为空", L"错误", MB_OK | MB_ICONERROR);
+        LogToFile("ShowEditShortcutDialog: 路径为空");
+        return;
+    }
+    
+    // 获取备注 - 使用简单的输入框
+    if (!GetSimpleInput(L"编辑快捷方式", L"请输入快捷方式备注:", comment, comment, 511))
+    {
+        LogToFile("ShowEditShortcutDialog: 用户取消输入备注");
+        return;
+    }
+    
+    // 更新快捷方式信息
+    wcscpy_s(shortcut.name, 255, name);
+    wcscpy_s(shortcut.path, 1023, path);
+    wcscpy_s(shortcut.comment, 511, comment);
+    
+    // 更新使用次数
+    shortcut.usageCount++;
+    
+    // 保存快捷方式列表
+    SaveShortcuts();
+    
+    // 刷新显示
+    SearchAndDisplayResults(g_currentSearch);
+    
+    LogToFile("ShowEditShortcutDialog: 快捷方式编辑成功，界面已更新");
+}
+
+/**
+ * @brief 保存快捷方式列表到文件
+ * 
+ * 此函数将当前快捷方式列表保存到data\shortcuts.txt文件中
+ */
+void SaveShortcuts()
+{
+    LogToFile("SaveShortcuts: 开始保存快捷方式列表");
+    
+    // 创建数据目录（如果不存在）
+    CreateDirectoryW(L"data", NULL);
+    
+    // 打开快捷方式文件
+    FILE* file = _wfopen(L"data\\shortcuts.txt", L"w, ccs=UTF-8");
+    if (!file)
+    {
+        LogToFile("SaveShortcuts: 无法打开快捷方式文件进行写入");
+        return;
+    }
+    
+    // 写入快捷方式
+    for (const auto& shortcut : g_shortcuts)
+    {
+        // 格式：名称|路径|类型|备注|图标路径|使用次数
+        fwprintf(file, L"%s|%s|%d|%s|%s|%d\n", 
+                 shortcut.name, 
+                 shortcut.path, 
+                 shortcut.type, 
+                 shortcut.comment, 
+                 shortcut.iconPath, 
+                 shortcut.usageCount);
+    }
+    
+    fclose(file);
+    
+    // 记录保存的快捷方式数量
+    char logMsg[200] = {0};
+    sprintf(logMsg, "SaveShortcuts: 保存了 %zu 条快捷方式", g_shortcuts.size());
+    LogToFile(logMsg);
+    LogToFile("SaveShortcuts: 函数结束");
+}
+
+/**
+ * @brief 从快捷方式文件或可执行文件中提取图标路径
+ * 
+ * 此函数根据快捷方式类型和路径提取对应的图标路径
+ * 对于文件夹类型，使用系统文件夹图标
+ * 对于URL类型，使用网站favicon图标
+ * 对于应用程序类型，从可执行文件提取图标
+ * 
+ * @param shortcut 快捷方式项
+ * @param iconPath 输出参数，存储提取的图标路径
+ * @return BOOL 成功返回TRUE，失败返回FALSE
+ */
+BOOL ExtractShortcutIcon(const ShortcutItem& shortcut, WCHAR* iconPath, int iconPathSize)
+{
+    if (iconPath == NULL || iconPathSize <= 0)
+    {
+        LogToFile("ExtractShortcutIcon: 输出参数无效");
+        return FALSE;
+    }
+    
+    // 如果快捷方式已经有图标路径，直接使用
+    if (wcslen(shortcut.iconPath) > 0)
+    {
+        wcscpy_s(iconPath, iconPathSize, shortcut.iconPath);
+        return TRUE;
+    }
+    
+    // 根据快捷方式类型处理图标
+    switch (shortcut.type)
+    {
+    case 0: // 文件夹类型
+        {
+            // 使用系统文件夹图标
+            wcscpy_s(iconPath, iconPathSize, L"shell32.dll,-34");
+            return TRUE;
+        }
+        
+    case 1: // URL类型
+        {
+            // 对于URL，尝试使用网站favicon
+            // 这里可以扩展为从网站获取favicon，目前使用默认链接图标
+            wcscpy_s(iconPath, iconPathSize, L"imageres.dll,-1002"); // 默认链接图标
+            return TRUE;
+        }
+        
+    case 2: // 应用程序类型
+        {
+            // 对于应用程序，尝试从可执行文件提取图标
+            WCHAR exePath[MAX_PATH] = {0};
+            
+            // 检查路径是否包含空格，如果是则可能需要引号
+            if (wcsstr(shortcut.path, L" ") != NULL)
+            {
+                // 路径包含空格，尝试解析可执行文件路径
+                const WCHAR* exeStart = wcsstr(shortcut.path, L"\"");
+                if (exeStart != NULL)
+                {
+                    // 找到引号，提取可执行文件路径
+                    const WCHAR* exeEnd = wcsstr(exeStart + 1, L"\"");
+                    if (exeEnd != NULL)
+                    {
+                        size_t exeLength = exeEnd - (exeStart + 1);
+                        if (exeLength < MAX_PATH)
+                        {
+                            wcsncpy_s(exePath, MAX_PATH, exeStart + 1, exeLength);
+                        }
+                    }
+                }
+            }
+            
+            // 如果没有提取到带引号的路径，直接使用原路径
+            if (wcslen(exePath) == 0)
+            {
+                wcscpy_s(exePath, MAX_PATH, shortcut.path);
+            }
+            
+            // 检查文件是否存在
+            if (GetFileAttributesW(exePath) != INVALID_FILE_ATTRIBUTES)
+            {
+                // 文件存在，直接使用可执行文件路径作为图标路径
+                wcscpy_s(iconPath, iconPathSize, exePath);
+                return TRUE;
+            }
+            else
+            {
+                // 文件不存在，使用默认应用程序图标
+                wcscpy_s(iconPath, iconPathSize, L"shell32.dll,-1"); // 默认应用程序图标
+                return TRUE;
+            }
+        }
+        
+    default:
+        {
+            // 未知类型，使用默认图标
+            wcscpy_s(iconPath, iconPathSize, L"shell32.dll,-1");
+            return TRUE;
+        }
+    }
 }
 
 /**

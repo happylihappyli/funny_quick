@@ -7,6 +7,7 @@
 #include "logger.h"
 #include "ui_manager.h"
 #include "resource.h"
+#include "file_manager.h"  // 文件管理功能定义
 #include <string>
 #include <commctrl.h>  // 包含列表视图控件相关定义
 
@@ -180,6 +181,52 @@ void HandleEditControlChange(HWND hwnd)
     {
         // 在计算模式下，不进行搜索，也不实时计算，只记录输入变化
         LogToFile("  EN_CHANGE: 计算模式下，输入内容已变化，但不计算");
+    }
+    else if (g_fileMode)
+    {
+        // 文件模式下，设置500ms延迟搜索
+        char logMsg[512] = {0};
+        char searchTextLog[256] = {0};
+        WideCharToMultiByte(CP_UTF8, 0, searchText, -1, searchTextLog, sizeof(searchTextLog), NULL, NULL);
+        sprintf(logMsg, "  EN_CHANGE: 文件模式下，输入内容: '%s'，设置500ms延迟搜索", searchTextLog);
+        LogToFile(logMsg);
+        
+        // 检查输入内容是否有效
+        if (searchText == NULL) {
+            LogToFile("  EN_CHANGE: 错误：searchText 为 NULL");
+            return;
+        }
+        
+        // 检查字符串长度
+        size_t textLen = wcslen(searchText);
+        sprintf(logMsg, "  EN_CHANGE: 输入字符串长度: %zu", textLen);
+        LogToFile(logMsg);
+        
+        // 如果已有定时器在运行，先取消
+        if (g_fileSearchTimerId != 0)
+        {
+            KillTimer(g_hMainWindow, g_fileSearchTimerId);
+            g_fileSearchTimerId = 0;
+            LogToFile("  EN_CHANGE: 取消之前的文件搜索定时器");
+        }
+        
+        // 保存待处理的搜索查询
+        wcscpy_s(g_pendingFileSearchQuery, sizeof(g_pendingFileSearchQuery)/sizeof(WCHAR), searchText);
+        
+        // 设置500ms定时器
+        g_fileSearchTimerId = SetTimer(g_hMainWindow, 2, 500, NULL);  // 定时器ID设为2，避免与现有定时器冲突
+        
+        if (g_fileSearchTimerId == 0)
+        {
+            LogToFile("  EN_CHANGE: 错误：无法设置文件搜索定时器");
+            // 定时器设置失败，立即搜索
+            SearchFiles(searchText);
+        }
+        else
+        {
+            sprintf(logMsg, "  EN_CHANGE: 文件搜索定时器已设置，ID: %Id", g_fileSearchTimerId);
+            LogToFile(logMsg);
+        }
     }
     else
     {
@@ -397,6 +444,12 @@ LRESULT HandleWMCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
         HandleExitCalculatorButton(hwnd);
         return 0;
     }
+    // 处理退出文件模式按钮点击
+    else if (LOWORD(wParam) == IDC_EXIT_FILE_BUTTON)
+    {
+        HandleExitFileButton(hwnd);
+        return 0;
+    }
     // 设置按钮已移除，不再处理设置按钮点击事件
     // 处理退出网址收藏模式按钮点击（已禁用，只允许"q"退出）
     else if (LOWORD(wParam) == IDC_EXIT_BOOKMARK_BUTTON)
@@ -508,6 +561,12 @@ LRESULT HandleWMKeyDown(HWND hwnd, WPARAM wParam, LPARAM lParam)
                 ExitBookmarkMode();
                 return 0;
             }
+            else if (g_fileMode)
+            {
+                LogToFile("WM_KEYDOWN: Q键按下，退出文件模式");
+                ExitFileMode();
+                return 0;
+            }
             break;
             
         case VK_UP:
@@ -612,6 +671,16 @@ LRESULT HandleWMKeyDown(HWND hwnd, WPARAM wParam, LPARAM lParam)
     
     // 对于其他按键，返回默认处理
     return DefWindowProcW(hwnd, WM_KEYDOWN, wParam, lParam);
+}
+
+// 处理退出文件模式按钮点击
+void HandleExitFileButton(HWND hwnd)
+{
+    if (g_fileMode)
+    {
+        ExitFileMode();
+        LogToFile("HandleExitFileButton: 用户点击退出文件模式按钮");
+    }
 }
 
 // 处理退出网址收藏模式按钮点击

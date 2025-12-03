@@ -43,6 +43,7 @@ void HandleSettingsMenuCommands(HWND hwnd, WPARAM wParam);
 void HandleTrayMenuCommands(HWND hwnd, WPARAM wParam);
 void HandleBookmarkContextMenuCommands(HWND hwnd, WPARAM wParam);
 void HandleExitBookmarkButton(HWND hwnd);
+void HandleExitFileButton(HWND hwnd);
 void HandleEditControlChange(HWND hwnd);
 void HandleEditControlReturn(HWND hwnd);
 void HandleListViewDoubleClick(HWND hwnd);

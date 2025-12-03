@@ -20,6 +20,7 @@ extern HWND g_hEdit;
 extern HWND g_hListView;
 extern HWND g_hExitCalcButton;
 extern HWND g_hExitBookmarkButton;
+extern HWND g_hExitFileButton;
 extern HWND g_hSettingsButton;
 extern HWND g_hCalcMenuButton;
 extern HWND g_hInputHintLabel;
@@ -46,11 +47,17 @@ extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网�
 extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;  // 网址收藏搜索结果
 extern bool g_bookmarkMode;  // 书签模式标志
 
+// 文件搜索管理相关全局变量声明
+extern bool g_fileMode;  // 文件模式标志
+extern UINT_PTR g_fileSearchTimerId;  // 文件搜索定时器ID
+extern WCHAR g_pendingFileSearchQuery[1024];  // 待处理的文件搜索查询
+
 // 常量定义
 #define IDC_EDIT 1001
 #define IDC_LISTVIEW 1002
 #define IDC_EXIT_CALC_BUTTON 1003
 #define IDC_SETTINGS_BUTTON 1004
+#define IDC_EXIT_FILE_BUTTON 1017   // 退出文件模式按钮ID
 #define HOTKEY_ID 1
 #define HOTKEY_ID_CTRL_F1 2
 #define HOTKEY_ID_CTRL_F2 3
@@ -105,6 +112,13 @@ void CopySelectedListItem();  // 复制选中的列表项
 void ShowLauncherWindow();  // 显示启动器窗口
 void LogListViewContents();  // 打印ListView所有内容到日志
 
+// 文件搜索相关函数声明
+void EnterFileMode();  // 进入文件搜索模式
+void ExitFileMode();  // 退出文件搜索模式
+void HandleFileSearch(const WCHAR* query);  // 处理文件搜索
+void UpdateFileModeWebView();  // 更新文件模式的 WebView2 显示
+void ExecuteFileModeItem(INT_PTR index);  // 执行文件模式下的选中项
+
 // SearchAndDisplayResults函数分解后的子函数声明
 bool InitializeListViewForSearch();  // 初始化ListView用于搜索显示
 void ProcessSearchQuery(const WCHAR* query);  // 处理搜索查询
@@ -129,6 +143,8 @@ LRESULT HandleWMContextMenu(HWND hwnd, WPARAM wParam);  // 处理WM_CONTEXTMENU�
 struct ShortcutItem {
     WCHAR name[256];
     WCHAR path[256];
+    WCHAR comment[512]; // 备注信息
+    WCHAR iconPath[512]; // 图标路径
     int type; // 0 = directory, 1 = URL, 2 = application
     int usageCount;
 };

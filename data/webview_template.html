@@ -14,6 +14,11 @@ td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
 tr:hover { background: #f0f7ff; cursor: pointer; }
 tr.selected { background: #e3f2fd; }
 tr.empty-row td { text-align: center; color: #777; font-style: italic; }
+.item-icon { width: 24px; height: 24px; margin-right: 8px; vertical-align: middle; object-fit: contain; border-radius: 4px; }
+.item-icon[data-type="system"] { width: 24px; height: 24px; background: linear-gradient(135deg, #4a90e2, #357abd); border-radius: 4px; text-align: center; line-height: 24px; font-size: 14px; color: white; }
+.item-name { display: flex; align-items: center; }
+.edit-button { background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 8px; }
+.edit-button:hover { background: #1976D2; }
 </style>
 <script>
 let selectedIndex = -1;
@@ -33,13 +38,19 @@ function onRowDblClick(index) {
     window.chrome.webview.postMessage(JSON.stringify({type:'itemDblClick', index:index}));
   }
 }
+function onEditClick(index, event) {
+  event.stopPropagation(); // 阻止事件冒泡，避免触发行点击
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'editItem', index:index}));
+  }
+}
 </script>
 </head>
 <body>
 <!-- HINTS_PLACEHOLDER -->
 <table>
 <thead>
-<tr><th>名称</th><th>路径</th></tr>
+<tr><th>名称</th><th>备注</th><th>操作</th></tr>
 </thead>
 <tbody>
 <!-- ITEMS_PLACEHOLDER -->

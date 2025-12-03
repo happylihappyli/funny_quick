@@ -1,0 +1,109 @@
+# -*- coding: utf-8 -*-
+# SConstruct配置文件 - 使用系统可用编译器
+
+import time
+import os
+
+# 记录开始时间
+start_time = time.time()
+print("开始编译...")
+
+# 检测可用的编译器
+def detect_compiler():
+    # 尝试检测clang编译器
+    for compiler in ['clang++', 'clang-cl', 'g++', 'cl']:
+        if os.system(f'{compiler} --version >nul 2>&1') == 0:
+            return compiler
+    return 'cl'  # 默认使用MSVC编译器
+
+compiler = detect_compiler()
+print(f"检测到编译器: {compiler}")
+
+# 根据编译器设置不同的选项
+if compiler in ['clang++', 'g++']:
+    # Clang/GCC选项 - 使用C++11避免兼容性问题
+    cflags = [
+        '-std=c++11',           # 使用C++11标准避免兼容性问题
+        '-finput-charset=UTF-8', # 输入文件编码为UTF-8
+        '-fexec-charset=UTF-8',  # 执行字符集为UTF-8
+        '-Wall',                 # 开启所有警告
+        '-Wextra',               # 额外警告
+        '-O2',                   # 优化级别2
+    ]
+    linkflags = ['-fuse-ld=lld'] if compiler == 'clang++' else []
+else:
+    # MSVC选项 - 不使用/std选项避免兼容性问题
+    cflags = [
+        '/utf-8',               # 使用UTF-8编码
+        '/W3',                   # 警告级别3（避免过于严格）
+        '/O2',                   # 优化级别2
+        '/EHsc',                 # 异常处理
+        '/D_CRT_SECURE_NO_WARNINGS', # 禁用安全警告
+        '/DNOMINMAX',            # 避免min/max宏定义冲突
+    ]
+    linkflags = []
+
+# 设置环境变量
+env = Environment(
+    # 使用检测到的编译器
+    CXX=compiler,
+    CC=compiler.replace('++', '') if compiler.endswith('++') else compiler,
+    
+    # 设置编译选项
+    CCFLAGS=cflags,
+    
+    # 设置链接选项
+    LINKFLAGS=linkflags,
+    
+    # 设置包含路径
+    CPPPATH=[
+        'include',              # 包含头文件目录
+    ],
+)
+
+# 创建输出目录
+bin_dir = 'bin'
+obj_dir = 'obj'
+
+if not os.path.exists(bin_dir):
+    os.makedirs(bin_dir)
+if not os.path.exists(obj_dir):
+    os.makedirs(obj_dir)
+
+# 编译目标：dll.test.cpp
+print("编译目标: example/dll.test.cpp")
+
+# 构建可执行文件 - dll测试程序
+dll_test_exe = env.Program(
+    target=os.path.join(bin_dir, 'dll_test'),
+    source=['example/dll.test.cpp'],
+)
+
+# 编译目标：简单测试程序
+print("编译目标: test/simple_test.cpp")
+
+# 构建可执行文件 - 简单测试程序
+test_exe = env.Program(
+    target=os.path.join(bin_dir, 'simple_test'),
+    source=['test/simple_test.cpp'],
+)
+
+# 编译目标：Everything DLL
+print("编译目标: src/Everything.c - 生成Everything64.dll")
+
+# 构建DLL文件
+everything_dll = env.SharedLibrary(
+    target=os.path.join(bin_dir, 'Everything64'),
+    source=['src/Everything.c'],
+    SHLIBPREFIX='',  # Windows DLL不需要前缀
+    SHLIBSUFFIX='.dll',
+    LIBS=['user32', 'shell32', 'advapi32'],  # 添加必要的Windows库
+)
+
+# 默认目标
+Default([dll_test_exe, everything_dll])
+
+# 记录结束时间并显示编译耗时
+end_time = time.time()
+compile_time = end_time - start_time
+print("编译配置完成，耗时: {:.2f}秒".format(compile_time))

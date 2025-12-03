@@ -22,6 +22,8 @@
 #include "dir_mode_manager.h"  // 目录浏览模式管理功能
 #include "window_size_handler.h"  // 窗口大小处理功能
 #include "bookmark_manager.h"  // 网址收藏管理功能
+#include "file_search_manager.h"  // 文件搜索管理功能
+#include "file_manager.h"  // 文件模式管理功能
 
 // WebView2 相关头文件
 #include <WebView2.h>
@@ -74,6 +76,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define IDC_LISTVIEW 1002  // ListView控件ID，支持双列显示
 #define IDC_EXIT_CALC_BUTTON 1003  // 退出计算模式按钮ID
 #define IDC_SETTINGS_BUTTON 1004    // 设置按钮ID
+#define IDC_EXIT_FILE_BUTTON 1017   // 退出文件模式按钮ID
 
 #define IDC_CALC_MENU_BUTTON 1016  // 计算模式操作菜单按钮ID
 #define HOTKEY_ID 1
@@ -105,9 +108,19 @@ std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网址收藏
 std::vector<std::pair<std::wstring, std::wstring>> g_bookmarkSearchResults;  // 网址收藏搜索结果
 bool g_bookmarkMode = false;  // 书签模式标志
 
+// 文件搜索管理相关全局变量定义
+bool g_fileMode = false;  // 文件模式标志
+FileSearchManager g_fileSearchManager; // 文件搜索管理器实例
+std::vector<FileSearchResult> g_fileSearchResults; // 文件搜索结果列表
+HWND g_hExitFileButton = NULL; // 退出文件模式按钮
+UINT_PTR g_fileSearchTimerId = 0;  // 文件搜索定时器ID
+WCHAR g_pendingFileSearchQuery[1024] = {0};  // 待处理的文件搜索查询
+
 // 表达式解析辅助函数声明
 void EnterCalculatorMode();
 void ExitCalculatorMode();
+void EnterFileMode();
+void ExitFileMode();
 void ShowCalculatorHelpInfo();
 void ShowHelpInfo();
 void EvaluateExpression(const WCHAR* expression);
@@ -185,6 +198,7 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
 void UpdateCalculatorModeWebView();  // 刷新计算模式的 WebView2 显示
 void UpdateSettingsMenuWebView();  // 刷新设置菜单的 WebView2 显示
 void UpdateHelpInfoWebView();  // 刷新帮助信息的 WebView2 显示
+void UpdateFileModeWebView();  // 刷新文件模式的 WebView2 显示
 void ShowBasicUsage();  // 显示基本用法界面
 
 // 系统托盘相关函数声明
@@ -279,7 +293,85 @@ void UpdateListViewColumns()
         
         LogToFile("UpdateListViewColumns: 已更新为计算模式列标题（表达式 | 结果）");
     }
-
+    else if (g_fileMode)
+    {
+        // 文件模式：文件名 | 路径 | 大小 | 修改时间 | 类型
+        
+        // 第一列：文件名
+        lvc.iSubItem = 0;
+        lvc.pszText = (WCHAR*)L"文件名";
+        lvc.cx = 150;
+        ListView_SetColumn(g_hListView, 0, &lvc);
+        
+        // 确保有足够的列数（至少5列）
+        int columnCount = Header_GetItemCount(ListView_GetHeader(g_hListView));
+        
+        // 第二列：路径
+        if (columnCount < 2)
+        {
+            lvc.iSubItem = 1;
+            lvc.pszText = (WCHAR*)L"路径";
+            lvc.cx = 200;
+            ListView_InsertColumn(g_hListView, 1, &lvc);
+        }
+        else
+        {
+            lvc.iSubItem = 1;
+            lvc.pszText = (WCHAR*)L"路径";
+            lvc.cx = 200;
+            ListView_SetColumn(g_hListView, 1, &lvc);
+        }
+        
+        // 第三列：大小
+        if (columnCount < 3)
+        {
+            lvc.iSubItem = 2;
+            lvc.pszText = (WCHAR*)L"大小";
+            lvc.cx = 80;
+            ListView_InsertColumn(g_hListView, 2, &lvc);
+        }
+        else
+        {
+            lvc.iSubItem = 2;
+            lvc.pszText = (WCHAR*)L"大小";
+            lvc.cx = 80;
+            ListView_SetColumn(g_hListView, 2, &lvc);
+        }
+        
+        // 第四列：修改时间
+        if (columnCount < 4)
+        {
+            lvc.iSubItem = 3;
+            lvc.pszText = (WCHAR*)L"修改时间";
+            lvc.cx = 120;
+            ListView_InsertColumn(g_hListView, 3, &lvc);
+        }
+        else
+        {
+            lvc.iSubItem = 3;
+            lvc.pszText = (WCHAR*)L"修改时间";
+            lvc.cx = 120;
+            ListView_SetColumn(g_hListView, 3, &lvc);
+        }
+        
+        // 第五列：类型
+        if (columnCount < 5)
+        {
+            lvc.iSubItem = 4;
+            lvc.pszText = (WCHAR*)L"类型";
+            lvc.cx = 80;
+            ListView_InsertColumn(g_hListView, 4, &lvc);
+        }
+        else
+        {
+            lvc.iSubItem = 4;
+            lvc.pszText = (WCHAR*)L"类型";
+            lvc.cx = 80;
+            ListView_SetColumn(g_hListView, 4, &lvc);
+        }
+        
+        LogToFile("UpdateListViewColumns: 已更新为文件模式列标题（文件名 | 路径 | 大小 | 修改时间 | 类型）");
+    }
     else
     {
         // 普通模式：名称 | 路径
@@ -538,12 +630,29 @@ void LayoutControls(int windowWidth, int windowHeight)
     }
     
     SetWindowPos(g_hSettingsButton, NULL, settingsButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
-    SetWindowPos(g_hExitCalcButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
-
     
-    // 计算模式菜单按钮位置：在退出按钮左侧
-    int calcMenuButtonX = exitButtonX - buttonWidth - buttonSpacing;
-    SetWindowPos(g_hCalcMenuButton, NULL, calcMenuButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
+    // 根据当前模式显示相应的退出按钮
+    if (g_calculatorMode)
+    {
+        // 计算模式：显示计算模式退出按钮
+        SetWindowPos(g_hExitCalcButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
+        
+        // 计算模式菜单按钮位置：在退出按钮左侧
+        int calcMenuButtonX = exitButtonX - buttonWidth - buttonSpacing;
+        SetWindowPos(g_hCalcMenuButton, NULL, calcMenuButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
+    }
+    else if (g_fileMode)
+    {
+        // 文件模式：显示文件模式退出按钮
+        SetWindowPos(g_hExitFileButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_NOZORDER);
+    }
+    else
+    {
+        // 普通模式：隐藏所有退出按钮
+        SetWindowPos(g_hExitCalcButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_HIDEWINDOW);
+        SetWindowPos(g_hExitFileButton, NULL, exitButtonX, buttonY, buttonWidth, buttonHeight, SWP_HIDEWINDOW);
+        SetWindowPos(g_hCalcMenuButton, NULL, exitButtonX - buttonWidth - buttonSpacing, buttonY, buttonWidth, buttonHeight, SWP_HIDEWINDOW);
+    }
     
     // 刷新ListView显示
     if (g_hListView != NULL)
@@ -579,9 +688,9 @@ void ShowLauncherWindow()
     LogToFile("Setting focus to edit control");
     SetFocus(g_hEdit);
     
-    // Display default search results
-    LogToFile("Displaying default search results");
-    SearchAndDisplayResults(L"");
+    // 显示基本用法界面（包含文件模式提示）
+    LogToFile("Displaying basic usage interface with file mode hints");
+    ShowBasicUsage();
     
     // 处理所有待处理的消息，确保初始化消息都已处理
     MSG msg;
@@ -802,6 +911,14 @@ void ProcessCommand(const WCHAR* command)
         return;
     }
     
+    // 检查是否在文件模式下输入"q"退出
+    if (g_fileMode && wcscmp(command, L"q") == 0)
+    {
+        LogToFile("ProcessCommand: 在文件模式下输入'q'，退出文件模式");
+        ExitFileMode();
+        return;
+    }
+    
     // 检查是否是"js"命令，用于进入计算模式
     if (wcscmp(command, L"js") == 0)
     {
@@ -817,6 +934,14 @@ void ProcessCommand(const WCHAR* command)
     {
         LogToFile("ProcessCommand: 识别为'dir'命令，进入目录浏览模式");
         EnterDirMode();
+        return;
+    }
+    
+    // 检查是否是"file"命令，用于进入文件模式
+    if (wcscmp(command, L"file") == 0)
+    {
+        LogToFile("ProcessCommand: 识别为'file'命令，进入文件模式");
+        EnterFileMode();
         return;
     }
     
@@ -1018,6 +1143,13 @@ void AddDesktopShortcuts()
                     // Set shortcut name and path
                     wcscpy(shortcut.name, findData.cFileName);
                     wsprintfW(shortcut.path, L"%s\\%s.lnk", desktopPath, findData.cFileName);
+                    
+                    // 设置默认备注和图标路径
+                    WCHAR defaultComment[512] = {0};
+                    wsprintfW(defaultComment, L"桌面快捷方式: %s", findData.cFileName);
+                    wcscpy(shortcut.comment, defaultComment);
+                    wcscpy(shortcut.iconPath, shortcut.path); // 使用快捷方式本身作为图标源
+                    
                     shortcut.type = 2;  // Mark as application
                     shortcut.usageCount = 0;
                     
@@ -1041,6 +1173,8 @@ void InitializeCommonShortcuts()
     // Desktop folder
     ShortcutItem desktop = {0};
     wcscpy(desktop.name, L"Desktop");
+    wcscpy(desktop.comment, L"桌面文件夹，包含所有桌面快捷方式");
+    wcscpy(desktop.iconPath, L"shell32.dll,-34"); // 文件夹图标
     desktop.type = 0;
     desktop.usageCount = 0;
     SHGetSpecialFolderPathW(NULL, desktop.path, CSIDL_DESKTOP, FALSE);
@@ -1049,6 +1183,8 @@ void InitializeCommonShortcuts()
     // Show Desktop
     ShortcutItem showDesktop = {0};
     wcscpy(showDesktop.name, L"Show Desktop");
+    wcscpy(showDesktop.comment, L"快速显示桌面，隐藏所有窗口");
+    wcscpy(showDesktop.iconPath, L"shell32.dll,-35"); // 桌面图标
     wcscpy(showDesktop.path, L"explorer.exe shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}");
     showDesktop.type = 2;
     showDesktop.usageCount = 0;
@@ -1057,6 +1193,8 @@ void InitializeCommonShortcuts()
     // Start Menu Programs
     ShortcutItem startMenu = {0};
     wcscpy(startMenu.name, L"Start Menu");
+    wcscpy(startMenu.comment, L"开始菜单程序文件夹");
+    wcscpy(startMenu.iconPath, L"shell32.dll,-155"); // 程序文件夹图标
     startMenu.type = 0;
     startMenu.usageCount = 0;
     SHGetSpecialFolderPathW(NULL, startMenu.path, CSIDL_PROGRAMS, FALSE);
@@ -1065,6 +1203,8 @@ void InitializeCommonShortcuts()
     // Downloads folder
     ShortcutItem downloads = {0};
     wcscpy(downloads.name, L"Downloads");
+    wcscpy(downloads.comment, L"下载文件夹，包含所有下载的文件");
+    wcscpy(downloads.iconPath, L"shell32.dll,-176"); // 下载文件夹图标
     downloads.type = 0;
     downloads.usageCount = 0;
     SHGetSpecialFolderPathW(NULL, downloads.path, CSIDL_MYDOCUMENTS, FALSE);
@@ -1074,6 +1214,8 @@ void InitializeCommonShortcuts()
     // Documents folder
     ShortcutItem documents = {0};
     wcscpy(documents.name, L"Documents");
+    wcscpy(documents.comment, L"文档文件夹，包含个人文档");
+    wcscpy(documents.iconPath, L"shell32.dll,-235"); // 文档文件夹图标
     documents.type = 0;
     documents.usageCount = 0;
     SHGetSpecialFolderPathW(NULL, documents.path, CSIDL_MYDOCUMENTS, FALSE);
@@ -1082,6 +1224,8 @@ void InitializeCommonShortcuts()
     // Google URL
     ShortcutItem google = {0};
     wcscpy(google.name, L"Google");
+    wcscpy(google.comment, L"谷歌搜索引擎，全球最大的搜索引擎");
+    wcscpy(google.iconPath, L"https://www.google.com/favicon.ico");
     wcscpy(google.path, L"https://www.google.com");
     google.type = 1;
     google.usageCount = 0;
@@ -1090,6 +1234,8 @@ void InitializeCommonShortcuts()
     // Baidu URL
     ShortcutItem baidu = {0};
     wcscpy(baidu.name, L"Baidu");
+    wcscpy(baidu.comment, L"百度搜索引擎，中文搜索引擎");
+    wcscpy(baidu.iconPath, L"https://www.baidu.com/favicon.ico");
     wcscpy(baidu.path, L"https://www.baidu.com");
     baidu.type = 1;
     baidu.usageCount = 0;
@@ -1098,6 +1244,8 @@ void InitializeCommonShortcuts()
     // File Explorer
     ShortcutItem explorer = {0};
     wcscpy(explorer.name, L"Explorer");
+    wcscpy(explorer.comment, L"文件资源管理器，浏览和管理文件");
+    wcscpy(explorer.iconPath, L"explorer.exe");
     wcscpy(explorer.path, L"explorer.exe");
     explorer.type = 2;
     explorer.usageCount = 0;
@@ -1106,6 +1254,8 @@ void InitializeCommonShortcuts()
     // Notepad
     ShortcutItem notepad = {0};
     wcscpy(notepad.name, L"Notepad");
+    wcscpy(notepad.comment, L"记事本程序，简单的文本编辑器");
+    wcscpy(notepad.iconPath, L"notepad.exe");
     wcscpy(notepad.path, L"notepad.exe");
     notepad.type = 2;
     notepad.usageCount = 0;
@@ -1430,6 +1580,17 @@ void SearchAndDisplayResults(const WCHAR* query)
         // WZ模式搜索时，显示专门的网址收藏页面，而不是普通搜索页面
         UpdateBookmarkModeWebView();
     }
+    else if (g_fileMode)
+    {
+        // 文件模式：只进行文件搜索，不进行快捷方式搜索
+        // 文件搜索由SearchFiles函数处理，这里只清空快捷方式搜索结果
+        g_searchResults.clear();
+        
+        // 文件模式搜索时，显示文件搜索页面
+        UpdateFileModeWebView();
+        
+        LogToFile("SearchAndDisplayResults: 文件模式下，跳过快捷方式搜索，只进行文件搜索");
+    }
     else
     {
         // 普通模式：同时搜索快捷方式和网址收藏
@@ -1552,6 +1713,14 @@ void LogListViewContents()
 // Execute selected item from list
 void ExecuteSelectedItem(INT_PTR index)
 {
+    // 检查是否是文件模式
+    if (g_fileMode)
+    {
+        LogToFile("ExecuteSelectedItem: 文件模式下调用，转发到ExecuteFileModeItem");
+        ExecuteFileModeItem(index);
+        return;
+    }
+    
     // 检查ListView前面有多少行提示行，需要调整索引
     int hintRowCount = 0;
     int itemCount = ListView_GetItemCount(g_hListView);
@@ -1720,6 +1889,107 @@ void ExecuteSelectedItem(INT_PTR index)
 }
 
 /**
+ * @brief 执行文件模式下的选中项
+ * @param index 选中项的索引
+ */
+void ExecuteFileModeItem(INT_PTR index)
+{
+    // 检查ListView前面有多少行提示行，需要调整索引
+    int hintRowCount = 0;
+    int itemCount = ListView_GetItemCount(g_hListView);
+    for (int i = 0; i < itemCount; i++)
+    {
+        WCHAR itemText[1024] = {0};
+        LVITEMW lvItem = {0};
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = i;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = itemText;
+        lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+        if (ListView_GetItem(g_hListView, &lvItem))
+        {
+            // 检查是否是提示行
+            if (wcsstr(itemText, L"提示:") == itemText || wcsstr(itemText, L"💡") == itemText)
+            {
+                hintRowCount++;
+            }
+            else
+            {
+                break;  // 遇到非提示行，停止计数
+            }
+        }
+    }
+    
+    INT_PTR adjustedIndex = index - hintRowCount;
+    
+    if (adjustedIndex < 0 || (size_t)adjustedIndex >= g_fileSearchResults.size())
+    {
+        char logMsg[200] = {0};
+        sprintf(logMsg, "ExecuteFileModeItem: 无效索引 %Id（调整后 %Id），文件搜索结果大小为 %zu", index, adjustedIndex, g_fileSearchResults.size());
+        LogToFile(logMsg);
+        return;
+    }
+    
+    if (hintRowCount > 0)
+    {
+        char adjustLog[200] = {0};
+        sprintf(adjustLog, "ExecuteFileModeItem: 检测到 %d 行提示行，实际执行索引调整为 %Id", hintRowCount, adjustedIndex);
+        LogToFile(adjustLog);
+    }
+    
+    FileSearchResult& file = g_fileSearchResults[(size_t)adjustedIndex];
+    
+    // 记录要执行的文件信息
+    char fileNameLog[1024] = {0};
+    char filePathLog[1024] = {0};
+    WideCharToMultiByte(CP_UTF8, 0, file.fileName.c_str(), -1, fileNameLog, sizeof(fileNameLog), NULL, NULL);
+    WideCharToMultiByte(CP_UTF8, 0, file.fullPath.c_str(), -1, filePathLog, sizeof(filePathLog), NULL, NULL);
+    
+    char logMsg[1100] = {0};
+    sprintf(logMsg, "ExecuteFileModeItem: 执行文件[%Id] '%s' (路径: '%s', 类型: %s, 文件夹: %s)", 
+            adjustedIndex, fileNameLog, filePathLog, file.isFile ? "文件" : "非文件", file.isFolder ? "是" : "否");
+    LogToFile(logMsg);
+    
+    // 执行文件或打开文件夹
+    HINSTANCE result;
+    if (file.isFolder)
+    {
+        LogToFile("ExecuteFileModeItem: 打开文件夹");
+        result = ShellExecuteW(NULL, L"open", file.fullPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    }
+    else
+    {
+        LogToFile("ExecuteFileModeItem: 打开文件");
+        result = ShellExecuteW(NULL, L"open", file.fullPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    }
+    
+    // 记录执行结果
+    sprintf(logMsg, "ExecuteFileModeItem: ShellExecuteW 返回值: %Id", (INT_PTR)result);
+    LogToFile(logMsg);
+    
+    // Only show error message if execution failed
+    if ((INT_PTR)result <= 32)
+    {
+        sprintf(logMsg, "ExecuteFileModeItem: 执行失败，错误代码 %Id", (INT_PTR)result);
+        LogToFile(logMsg);
+        WCHAR feedback[1024] = {0};
+        wsprintfW(feedback, L"Failed to execute: error code %Id", (INT_PTR)result);
+        ListView_DeleteAllItems(g_hListView);
+        
+        LVITEMW lvi = {0};
+        lvi.mask = LVIF_TEXT;
+        lvi.iItem = 0;
+        lvi.iSubItem = 0;
+        lvi.pszText = feedback;
+        ListView_InsertItem(g_hListView, &lvi);
+    }
+    else
+    {
+        LogToFile("ExecuteFileModeItem: 执行成功");
+    }
+}
+
+/**
  * @brief 处理WM_CREATE消息，创建窗口控件
  * @param hwnd 窗口句柄
  * @param lpCreateStruct 创建结构体指针
@@ -1801,7 +2071,15 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
     
     // 设置按钮已移除，不再创建
     
-
+    // Create exit file mode button (initially hidden)
+    g_hExitFileButton = CreateWindowExW(
+          0,
+          L"BUTTON",
+          L"退出文件",
+          WS_CHILD | BS_PUSHBUTTON,
+          300, 10, 80, 25,
+          hwnd, (HMENU)IDC_EXIT_FILE_BUTTON,
+          g_hInstance, NULL);
     
     // Create calculator mode menu button (initially hidden)
     g_hCalcMenuButton = CreateWindowExW(
@@ -1813,8 +2091,9 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
           hwnd, (HMENU)IDC_CALC_MENU_BUTTON,
           g_hInstance, NULL);
     
-    // Initially hide the exit calculator button and calculator menu button
+    // Initially hide the exit calculator button, exit file button and calculator menu button
     ShowWindow(g_hExitCalcButton, SW_HIDE);
+    ShowWindow(g_hExitFileButton, SW_HIDE);
     ShowWindow(g_hCalcMenuButton, SW_HIDE);
     
     // 应用字体到所有控件
@@ -1823,6 +2102,7 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
         ApplyFontToControl(g_hEdit);
         ApplyFontToControl(g_hListView);
         ApplyFontToControl(g_hExitCalcButton);
+        ApplyFontToControl(g_hExitFileButton);
         ApplyFontToControl(g_hCalcMenuButton);
         LogToFile("字体已应用到所有控件");
     }
@@ -1923,6 +2203,36 @@ LRESULT HandleWMDestroy(HWND hwnd)
  */
 LRESULT HandleWMTimer(HWND hwnd, WPARAM wParam)
 {
+    // 处理文件搜索定时器（ID为2）
+    if (wParam == 2) {
+        LogToFile("WM_TIMER: 文件搜索定时器触发");
+        
+        // 取消定时器
+        KillTimer(hwnd, 2);
+        g_fileSearchTimerId = 0;
+        
+        // 检查是否有待处理的搜索查询
+        if (wcslen(g_pendingFileSearchQuery) > 0) {
+            char logMsg[512] = {0};
+            char searchTextLog[256] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, g_pendingFileSearchQuery, -1, searchTextLog, sizeof(searchTextLog), NULL, NULL);
+            sprintf(logMsg, "WM_TIMER: 执行延迟文件搜索，查询: '%s'", searchTextLog);
+            LogToFile(logMsg);
+            
+            // 执行文件搜索
+            SearchFiles(g_pendingFileSearchQuery);
+            
+            // 清空待处理的查询
+            g_pendingFileSearchQuery[0] = L'\0';
+            
+            LogToFile("WM_TIMER: 延迟文件搜索完成");
+        } else {
+            LogToFile("WM_TIMER: 没有待处理的文件搜索查询");
+        }
+        
+        return 0;
+    }
+    
     // Timer is no longer needed since we're handling Enter key directly
     if (wParam == 1) {
         KillTimer(hwnd, 1);
@@ -2041,32 +2351,42 @@ LRESULT HandleWMNotify(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
                 else
                 {
-                    // 普通模式下，双击执行选中的项
-                    // 检查是否是有效的搜索结果（不是"No matching items found"）
-                    if (selIndex < (INT_PTR)g_searchResults.size())
+                    // 检查是否是文件模式
+                    if (g_fileMode)
                     {
-                        LogToFile("WM_NOTIFY: 双击执行选中的搜索结果");
-                        ExecuteSelectedItem(selIndex);
+                        LogToFile("WM_NOTIFY: 文件模式下双击执行选中的文件");
+                        // 在文件模式下，双击执行文件或打开文件夹
+                        ExecuteFileModeItem(selIndex);
                     }
                     else
                     {
-                        // 检查是否是"No matching items found"消息
-                        WCHAR itemText[1024] = {0};
-                        LVITEMW lvItem = {0};
-                        lvItem.iItem = (int)selIndex;
-                        lvItem.iSubItem = 0;
-                        lvItem.pszText = itemText;
-                        lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
-                        ListView_GetItem(g_hListView, &lvItem);
-                        
-                        if (wcscmp(itemText, L"No matching items found") != 0)
+                        // 普通模式下，双击执行选中的项
+                        // 检查是否是有效的搜索结果（不是"No matching items found"）
+                        if (selIndex < (INT_PTR)g_searchResults.size())
                         {
-                            LogToFile("WM_NOTIFY: 双击的项目不在搜索结果中，尝试执行");
+                            LogToFile("WM_NOTIFY: 双击执行选中的搜索结果");
                             ExecuteSelectedItem(selIndex);
                         }
                         else
                         {
-                            LogToFile("WM_NOTIFY: 双击的是'No matching items found'消息，不执行");
+                            // 检查是否是"No matching items found"消息
+                            WCHAR itemText[1024] = {0};
+                            LVITEMW lvItem = {0};
+                            lvItem.iItem = (int)selIndex;
+                            lvItem.iSubItem = 0;
+                            lvItem.pszText = itemText;
+                            lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+                            ListView_GetItem(g_hListView, &lvItem);
+                            
+                            if (wcscmp(itemText, L"No matching items found") != 0)
+                            {
+                                LogToFile("WM_NOTIFY: 双击的项目不在搜索结果中，尝试执行");
+                                ExecuteSelectedItem(selIndex);
+                            }
+                            else
+                            {
+                                LogToFile("WM_NOTIFY: 双击的是'No matching items found'消息，不执行");
+                            }
                         }
                     }
                 }
@@ -2161,6 +2481,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // 创建UI字体
     CreateUIFont();
     LogToFile("UI字体已创建");
+    
+    // 初始化文件搜索管理器
+    if (g_fileSearchManager.Initialize()) {
+        LogToFile("文件搜索管理器初始化成功");
+    } else {
+        LogToFile("文件搜索管理器初始化失败");
+    }
     
     // Register window class
     WNDCLASSEXW wc = {0};
@@ -2390,16 +2717,16 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                     // If list has items, explicitly select and open the first one
                     if (itemCount > 0)
                     {
-                        // 首先检查特殊命令（"js"、"wz"、"dir"、"set"、"help"等），优先处理这些命令
-                        if (wcscmp(currentText, L"js") == 0 || wcscmp(currentText, L"wz") == 0 || wcscmp(currentText, L"dir") == 0 || wcscmp(currentText, L"set") == 0 || wcscmp(currentText, L"help") == 0)
+                        // 首先检查特殊命令（"js"、"wz"、"dir"、"file"、"set"、"help"等），优先处理这些命令
+                        if (wcscmp(currentText, L"js") == 0 || wcscmp(currentText, L"wz") == 0 || wcscmp(currentText, L"dir") == 0 || wcscmp(currentText, L"file") == 0 || wcscmp(currentText, L"set") == 0 || wcscmp(currentText, L"help") == 0)
                         {
                             LogToFile("  EditSubclassProc: 检测到特殊命令，调用ProcessCommand处理");
                             ProcessCommand(currentText);
                             return 0; // 特殊命令处理完成，不执行搜索结果
                         }
                         
-                        // 检查是否在计算模式、目录浏览模式或网址模式，优先处理"q"退出命令
-                        if (g_calculatorMode || g_dirMode || g_bookmarkMode)
+                        // 检查是否在计算模式、目录浏览模式、网址模式或文件模式，优先处理"q"退出命令
+                        if (g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode)
                         {
                             // 在特殊模式下，首先检查"q"退出命令
                             if (wcscmp(currentText, L"q") == 0)
@@ -2418,6 +2745,11 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 if (g_bookmarkMode)
                                 {
                                     ExitBookmarkMode();
+                                }
+                                
+                                if (g_fileMode)
+                                {
+                                    ExitFileMode();
                                 }
                             }
                             else if (g_bookmarkMode && wParam == VK_RETURN)
@@ -2448,6 +2780,14 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 {
                                     LogToFile("  EditSubclassProc: WZ模式下没有可用的网址收藏");
                                 }
+                            }
+                            else if (g_fileMode && wParam == VK_RETURN)
+                            {
+                                // 文件模式下回车键的特殊处理：进行文件搜索
+                                LogToFile("  EditSubclassProc: 文件模式下用户按回车键，进行文件搜索");
+                                
+                                // 调用SearchFiles函数进行文件搜索
+                                SearchFiles(currentText);
                             }
                             else
                             {
@@ -2568,8 +2908,8 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                             sprintf(logMsg, "  EditSubclassProc: List empty, processing input as command: '%s'", currentTextLog);
                             LogToFile(logMsg);
                             
-                            // 检查是否在计算模式、目录浏览模式或网址模式，优先处理"q"退出命令
-                            if ((g_calculatorMode || g_dirMode || g_bookmarkMode) && wcscmp(currentText, L"q") == 0)
+                            // 检查是否在计算模式、目录浏览模式、网址模式或文件模式，优先处理"q"退出命令
+                            if ((g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode) && wcscmp(currentText, L"q") == 0)
                             {
                                 LogToFile("  EditSubclassProc: 检测到特殊模式下输入'q'，退出当前模式");
                                 if (g_calculatorMode)
@@ -2585,6 +2925,11 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 if (g_bookmarkMode)
                                 {
                                     ExitBookmarkMode();
+                                }
+                                
+                                if (g_fileMode)
+                                {
+                                    ExitFileMode();
                                 }
                                 return 0; // 特殊模式退出处理完成
                             }
@@ -2611,6 +2956,15 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                 {
                                     LogToFile("  EditSubclassProc: WZ模式下，进行书签搜索");
                                     SearchBookmarks(currentText);
+                                }
+                                // 如果在文件模式下且不是"js"/"wz"/"q"命令，则进行文件搜索
+                                else if (g_fileMode && 
+                                         wcscmp(currentText, L"js") != 0 && 
+                                         wcscmp(currentText, L"wz") != 0 &&
+                                         wcscmp(currentText, L"q") != 0)
+                                {
+                                    LogToFile("  EditSubclassProc: 文件模式下，进行文件搜索");
+                                    SearchFiles(currentText);
                                 }
 
                             }
@@ -3083,7 +3437,7 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
         std::wstring itemsHtml;
         if (items.empty())
         {
-            itemsHtml = L"<tr class='empty-row'><td colspan='2'>未找到匹配项，试试其他关键字，或输入 <strong>help</strong> 查看可用命令。</td></tr>";
+            itemsHtml = L"<tr class='empty-row'><td colspan='3'>未找到匹配项，试试其他关键字，或输入 <strong>help</strong> 查看可用命令。</td></tr>";
         }
         else
         {
@@ -3094,11 +3448,60 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
                 itemsHtml += L")' ondblclick='onRowDblClick(";
                 itemsHtml += std::to_wstring(i);
                 itemsHtml += L")'>";
-                itemsHtml += L"<td>";
+                
+                // 名称列：显示图标和名称
+                itemsHtml += L"<td><div class='item-name'>";
+                
+                // 提取并显示图标
+                WCHAR iconPath[512] = {0};
+                if (ExtractShortcutIcon(items[i], iconPath, 512))
+                {
+                    // 检查图标路径类型，如果是系统图标资源，使用特殊格式
+                    if (wcsstr(iconPath, L".dll,") != NULL)
+                    {
+                        // 系统图标资源，使用span元素和data-type属性
+                        itemsHtml += L"<span class='item-icon' data-type='system'>📄</span>";
+                    }
+                    else if (wcsstr(iconPath, L"http") != NULL)
+                    {
+                        // 网络图标，直接使用img标签
+                        itemsHtml += L"<img src='";
+                        itemsHtml += iconPath;
+                        itemsHtml += L"' class='item-icon' alt='图标'>";
+                    }
+                    else
+                    {
+                        // 本地文件图标，使用img标签
+                        itemsHtml += L"<img src='";
+                        itemsHtml += iconPath;
+                        itemsHtml += L"' class='item-icon' alt='图标'>";
+                    }
+                }
+                else
+                {
+                    // 图标提取失败，使用默认图标
+                    itemsHtml += L"<span class='item-icon' data-type='system'>📄</span>";
+                }
+                
                 itemsHtml += items[i].name;
-                itemsHtml += L"</td><td>";
-                itemsHtml += items[i].path;
-                itemsHtml += L"</td></tr>";
+                itemsHtml += L"</div></td>";
+                
+                // 备注列：显示备注信息
+                itemsHtml += L"<td>";
+                if (wcslen(items[i].comment) > 0)
+                {
+                    itemsHtml += items[i].comment;
+                }
+                else
+                {
+                    itemsHtml += L"-";
+                }
+                itemsHtml += L"</td>";
+                
+                // 操作列：显示编辑按钮
+                itemsHtml += L"<td><button class='edit-button' onclick='onEditClick(";
+                itemsHtml += std::to_wstring(i);
+                itemsHtml += L", event)'>编辑</button></td></tr>";
             }
         }
         
@@ -3385,6 +3788,110 @@ void UpdateHelpInfoWebView()
     UpdateWebView2Content(g_cachedHelpHtml.c_str());
 }
 
+/**
+ * @brief 更新文件模式的WebView2显示
+ */
+void UpdateFileModeWebView()
+{
+    if (!g_webView)
+    {
+        LogToFile("UpdateFileModeWebView: WebView2 未初始化，无法显示文件模式内容");
+        return;
+    }
+    
+    // 创建文件模式HTML内容，显示实时搜索结果
+    std::wstring htmlContent = L"<html><head><meta charset='UTF-8'><style>"
+                               L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 10px; background: #f5f5f5; }"
+                               L".header { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }"
+                               L"h1 { color: #2c3e50; margin: 0; font-size: 18px; }"
+                               L".results-container { background: white; border-radius: 8px; padding: 0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }"
+                               L".file-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; }"
+                               L".file-item:hover { background: #f8f9fa; }"
+                               L".file-icon { margin-right: 10px; font-size: 16px; }"
+                               L".file-name { font-weight: bold; color: #2c3e50; flex: 2; }"
+                               L".file-path { color: #666; flex: 3; font-size: 12px; }"
+                               L".file-size { color: #888; flex: 1; text-align: right; font-size: 12px; }"
+                               L".file-type { color: #888; flex: 1; text-align: right; font-size: 12px; }"
+                               L".no-results { padding: 30px; text-align: center; color: #888; }"
+                               L".hint { padding: 15px; background: #e8f4fd; border-left: 4px solid #3498db; margin-bottom: 10px; border-radius: 4px; }"
+                               L"</style></head><body>"
+                               L"<div class='header'>"
+                               L"<h1>📁 文件搜索模式</h1>"
+                               L"</div>";
+    
+    // 添加提示信息
+    htmlContent += L"<div class='hint'>"
+                   L"💡 输入文件名或路径关键字进行实时搜索，输入 'q' 退出文件模式"
+                   L"</div>";
+    
+    // 添加搜索结果
+    htmlContent += L"<div class='results-container'>";
+    
+    if (g_fileSearchResults.empty())
+    {
+        htmlContent += L"<div class='no-results'>"
+                       L"🔍 请输入文件名或路径关键字开始搜索"
+                       L"</div>";
+    }
+    else
+    {
+        // 显示搜索结果
+        for (const auto& file : g_fileSearchResults)
+        {
+            // 根据文件类型选择图标
+            std::wstring icon = L"📄"; // 默认文件图标
+            if (file.fileType.find(L"文件夹") != std::wstring::npos || 
+                file.fileType.find(L"Directory") != std::wstring::npos)
+            {
+                icon = L"📁";
+            }
+            else if (file.fileType.find(L"图像") != std::wstring::npos || 
+                     file.fileType.find(L"Image") != std::wstring::npos)
+            {
+                icon = L"🖼️";
+            }
+            else if (file.fileType.find(L"视频") != std::wstring::npos || 
+                     file.fileType.find(L"Video") != std::wstring::npos)
+            {
+                icon = L"🎬";
+            }
+            else if (file.fileType.find(L"音频") != std::wstring::npos || 
+                     file.fileType.find(L"Audio") != std::wstring::npos)
+            {
+                icon = L"🎵";
+            }
+            else if (file.fileType.find(L"文档") != std::wstring::npos || 
+                     file.fileType.find(L"Document") != std::wstring::npos)
+            {
+                icon = L"📝";
+            }
+            
+            htmlContent += L"<div class='file-item' onclick='openFile(\"" + file.fullPath + L"\")'>"
+                          L"<span class='file-icon'>" + icon + L"</span>"
+                          L"<span class='file-name'>" + file.fileName + L"</span>"
+                          L"<span class='file-path'>" + file.fullPath + L"</span>"
+                          L"<span class='file-size'>" + file.size + L"</span>"
+                          L"<span class='file-type'>" + file.fileType + L"</span>"
+                          L"</div>";
+        }
+    }
+    
+    htmlContent += L"</div>";
+    
+    // 添加JavaScript函数
+    htmlContent += L"<script>"
+                   L"function openFile(filePath) {"
+                   L"  // 这里可以添加打开文件的逻辑"
+                   L"  console.log('打开文件: ' + filePath);"
+                   L"}"
+                   L"</script>";
+    
+    htmlContent += L"</body></html>";
+    
+    UpdateWebView2Content(htmlContent.c_str());
+    LogToFile("UpdateFileModeWebView: 文件模式WebView显示已更新，显示搜索结果");
+}
+
 
 
 // 显示基本用法界面
@@ -3557,7 +4064,7 @@ HWND g_hExitBookmarkButton = NULL;
 
 /**
  * @brief 根据当前模式更新窗口标题
- * 根据当前激活的模式（计算模式、目录浏览模式、网址收藏模式、普通模式）设置不同的窗口标题
+ * 根据当前激活的模式（计算模式、目录浏览模式、网址收藏模式、文件模式、普通模式）设置不同的窗口标题
  */
 void UpdateWindowTitle()
 {
@@ -3583,6 +4090,11 @@ void UpdateWindowTitle()
     {
         title = L"快速启动--网址模式";
         LogToFile("UpdateWindowTitle: 设置为网址模式标题");
+    }
+    else if (g_fileMode)
+    {
+        title = L"快速启动--文件模式";
+        LogToFile("UpdateWindowTitle: 设置为文件模式标题");
     }
     else
     {

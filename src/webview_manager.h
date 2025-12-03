@@ -8,13 +8,64 @@
 #define _UNICODE
 
 #include <windows.h>
+#include "webview2_fix.h"  // WebView2枚举值修复
 #include <WebView2.h>
-#include <WebView2EnvironmentOptions.h>
+
+// 避免直接包含有问题的WebView2EnvironmentOptions.h头文件
+// 手动声明需要的接口和类型
 #include <wrl/client.h>
 #include <wrl/event.h>
+
+// 手动声明WebView2环境选项接口
+namespace Microsoft {
+    namespace Web {
+        namespace WebView2 {
+            namespace Core {
+                // 手动声明ICoreWebView2EnvironmentOptions接口
+                MIDL_INTERFACE("2F5D5357-3C72-4A9C-96E9-9A8E2A8D6C7B")
+                ICoreWebView2EnvironmentOptions : public IUnknown {
+                public:
+                    virtual HRESULT STDMETHODCALLTYPE get_AdditionalBrowserArguments(
+                        LPWSTR* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_AdditionalBrowserArguments(
+                        LPCWSTR value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE get_Language(
+                        LPWSTR* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_Language(
+                        LPCWSTR value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE get_TargetCompatibleBrowserVersion(
+                        LPWSTR* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_TargetCompatibleBrowserVersion(
+                        LPCWSTR value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE get_AllowSingleSignOnUsingOSPrimaryAccount(
+                        BOOL* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_AllowSingleSignOnUsingOSPrimaryAccount(
+                        BOOL value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE get_ExclusiveUserDataFolderAccess(
+                        BOOL* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_ExclusiveUserDataFolderAccess(
+                        BOOL value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE get_IsCustomCrashReportingEnabled(
+                        BOOL* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_IsCustomCrashReportingEnabled(
+                        BOOL value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE get_ReleaseChannels(
+                        COREWEBVIEW2_RELEASE_CHANNELS* value) = 0;
+                    virtual HRESULT STDMETHODCALLTYPE put_ReleaseChannels(
+                        COREWEBVIEW2_RELEASE_CHANNELS value) = 0;
+                };
+                
+                // 使用修复后的枚举值
+                static const COREWEBVIEW2_RELEASE_CHANNELS kInternalChannel = kInternalChannel_FIXED;
+                static const COREWEBVIEW2_RELEASE_CHANNELS kAllChannels = kAllChannels_FIXED;
+            }
+        }
+    }
+}
 #include <string>
 #include <vector>
 #include <set>
+#include "common.h"
 
 // 使用Microsoft命名空间
 using namespace Microsoft::WRL;
@@ -48,5 +99,14 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
 void ShowEditBookmarkDialog(int index);
 void DeleteBookmarkFromDisplayList(int index);
 void ShowHtmlEditBookmarkDialog(int index);
+
+// 快捷方式编辑函数声明
+void ShowEditShortcutDialog(int index);
+
+// 快捷方式保存函数声明
+void SaveShortcuts();
+
+// 图标提取函数声明
+BOOL ExtractShortcutIcon(const ShortcutItem& shortcut, WCHAR* iconPath, int iconPathSize);
 
 #endif // WEBVIEW_MANAGER_H

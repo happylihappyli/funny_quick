@@ -1,0 +1,22 @@
+// WebView2枚举值修复头文件
+// 解决COREWEBVIEW2_RELEASE_CHANNELS枚举值范围冲突问题
+
+#pragma once
+
+// 在包含WebView2头文件之前，使用预处理器宏来修复有问题的枚举值
+// 我们将在包含WebView2头文件后重新定义有问题的静态常量
+
+// 定义修复后的枚举值，扩展支持kInternalChannel
+#define COREWEBVIEW2_RELEASE_CHANNELS_INTERNAL_FIXED 0x10
+
+// 定义修复后的kInternalChannel值
+#define kInternalChannel_FIXED static_cast<COREWEBVIEW2_RELEASE_CHANNELS>(COREWEBVIEW2_RELEASE_CHANNELS_INTERNAL_FIXED)
+
+// 定义修复后的kAllChannels值
+#define kAllChannels_FIXED static_cast<COREWEBVIEW2_RELEASE_CHANNELS>(\
+    COREWEBVIEW2_RELEASE_CHANNELS_STABLE | \
+    COREWEBVIEW2_RELEASE_CHANNELS_BETA | \
+    COREWEBVIEW2_RELEASE_CHANNELS_DEV | \
+    COREWEBVIEW2_RELEASE_CHANNELS_CANARY | \
+    COREWEBVIEW2_RELEASE_CHANNELS_INTERNAL_FIXED\
+)
