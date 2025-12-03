@@ -2420,6 +2420,35 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                     ExitBookmarkMode();
                                 }
                             }
+                            else if (g_bookmarkMode && wParam == VK_RETURN)
+                            {
+                                // WZ模式下回车键的特殊处理
+                                LogToFile("  EditSubclassProc: WZ模式下用户按回车键，打开第一个网址收藏");
+                                
+                                // 获取第一个实际项目索引（WZ模式下需要特殊处理）
+                                INT_PTR firstSelIndex = 0; // WZ模式下默认打开第一个项目
+                                
+                                // 获取要显示的网址列表（搜索结果或全部网址）
+                                const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+                                
+                                if (!displayBookmarks.empty() && firstSelIndex < (INT_PTR)displayBookmarks.size())
+                                {
+                                    // 直接打开网址
+                                    ShellExecuteW(NULL, L"open", displayBookmarks[firstSelIndex].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                    
+                                    char logMsg[500] = {0};
+                                    char nameLog[256] = {0};
+                                    char urlLog[256] = {0};
+                                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].first.c_str(), -1, nameLog, sizeof(nameLog), NULL, NULL);
+                                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].second.c_str(), -1, urlLog, sizeof(urlLog), NULL, NULL);
+                                    sprintf(logMsg, "  EditSubclassProc: 已打开网址收藏[%Id] '%s' -> '%s'", firstSelIndex, nameLog, urlLog);
+                                    LogToFile(logMsg);
+                                }
+                                else
+                                {
+                                    LogToFile("  EditSubclassProc: WZ模式下没有可用的网址收藏");
+                                }
+                            }
                             else
                             {
                                 // 不是"q"命令，按照模式特定方式处理
