@@ -8,7 +8,6 @@
 #include "ui_manager.h"
 #include "resource.h"
 #include "file_manager.h"  // 文件管理功能定义
-#include "webview_manager.h"  // WebView2管理功能，包含ShowEditShortcutDialog和SaveShortcuts声明
 #include <string>
 #include <commctrl.h>  // 包含列表视图控件相关定义
 
@@ -668,95 +667,6 @@ LRESULT HandleWMKeyDown(HWND hwnd, WPARAM wParam, LPARAM lParam)
                 }
             }
             return 0;
-            
-        case VK_F3:
-            // F3键：编辑当前选中的快捷方式
-            if (g_hListView && IsWindow(g_hListView))
-            {
-                // 获取当前选中的项目
-                INT_PTR currentSel = ListView_GetNextItem(g_hListView, -1, LVNI_SELECTED);
-                if (currentSel != -1)
-                {
-                    // 跳过提示行
-                    INT_PTR hintCount = GetHintRowCount();
-                    if (currentSel >= hintCount)
-                    {
-                        // 转换为实际快捷方式索引
-                        INT_PTR shortcutIndex = currentSel - hintCount;
-                        
-                        // 检查索引是否有效
-                        if (shortcutIndex >= 0 && shortcutIndex < (INT_PTR)g_searchResults.size())
-                        {
-                            LogToFile("WM_KEYDOWN: F3键按下，编辑快捷方式");
-                            
-                            // 调用编辑快捷方式对话框
-                            ShowEditShortcutDialog(shortcutIndex);
-                            return 0;
-                        }
-                    }
-                }
-            }
-            break;
-            
-        case VK_DELETE:
-            // Delete键：删除当前选中的快捷方式
-            if (g_hListView && IsWindow(g_hListView))
-            {
-                // 获取当前选中的项目
-                INT_PTR currentSel = ListView_GetNextItem(g_hListView, -1, LVNI_SELECTED);
-                if (currentSel != -1)
-                {
-                    // 跳过提示行
-                    INT_PTR hintCount = GetHintRowCount();
-                    if (currentSel >= hintCount)
-                    {
-                        // 转换为实际快捷方式索引
-                        INT_PTR shortcutIndex = currentSel - hintCount;
-                        
-                        // 检查索引是否有效
-                        if (shortcutIndex >= 0 && shortcutIndex < (INT_PTR)g_searchResults.size())
-                        {
-                            LogToFile("WM_KEYDOWN: Delete键按下，删除快捷方式");
-                            
-                            // 显示确认对话框
-                            int result = MessageBoxW(hwnd, 
-                                L"确定要删除这个快捷方式吗？",
-                                L"确认删除",
-                                MB_YESNO | MB_ICONQUESTION);
-                            
-                            if (result == IDYES)
-                            {
-                                // 从搜索结果中移除
-                                if (shortcutIndex < (INT_PTR)g_searchResults.size())
-                                {
-                                    // 找到对应的原始快捷方式并移除
-                                    const ShortcutItem& selectedItem = g_searchResults[shortcutIndex];
-                                    for (auto it = g_shortcuts.begin(); it != g_shortcuts.end(); ++it)
-                                    {
-                                        // 使用字符串比较函数来比较数组
-                                        if (wcscmp(it->name, selectedItem.name) == 0 && 
-                                            wcscmp(it->path, selectedItem.path) == 0)
-                                        {
-                                            g_shortcuts.erase(it);
-                                            break;
-                                        }
-                                    }
-                                    
-                                    // 保存更改
-                                    SaveShortcuts();
-                                    
-                                    // 刷新显示
-                                    SearchAndDisplayResults(g_currentSearch);
-                                    
-                                    LogToFile("快捷方式删除成功");
-                                }
-                            }
-                            return 0;
-                        }
-                    }
-                }
-            }
-            break;
     }
     
     // 对于其他按键，返回默认处理

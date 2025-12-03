@@ -89,6 +89,8 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 // 右键菜单常量
 #define ID_CONTEXT_DELETE_ITEM 1007  // 删除单个计算结果
 #define ID_CONTEXT_CLEAR_ALL 1008    // 清空所有历史记录
+#define ID_CONTEXT_EDIT_SHORTCUT 1009  // 编辑快捷方式
+#define ID_CONTEXT_DELETE_SHORTCUT 1010  // 删除快捷方式
 
 // Global data
 std::vector<ShortcutItem> g_shortcuts;
@@ -718,30 +720,19 @@ void HideLauncherWindow()
 // 设置英文输入法
 void SetEnglishInputMethod()
 {
-    // 获取当前线程的输入法上下文
+    // 方法1: 使用输入法管理器直接关闭输入法
     HIMC hIMC = ImmGetContext(g_hMainWindow);
     if (hIMC)
     {
-        // 尝试切换到英文输入法
-        // 使用0x0409表示英语(美国)的键盘布局
-        HKL hKL = GetKeyboardLayout(0);
-        if (LOWORD(hKL) != 0x0409)  // 如果不是英文输入法
+        // 关闭输入法（设置为英文状态）
+        BOOL result = ImmSetOpenStatus(hIMC, FALSE);
+        if (result)
         {
-            // 尝试加载英文键盘布局
-            HKL hUSLayout = LoadKeyboardLayoutW(L"00000409", KLF_ACTIVATE);
-            if (hUSLayout)
-            {
-                ActivateKeyboardLayout(hUSLayout, KLF_SETFORPROCESS);
-                LogToFile("SetEnglishInputMethod: 成功切换到英文输入法");
-            }
-            else
-            {
-                LogToFile("SetEnglishInputMethod: 加载英文键盘布局失败");
-            }
+            LogToFile("SetEnglishInputMethod: 成功关闭输入法（设置为英文状态）");
         }
         else
         {
-            LogToFile("SetEnglishInputMethod: 已经是英文输入法");
+            LogToFile("SetEnglishInputMethod: 关闭输入法失败");
         }
         
         // 释放输入法上下文
@@ -750,6 +741,56 @@ void SetEnglishInputMethod()
     else
     {
         LogToFile("SetEnglishInputMethod: 获取输入法上下文失败");
+    }
+    
+    // 方法2: 强制切换到英文键盘布局
+    HKL hCurrentLayout = GetKeyboardLayout(0);
+    
+    // 检查当前是否是英文键盘布局（0x0409 = 英语(美国)）
+    if (LOWORD(hCurrentLayout) != 0x0409)
+    {
+        // 尝试加载英文键盘布局
+        HKL hUSLayout = LoadKeyboardLayoutW(L"00000409", KLF_ACTIVATE);
+        if (hUSLayout)
+        {
+            // 激活英文键盘布局
+            ActivateKeyboardLayout(hUSLayout, KLF_SETFORPROCESS);
+            
+            // 设置到当前线程
+            ActivateKeyboardLayout(hUSLayout, 0);
+            
+            LogToFile("SetEnglishInputMethod: 成功切换到英文键盘布局");
+        }
+        else
+        {
+            LogToFile("SetEnglishInputMethod: 加载英文键盘布局失败");
+            
+            // 尝试使用系统默认的英文布局
+            HKL hDefaultLayout = (HKL)0x0409;
+            ActivateKeyboardLayout(hDefaultLayout, KLF_SETFORPROCESS);
+            LogToFile("SetEnglishInputMethod: 尝试使用默认英文布局");
+        }
+    }
+    else
+    {
+        LogToFile("SetEnglishInputMethod: 已经是英文键盘布局");
+    }
+    
+    // 方法3: 设置编辑框的输入法状态
+    if (g_hEdit)
+    {
+        // 设置编辑框的输入法模式为关闭
+        ImmAssociateContext(g_hEdit, NULL);
+        
+        // 重新关联输入法上下文，确保输入法状态正确
+        HIMC hEditIMC = ImmGetContext(g_hEdit);
+        if (hEditIMC)
+        {
+            ImmSetOpenStatus(hEditIMC, FALSE);
+            ImmReleaseContext(g_hEdit, hEditIMC);
+        }
+        
+        LogToFile("SetEnglishInputMethod: 已设置编辑框输入法状态");
     }
 }
 
@@ -1381,10 +1422,11 @@ void ProcessSearchQuery(const WCHAR* query, std::vector<std::wstring>& webViewHi
             L"💡 输入命令或网址搜索",
             L"💡 按回车或双击执行",
             L"💡 输入 js 进入计算模式，输入 wz 进入网址收藏模式",
-            L"💡 输入 set 进入设置模式，输入 dir 进入目录管理模式"
+            L"💡 输入 set 进入设置模式，输入 dir 进入目录管理模式",
+            L"💡 输入 file 进入文件模式，输入 help 显示帮助"
         };
         AddMultiLineHintsToListView(hints, 4);
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 5; ++i)
         {
             webViewHints.emplace_back(hints[i]);
         }
@@ -1922,10 +1964,12 @@ void ExecuteFileModeItem(INT_PTR index)
     
     INT_PTR adjustedIndex = index - hintRowCount;
     
-    if (adjustedIndex < 0 || (size_t)adjustedIndex >= g_fileSearchResults.size())
+    // 修复：添加g_fileSearchResults.empty()检查
+    if (adjustedIndex < 0 || (size_t)adjustedIndex >= g_fileSearchResults.size() || g_fileSearchResults.empty())
     {
         char logMsg[200] = {0};
-        sprintf(logMsg, "ExecuteFileModeItem: 无效索引 %Id（调整后 %Id），文件搜索结果大小为 %zu", index, adjustedIndex, g_fileSearchResults.size());
+        sprintf(logMsg, "ExecuteFileModeItem: 无效索引 %Id（调整后 %Id），文件搜索结果大小为 %zu，是否为空: %s", 
+                index, adjustedIndex, g_fileSearchResults.size(), g_fileSearchResults.empty() ? "是" : "否");
         LogToFile(logMsg);
         return;
     }
@@ -2439,8 +2483,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             return HandleWMKeyDown(hwnd, wParam, lParam);
             
         case WM_CONTEXTMENU:
-            // 暂时不处理WM_CONTEXTMENU消息，返回默认处理
-            return DefWindowProcW(hwnd, uMsg, wParam, lParam);
+            return HandleWMContextMenu(hwnd, wParam);
             
         default:
             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
@@ -2565,6 +2608,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Show window
     ShowWindow(g_hMainWindow, SW_SHOW);
     UpdateWindow(g_hMainWindow);
+    
+    // 立即设置英文输入法
+    SetEnglishInputMethod();
     
     // Wait a bit for the window to be fully created and controls to be initialized
     // Process any pending messages to ensure WM_CREATE is handled
@@ -4104,6 +4150,161 @@ void UpdateWindowTitle()
     
     SetWindowTextW(g_hMainWindow, title.c_str());
     LogToFile("UpdateWindowTitle: 窗口标题已更新");
+}
+
+/**
+ * @brief 处理WM_CONTEXTMENU消息，显示快捷方式右键菜单
+ * @param hwnd 窗口句柄
+ * @param wParam 消息参数
+ * @return 消息处理结果
+ */
+LRESULT HandleWMContextMenu(HWND hwnd, WPARAM wParam)
+{
+    LogToFile("HandleWMContextMenu: 收到右键菜单消息");
+    
+    // 检查是否在普通模式下（快捷方式模式）
+    if (g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode)
+    {
+        LogToFile("HandleWMContextMenu: 当前处于特殊模式，不显示快捷方式右键菜单");
+        return DefWindowProcW(hwnd, WM_CONTEXTMENU, wParam, 0);
+    }
+    
+    // 获取鼠标位置
+    POINT pt;
+    GetCursorPos(&pt);
+    
+    // 检查鼠标是否在ListView上
+    HWND hwndUnderCursor = WindowFromPoint(pt);
+    if (hwndUnderCursor != g_hListView)
+    {
+        LogToFile("HandleWMContextMenu: 鼠标不在ListView上，返回默认处理");
+        return DefWindowProcW(hwnd, WM_CONTEXTMENU, wParam, 0);
+    }
+    
+    // 获取ListView中选中的项目索引
+    INT_PTR selectedIndex = ListView_GetNextItem(g_hListView, -1, LVNI_SELECTED);
+    if (selectedIndex == -1)
+    {
+        // 如果没有选中项，尝试获取焦点项
+        selectedIndex = ListView_GetNextItem(g_hListView, -1, LVNI_FOCUSED);
+    }
+    
+    // 检查是否是提示行（提示行不能编辑）
+    INT_PTR hintCount = GetHintRowCount();
+    if (selectedIndex < hintCount)
+    {
+        LogToFile("HandleWMContextMenu: 选中的是提示行，不显示编辑菜单");
+        return DefWindowProcW(hwnd, WM_CONTEXTMENU, wParam, 0);
+    }
+    
+    // 调整索引（跳过提示行）
+    INT_PTR adjustedIndex = selectedIndex - hintCount;
+    
+    // 检查索引是否有效
+    if (adjustedIndex < 0 || adjustedIndex >= (INT_PTR)g_searchResults.size())
+    {
+        LogToFile("HandleWMContextMenu: 无效的快捷方式索引");
+        return DefWindowProcW(hwnd, WM_CONTEXTMENU, wParam, 0);
+    }
+    
+    // 创建右键菜单
+    HMENU hMenu = CreatePopupMenu();
+    if (!hMenu)
+    {
+        LogToFile("HandleWMContextMenu: 创建右键菜单失败");
+        return DefWindowProcW(hwnd, WM_CONTEXTMENU, wParam, 0);
+    }
+    
+    // 添加菜单项
+    AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_EDIT_SHORTCUT, L"编辑快捷方式");
+    AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_DELETE_SHORTCUT, L"删除快捷方式");
+    
+    // 显示右键菜单
+    SetForegroundWindow(hwnd);
+    UINT command = TrackPopupMenu(hMenu, 
+        TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY,
+        pt.x, pt.y, 0, hwnd, NULL);
+    
+    // 销毁菜单
+    DestroyMenu(hMenu);
+    
+    // 处理菜单命令
+    if (command == ID_CONTEXT_EDIT_SHORTCUT)
+    {
+        LogToFile("HandleWMContextMenu: 用户选择编辑快捷方式");
+        
+        // 查找原始快捷方式索引（从搜索结果映射到原始列表）
+        const ShortcutItem& selectedShortcut = g_searchResults[adjustedIndex];
+        int originalIndex = -1;
+        
+        for (size_t i = 0; i < g_shortcuts.size(); i++)
+        {
+            if (wcscmp(g_shortcuts[i].name, selectedShortcut.name) == 0 &&
+                wcscmp(g_shortcuts[i].path, selectedShortcut.path) == 0)
+            {
+                originalIndex = (int)i;
+                break;
+            }
+        }
+        
+        if (originalIndex != -1)
+        {
+            // 调用编辑对话框
+            ShowEditShortcutDialog(originalIndex);
+        }
+        else
+        {
+            MessageBoxW(hwnd, L"无法找到对应的快捷方式", L"错误", MB_OK | MB_ICONERROR);
+            LogToFile("HandleWMContextMenu: 无法找到对应的快捷方式");
+        }
+    }
+    else if (command == ID_CONTEXT_DELETE_SHORTCUT)
+    {
+        LogToFile("HandleWMContextMenu: 用户选择删除快捷方式");
+        
+        // 查找原始快捷方式索引
+        const ShortcutItem& selectedShortcut = g_searchResults[adjustedIndex];
+        int originalIndex = -1;
+        
+        for (size_t i = 0; i < g_shortcuts.size(); i++)
+        {
+            if (wcscmp(g_shortcuts[i].name, selectedShortcut.name) == 0 &&
+                wcscmp(g_shortcuts[i].path, selectedShortcut.path) == 0)
+            {
+                originalIndex = (int)i;
+                break;
+            }
+        }
+        
+        if (originalIndex != -1)
+        {
+            // 确认删除
+            WCHAR message[512] = {0};
+            wsprintfW(message, L"确定要删除快捷方式 '%s' 吗？", g_shortcuts[originalIndex].name);
+            
+            if (MessageBoxW(hwnd, message, L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
+            {
+                // 从快捷方式列表中删除
+                g_shortcuts.erase(g_shortcuts.begin() + originalIndex);
+                
+                // 保存更改
+                SaveShortcuts();
+                
+                // 刷新显示
+                SearchAndDisplayResults(g_currentSearch);
+                
+                LogToFile("HandleWMContextMenu: 快捷方式删除成功");
+            }
+        }
+        else
+        {
+            MessageBoxW(hwnd, L"无法找到对应的快捷方式", L"错误", MB_OK | MB_ICONERROR);
+            LogToFile("HandleWMContextMenu: 无法找到对应的快捷方式");
+        }
+    }
+    
+    return 0;
 }
 
 

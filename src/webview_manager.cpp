@@ -1145,10 +1145,18 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
         return FALSE;
     }
     
-    // 创建一个简单的对话框窗口
+    // 计算对话框在屏幕中心的位置
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int dialogWidth = 350;
+    int dialogHeight = 120;
+    int dialogX = (screenWidth - dialogWidth) / 2;
+    int dialogY = (screenHeight - dialogHeight) / 2;
+    
+    // 创建一个简单的对话框窗口，显示在屏幕中心
     HWND hDlg = CreateWindowExW(WS_EX_DLGMODALFRAME, L"#32770", lpCaption,
                                WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME,
-                               100, 100, 350, 120,
+                               dialogX, dialogY, dialogWidth, dialogHeight,
                                g_hMainWindow, NULL, GetModuleHandle(NULL), NULL);
     
     if (!hDlg)
@@ -1216,9 +1224,130 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
 }
 
 /**
+ * @brief 多行输入对话框函数
+ * 
+ * 此函数创建一个包含名称、路径和备注三个编辑框的对话框，允许用户同时编辑所有信息
+ * 
+ * @param lpCaption 对话框标题
+ * @param lpName 名称编辑框的初始值和返回结果
+ * @param lpPath 路径编辑框的初始值和返回结果
+ * @param lpComment 备注编辑框的初始值和返回结果
+ * @param nNameSize 名称缓冲区大小
+ * @param nPathSize 路径缓冲区大小
+ * @param nCommentSize 备注缓冲区大小
+ * @return BOOL 如果用户点击确定返回TRUE，点击取消返回FALSE
+ */
+BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int nNameSize, int nPathSize, int nCommentSize)
+{
+    // 计算对话框在屏幕中心的位置
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int dialogWidth = 500;
+    int dialogHeight = 300;
+    int dialogX = (screenWidth - dialogWidth) / 2;
+    int dialogY = (screenHeight - dialogHeight) / 2;
+    
+    // 创建一个包含多个编辑框的对话框窗口，显示在屏幕中心
+    HWND hDlg = CreateWindowExW(WS_EX_DLGMODALFRAME, L"#32770", lpCaption,
+                               WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME,
+                               dialogX, dialogY, dialogWidth, dialogHeight,
+                               g_hMainWindow, NULL, GetModuleHandle(NULL), NULL);
+    
+    if (!hDlg)
+    {
+        return FALSE;
+    }
+    
+    // 创建名称标签
+    HWND hNameLabel = CreateWindowExW(0, L"STATIC", L"名称:",
+                                     WS_VISIBLE | WS_CHILD,
+                                     10, 10, 80, 20,
+                                     hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建名称编辑框
+    HWND hNameEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpName, 
+                                    WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+                                    100, 10, 380, 25, 
+                                    hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建路径标签
+    HWND hPathLabel = CreateWindowExW(0, L"STATIC", L"路径:",
+                                     WS_VISIBLE | WS_CHILD,
+                                     10, 45, 80, 20,
+                                     hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建路径编辑框
+    HWND hPathEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpPath, 
+                                    WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+                                    100, 45, 380, 25, 
+                                    hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建备注标签
+    HWND hCommentLabel = CreateWindowExW(0, L"STATIC", L"备注:",
+                                         WS_VISIBLE | WS_CHILD,
+                                         10, 80, 80, 20,
+                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建备注编辑框（多行）
+    HWND hCommentEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpComment, 
+                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL,
+                                       100, 80, 380, 100, 
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建确定按钮
+    HWND hOkBtn = CreateWindowExW(0, L"BUTTON", L"确定", 
+                                 WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                                 300, 200, 80, 30, 
+                                 hDlg, (HMENU)IDOK, GetModuleHandle(NULL), NULL);
+    
+    // 创建取消按钮
+    HWND hCancelBtn = CreateWindowExW(0, L"BUTTON", L"取消", 
+                                     WS_VISIBLE | WS_CHILD,
+                                     390, 200, 80, 30, 
+                                     hDlg, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
+    
+    // 显示窗口
+    ShowWindow(hDlg, SW_SHOW);
+    SetFocus(hNameEdit);
+    
+    // 简单的消息循环
+    MSG msg;
+    BOOL bResult = FALSE;
+    
+    while (GetMessage(&msg, NULL, 0, 0))
+    {
+        if (msg.message == WM_COMMAND)
+        {
+            if (LOWORD(msg.wParam) == IDOK)
+            {
+                // 获取所有输入文本
+                GetWindowTextW(hNameEdit, lpName, nNameSize);
+                GetWindowTextW(hPathEdit, lpPath, nPathSize);
+                GetWindowTextW(hCommentEdit, lpComment, nCommentSize);
+                bResult = TRUE;
+                break;
+            }
+            else if (LOWORD(msg.wParam) == IDCANCEL)
+            {
+                bResult = FALSE;
+                break;
+            }
+        }
+        
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    
+    // 清理资源
+    DestroyWindow(hDlg);
+    
+    return bResult;
+}
+
+/**
  * @brief 显示编辑快捷方式对话框
  * 
- * 此函数显示编辑快捷方式的对话框，允许用户修改快捷方式的备注和路径
+ * 此函数显示编辑快捷方式的对话框，允许用户修改快捷方式的名称、路径和备注
  * 
  * @param index 要编辑的快捷方式索引
  */
@@ -1245,10 +1374,10 @@ void ShowEditShortcutDialog(int index)
     wcscpy_s(path, 1023, shortcut.path);
     wcscpy_s(comment, 511, shortcut.comment);
     
-    // 获取名称 - 使用简单的输入框
-    if (!GetSimpleInput(L"编辑快捷方式", L"请输入快捷方式名称:", name, name, 255))
+    // 使用集成的编辑对话框，在一个窗口中编辑所有信息
+    if (!GetMultiLineInput(L"编辑快捷方式", name, path, comment, 255, 1023, 511))
     {
-        LogToFile("ShowEditShortcutDialog: 用户取消输入名称");
+        LogToFile("ShowEditShortcutDialog: 用户取消编辑");
         return;
     }
     
@@ -1260,25 +1389,11 @@ void ShowEditShortcutDialog(int index)
         return;
     }
     
-    // 获取路径 - 使用简单的输入框
-    if (!GetSimpleInput(L"编辑快捷方式", L"请输入快捷方式路径:", path, path, 1023))
-    {
-        LogToFile("ShowEditShortcutDialog: 用户取消输入路径");
-        return;
-    }
-    
     // 检查路径是否为空
     if (wcslen(path) == 0)
     {
         MessageBoxW(g_hMainWindow, L"快捷方式路径不能为空", L"错误", MB_OK | MB_ICONERROR);
         LogToFile("ShowEditShortcutDialog: 路径为空");
-        return;
-    }
-    
-    // 获取备注 - 使用简单的输入框
-    if (!GetSimpleInput(L"编辑快捷方式", L"请输入快捷方式备注:", comment, comment, 511))
-    {
-        LogToFile("ShowEditShortcutDialog: 用户取消输入备注");
         return;
     }
     
