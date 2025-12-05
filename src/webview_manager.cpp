@@ -155,14 +155,43 @@ void InitializeWebView2(HWND hwnd)
                                                 index = _wtoi(indexStr.c_str());
                                             }
                                             
-                                            if (index >= 0 && index < (int)g_searchResults.size())
+                                            // 在普通模式下，检查索引是否在g_shortcuts范围内
+                                            // 在搜索模式下，检查索引是否在g_searchResults范围内
+                                            if (index >= 0)
                                             {
-                                                // 显示编辑快捷方式对话框
-                                                ShowEditShortcutDialog(index);
+                                                if (g_searchResults.empty())
+                                                {
+                                                    // 普通模式：使用g_shortcuts列表
+                                                    if (index < (int)g_shortcuts.size())
+                                                    {
+                                                        // 显示编辑快捷方式对话框
+                                                        ShowEditShortcutDialog(index);
+                                                    }
+                                                    else
+                                                    {
+                                                        LogToFile("WebView2消息: 编辑快捷方式失败 - 索引超出g_shortcuts范围");
+                                                        MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    // 搜索模式：使用g_searchResults列表
+                                                    if (index < (int)g_searchResults.size())
+                                                    {
+                                                        // 显示编辑快捷方式对话框
+                                                        ShowEditShortcutDialog(index);
+                                                    }
+                                                    else
+                                                    {
+                                                        LogToFile("WebView2消息: 编辑快捷方式失败 - 索引超出g_searchResults范围");
+                                                        MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
+                                                    }
+                                                }
                                             }
                                             else
                                             {
                                                 LogToFile("WebView2消息: 编辑快捷方式失败 - 索引无效");
+                                                MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
                                             }
                                         }
                                         else if (msgStr.find(L"\"type\":\"calcAction\"") != std::wstring::npos)
@@ -1310,33 +1339,317 @@ BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR l
     ShowWindow(hDlg, SW_SHOW);
     SetFocus(hNameEdit);
     
+    // 设置对话框为模态窗口
+    EnableWindow(g_hMainWindow, FALSE);
+    
     // 简单的消息循环
     MSG msg;
     BOOL bResult = FALSE;
+    BOOL bRunning = TRUE;
     
-    while (GetMessage(&msg, NULL, 0, 0))
+    while (bRunning && GetMessage(&msg, NULL, 0, 0))
     {
-        if (msg.message == WM_COMMAND)
+        // 检查是否是对话框的消息，如果是则直接处理并继续下一个消息
+        if (IsDialogMessage(hDlg, &msg))
         {
-            if (LOWORD(msg.wParam) == IDOK)
-            {
-                // 获取所有输入文本
-                GetWindowTextW(hNameEdit, lpName, nNameSize);
-                GetWindowTextW(hPathEdit, lpPath, nPathSize);
-                GetWindowTextW(hCommentEdit, lpComment, nCommentSize);
-                bResult = TRUE;
-                break;
-            }
-            else if (LOWORD(msg.wParam) == IDCANCEL)
-            {
-                bResult = FALSE;
-                break;
-            }
+            continue;
         }
         
+        // 检查消息是否属于对话框的子控件
+        if (msg.hwnd == hDlg || IsChild(hDlg, msg.hwnd))
+        {
+            if (msg.message == WM_COMMAND)
+            {
+                if (LOWORD(msg.wParam) == IDOK)
+                {
+                    // 获取所有输入文本
+                    GetWindowTextW(hNameEdit, lpName, nNameSize);
+                    GetWindowTextW(hPathEdit, lpPath, nPathSize);
+                    GetWindowTextW(hCommentEdit, lpComment, nCommentSize);
+                    bResult = TRUE;
+                    bRunning = FALSE;
+                }
+                else if (LOWORD(msg.wParam) == IDCANCEL)
+                {
+                    bResult = FALSE;
+                    bRunning = FALSE;
+                }
+            }
+            else if (msg.message == WM_CLOSE)
+            {
+                // 处理对话框关闭消息
+                bResult = FALSE;
+                bRunning = FALSE;
+            }
+            
+            // 如果是对话框相关消息，处理后继续下一个消息
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            continue;  // 重要：处理完对话框消息后继续下一个消息
+        }
+        
+        // 非对话框消息正常处理
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    
+    // 恢复主窗口
+    EnableWindow(g_hMainWindow, TRUE);
+    SetFocus(g_hMainWindow);
+    
+    // 清理资源
+    DestroyWindow(hDlg);
+    
+    return bResult;
+}
+
+
+
+
+
+// 属性对话框状态结构体
+struct PropertiesDialogState {
+    BOOL* pRunning;
+    BOOL* pResult;
+    HWND hNameEdit;
+    HWND hTargetEdit;
+    HWND hCommentEdit;
+    LPWSTR lpName;
+    LPWSTR lpPath;
+    LPWSTR lpComment;
+    WNDPROC oldProc;
+};
+
+// 属性对话框子类化过程
+LRESULT CALLBACK PropertiesDlgSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    PropertiesDialogState* pState = (PropertiesDialogState*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    
+    if (msg == WM_COMMAND) {
+        int id = LOWORD(wParam);
+        if (id == IDOK && pState) {
+            GetWindowTextW(pState->hNameEdit, pState->lpName, 256);
+            GetWindowTextW(pState->hTargetEdit, pState->lpPath, 1024);
+            GetWindowTextW(pState->hCommentEdit, pState->lpComment, 512);
+            *(pState->pResult) = TRUE;
+            *(pState->pRunning) = FALSE;
+            return 0;
+        } else if (id == IDCANCEL && pState) {
+            *(pState->pResult) = FALSE;
+            *(pState->pRunning) = FALSE;
+            return 0;
+        }
+    } else if (msg == WM_CLOSE && pState) {
+        *(pState->pResult) = FALSE;
+        *(pState->pRunning) = FALSE;
+        return 0;
+    }
+    
+    if (pState && pState->oldProc) {
+        return CallWindowProcW(pState->oldProc, hwnd, msg, wParam, lParam);
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+/**
+ * @brief 显示类似Windows属性对话框的编辑界面
+ * 
+ * 此函数创建一个仿Windows属性对话框样式的界面，用于编辑快捷方式
+ * 具有Windows属性对话框的经典外观和布局
+ * 
+ * @param lpCaption 对话框标题
+ * @param lpName 名称编辑框的初始值和返回结果
+ * @param lpPath 路径编辑框的初始值和返回结果
+ * @param lpComment 备注编辑框的初始值和返回结果
+ * @param shortcutType 快捷方式类型
+ * @return BOOL 如果用户点击确定返回TRUE，点击取消返回FALSE
+ */
+BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int shortcutType)
+{
+    // 计算对话框在屏幕中心的位置
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int dialogWidth = 450;
+    int dialogHeight = 350;
+    int dialogX = (screenWidth - dialogWidth) / 2;
+    int dialogY = (screenHeight - dialogHeight) / 2;
+    
+    // 创建Windows属性对话框样式的窗口
+    HWND hDlg = CreateWindowExW(0, L"#32770", lpCaption,
+                               WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
+                               dialogX, dialogY, dialogWidth, dialogHeight,
+                               g_hMainWindow, NULL, GetModuleHandle(NULL), NULL);
+    
+    if (!hDlg)
+    {
+        return FALSE;
+    }
+    
+    // 创建图标显示区域（类似属性对话框的图标显示）
+    HWND hIcon = CreateWindowExW(0, L"STATIC", NULL,
+                                 WS_VISIBLE | WS_CHILD | SS_ICON,
+                                 15, 15, 32, 32,
+                                 hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 根据快捷方式类型设置图标
+    HICON hIconToUse;
+    if (shortcutType == 0) // 文件夹类型
+        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"shell32.dll", IMAGE_ICON, 32, 32, LR_SHARED);
+    else if (shortcutType == 1) // URL类型
+        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"imageres.dll", IMAGE_ICON, 32, 32, LR_SHARED);
+    else // 应用程序类型
+        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"shell32.dll", IMAGE_ICON, 32, 32, LR_SHARED);
+    
+    if (hIconToUse)
+    {
+        SendMessageW(hIcon, STM_SETIMAGE, IMAGE_ICON, (LPARAM)hIconToUse);
+    }
+    
+    // 创建类型标签
+    HWND hTypeLabel = CreateWindowExW(0, L"STATIC", L"类型:",
+                                     WS_VISIBLE | WS_CHILD,
+                                     60, 15, 60, 20,
+                                     hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 显示快捷方式类型
+    WCHAR typeText[100] = {0};
+    if (shortcutType == 0)
+        wcscpy_s(typeText, L"文件夹");
+    else if (shortcutType == 1)
+        wcscpy_s(typeText, L"URL");
+    else
+        wcscpy_s(typeText, L"应用程序");
+    
+    HWND hTypeValue = CreateWindowExW(0, L"STATIC", typeText,
+                                     WS_VISIBLE | WS_CHILD,
+                                     120, 15, 150, 20,
+                                     hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建位置标签
+    HWND hLocationLabel = CreateWindowExW(0, L"STATIC", L"位置:",
+                                         WS_VISIBLE | WS_CHILD,
+                                         60, 35, 60, 20,
+                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    HWND hLocationValue = CreateWindowExW(0, L"STATIC", L"快速启动器",
+                                         WS_VISIBLE | WS_CHILD,
+                                         120, 35, 150, 20,
+                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建名称标签
+    HWND hNameLabel = CreateWindowExW(0, L"STATIC", L"名称:",
+                                     WS_VISIBLE | WS_CHILD,
+                                     60, 60, 60, 20,
+                                     hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建名称编辑框
+    HWND hNameEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpName, 
+                                    WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+                                    120, 58, 300, 25, 
+                                    hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建目标标签
+    HWND hTargetLabel = CreateWindowExW(0, L"STATIC", L"目标:",
+                                       WS_VISIBLE | WS_CHILD,
+                                       60, 85, 60, 20,
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建目标编辑框
+    HWND hTargetEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpPath, 
+                                      WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+                                      120, 83, 300, 25, 
+                                      hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建备注标签
+    HWND hCommentLabel = CreateWindowExW(0, L"STATIC", L"备注:",
+                                        WS_VISIBLE | WS_CHILD,
+                                        60, 115, 60, 20,
+                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建备注编辑框（多行）
+    HWND hCommentEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpComment, 
+                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL,
+                                       120, 115, 300, 80, 
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建起始位置标签
+    HWND hStartInLabel = CreateWindowExW(0, L"STATIC", L"起始位置:",
+                                        WS_VISIBLE | WS_CHILD,
+                                        60, 205, 60, 20,
+                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    HWND hStartInValue = CreateWindowExW(0, L"STATIC", L".",
+                                        WS_VISIBLE | WS_CHILD,
+                                        120, 205, 150, 20,
+                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建快捷键标签
+    HWND hShortcutKeyLabel = CreateWindowExW(0, L"STATIC", L"快捷键:",
+                                            WS_VISIBLE | WS_CHILD,
+                                            60, 230, 60, 20,
+                                            hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    HWND hShortcutKeyValue = CreateWindowExW(0, L"STATIC", L"无",
+                                            WS_VISIBLE | WS_CHILD,
+                                            120, 230, 60, 20,
+                                            hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建按钮组框架
+    HWND hButtonGroup = CreateWindowExW(0, L"BUTTON", NULL,
+                                       WS_VISIBLE | WS_CHILD | BS_GROUPBOX,
+                                       15, 255, 415, 60,
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建确定按钮
+    HWND hOkBtn = CreateWindowExW(0, L"BUTTON", L"确定", 
+                                 WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                                 250, 275, 80, 30, 
+                                 hDlg, (HMENU)IDOK, GetModuleHandle(NULL), NULL);
+    
+    // 创建取消按钮
+    HWND hCancelBtn = CreateWindowExW(0, L"BUTTON", L"取消", 
+                                     WS_VISIBLE | WS_CHILD,
+                                     340, 275, 80, 30, 
+                                     hDlg, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
+    
+    // 显示窗口
+    ShowWindow(hDlg, SW_SHOW);
+    SetFocus(hNameEdit);
+    
+    // 设置对话框为模态窗口
+    EnableWindow(g_hMainWindow, FALSE);
+    
+    // 消息循环
+    MSG msg;
+    BOOL bResult = FALSE;
+    BOOL bRunning = TRUE;
+    
+    // 设置子类化以拦截消息
+    PropertiesDialogState state = {0};
+    state.pRunning = &bRunning;
+    state.pResult = &bResult;
+    state.hNameEdit = hNameEdit;
+    state.hTargetEdit = hTargetEdit;
+    state.hCommentEdit = hCommentEdit;
+    state.lpName = lpName;
+    state.lpPath = lpPath;
+    state.lpComment = lpComment;
+    
+    SetWindowLongPtrW(hDlg, GWLP_USERDATA, (LONG_PTR)&state);
+    state.oldProc = (WNDPROC)SetWindowLongPtrW(hDlg, GWLP_WNDPROC, (LONG_PTR)PropertiesDlgSubclassProc);
+    
+    while (bRunning && GetMessage(&msg, NULL, 0, 0))
+    {
+        // 检查是否是对话框的消息
+        if (!IsDialogMessage(hDlg, &msg))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+    }
+    
+    // 恢复主窗口
+    EnableWindow(g_hMainWindow, TRUE);
+    SetFocus(g_hMainWindow);
     
     // 清理资源
     DestroyWindow(hDlg);
@@ -1348,6 +1661,7 @@ BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR l
  * @brief 显示编辑快捷方式对话框
  * 
  * 此函数显示编辑快捷方式的对话框，允许用户修改快捷方式的名称、路径和备注
+ * 类似Windows标准属性对话框的样式和操作方式
  * 
  * @param index 要编辑的快捷方式索引
  */
@@ -1374,8 +1688,8 @@ void ShowEditShortcutDialog(int index)
     wcscpy_s(path, 1023, shortcut.path);
     wcscpy_s(comment, 511, shortcut.comment);
     
-    // 使用集成的编辑对话框，在一个窗口中编辑所有信息
-    if (!GetMultiLineInput(L"编辑快捷方式", name, path, comment, 255, 1023, 511))
+    // 显示类似Windows属性对话框的编辑界面
+    if (!GetPropertiesStyleInput(L"属性", name, path, comment, shortcut.type))
     {
         LogToFile("ShowEditShortcutDialog: 用户取消编辑");
         return;

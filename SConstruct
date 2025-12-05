@@ -136,215 +136,122 @@ if os.name == 'nt':
     # 使用Windows API版本
     print("使用Windows API版本")
     
-        # 强制使用Clang编译器
+    # 使用更可靠的方法设置Visual Studio编译器环境
+    
+def setup_visual_studio_environment():
+    """设置Visual Studio环境变量"""
     try:
-        # 首先检测Clang版本是否兼容
-        import subprocess
-        clang_version_ok = False
-        try:
-            # 获取Clang版本信息
-            result = subprocess.run(['clang', '--version'], capture_output=True, text=True, shell=True)
-            if result.returncode == 0:
-                version_output = result.stdout
-                # 提取版本号
-                import re
-                version_match = re.search(r'clang version (\d+)\.(\d+)\.(\d+)', version_output)
-                if version_match:
-                    major_version = int(version_match.group(1))
-                    if major_version >= 19:
-                        print(f"检测到兼容的Clang编译器版本: {major_version}")
-                        clang_version_ok = True
-                    else:
-                        print(f"警告：检测到Clang版本 {major_version}，需要Clang 19.0.0或更高版本")
-                        print("将使用Visual Studio编译器")
-                        clang_version_ok = False
-                else:
-                    print("无法解析Clang版本信息，将使用Visual Studio编译器")
-                    clang_version_ok = False
-            else:
-                print("无法获取Clang版本信息，将使用Visual Studio编译器")
-                clang_version_ok = False
-        except Exception as e:
-            print(f"Clang版本检测失败: {e}")
-            clang_version_ok = False
+        # 直接设置已知路径
+        vs_path = r"D:\Code\VS2022\Community"
+        vc_path = os.path.join(vs_path, "VC", "Tools", "MSVC")
         
-        # 如果Clang版本兼容，则使用Clang编译器
-        if clang_version_ok:
-            # 首先尝试使用Clang编译器
-            env.Tool('clang')
-            # 设置Clang特定的编译标志
-            env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations', '-fms-extensions', '-fms-compatibility']
-            # 设置Clang特定的编译命令格式 - 使用GCC风格的include路径
-            env['CXXCOM'] = '$CXX -o $TARGET -c $CXXFLAGS $_CPPDEFFLAGS -I$CPPPATH $SOURCES'
-            # 添加src目录到头文件搜索路径
-            env.Append(CPPPATH=['src', '.'])
-            print("使用Clang编译器")
-        else:
-            # 如果Clang版本不兼容，强制使用Visual Studio编译器
-            raise Exception("Clang版本不兼容，强制使用Visual Studio编译器")
-    except:
-        try:
-            # 如果Clang不可用，尝试手动配置Clang
-            # 设置Clang编译器路径
-            clang_paths = [
-                r"C:\Program Files\LLVM\bin",
-                r"C:\Program Files (x86)\LLVM\bin",
-                r"D:\Code\LLVM\bin"
-            ]
+        if os.path.exists(vc_path):
+            # 查找最新的MSVC版本
+            msvc_versions = []
+            for item in os.listdir(vc_path):
+                if item.replace('.', '').isdigit():
+                    msvc_versions.append(item)
             
-            clang_found = False
-            clang_version_ok = False
-            
-            for clang_path in clang_paths:
-                if os.path.exists(clang_path):
-                    # 检测Clang版本是否兼容
-                    try:
-                        # 获取Clang版本信息
-                        clang_exe = os.path.join(clang_path, 'clang.exe')
-                        result = subprocess.run([clang_exe, '--version'], capture_output=True, text=True, shell=True)
-                        if result.returncode == 0:
-                            version_output = result.stdout
-                            # 提取版本号
-                            import re
-                            version_match = re.search(r'clang version (\d+)\.(\d+)\.(\d+)', version_output)
-                            if version_match:
-                                major_version = int(version_match.group(1))
-                                if major_version >= 19:
-                                    print(f"检测到兼容的Clang编译器版本: {major_version}")
-                                    clang_version_ok = True
-                                else:
-                                    print(f"警告：检测到Clang版本 {major_version}，需要Clang 19.0.0或更高版本")
-                                    print("将跳过此路径，继续查找其他编译器")
-                                    continue
-                            else:
-                                print("无法解析Clang版本信息，将跳过此路径")
-                                continue
-                        else:
-                            print("无法获取Clang版本信息，将跳过此路径")
-                            continue
-                    except Exception as e:
-                        print(f"Clang版本检测失败: {e}")
-                        continue
-                    
-                    # 如果Clang版本兼容，则配置编译器
-                    if clang_version_ok:
-                         # 设置编译器路径
-                         env['ENV']['PATH'] = clang_path + ";" + os.environ.get('PATH', '')
-                         env['CXX'] = 'clang++.exe'
-                         # 设置Clang特定的编译标志
-                         env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations', '-fms-extensions', '-fms-compatibility', '-Wno-error', '-Wno-enum-constexpr-conversion', '-Wno-bitfield-enum-conversion', '-Wno-enum-compare', '-Wno-enum-conversion']
-                         # 设置Clang特定的编译命令格式 - 使用GCC风格的include路径
-                         env['CXXCOM'] = '$CXX -o $TARGET -c $CXXFLAGS $_CPPDEFFLAGS -I$CPPPATH $SOURCES'
-                         # 添加src目录到头文件搜索路径
-                         env.Append(CPPPATH=['src', '.'])
-                         
-                         # 清除旧的库配置，使用Clang风格的配置
-                         env['LIBS'] = []
-                         env['LIBPATH'] = []
-                         
-                         print(f"手动配置Clang编译器成功: {clang_path}")
-                         clang_found = True
-                         break
-            
-            if not clang_found:
-                # 如果Clang不可用，回退到Visual Studio编译器
-                env.Tool('msvc')
-                env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
-                # 添加src目录到头文件搜索路径
-                env.Append(CPPPATH=['src', '.'])
-                print("Clang不可用，使用Visual Studio编译器")
+            if msvc_versions:
+                latest_msvc = max(msvc_versions)
+                vc_tools_path = os.path.join(vc_path, latest_msvc)
                 
-        except:
-            # 如果都不可用，尝试手动设置Visual Studio环境
-            try:
-                # 设置Visual Studio 2022路径
-                vs_path = r"D:\Code\VS2022\Community"
-                vc_path = os.path.join(vs_path, "VC", "Tools", "MSVC", "14.44.35207")
-                
-                if os.path.exists(vc_path):
+                if os.path.exists(vc_tools_path):
                     # 设置编译器路径
-                    env['ENV']['PATH'] = os.path.join(vc_path, "bin", "Hostx64", "x64") + ";" + os.environ.get('PATH', '')
-                    env['ENV']['INCLUDE'] = os.path.join(vc_path, "include") + ";" + os.environ.get('INCLUDE', '')
-                    env['ENV']['LIB'] = os.path.join(vc_path, "lib", "x64") + ";" + os.environ.get('LIB', '')
+                    compiler_path = os.path.join(vc_tools_path, "bin", "Hostx64", "x64")
+                    include_path = os.path.join(vc_tools_path, "include")
+                    lib_path = os.path.join(vc_tools_path, "lib", "x64")
                     
                     # 设置Windows SDK路径
-                    windows_sdk_path = r"C:\Program Files (x86)\Windows Kits\10"
-                    if os.path.exists(windows_sdk_path):
-                        # 查找最新的Windows SDK版本
-                        sdk_versions = []
-                        for item in os.listdir(os.path.join(windows_sdk_path, "Include")):
-                            if item.startswith("10."):
-                                sdk_versions.append(item)
-                        
-                        if sdk_versions:
-                            latest_sdk = max(sdk_versions)
-                            include_path = os.path.join(windows_sdk_path, "Include", latest_sdk, "um")
-                            lib_path = os.path.join(windows_sdk_path, "Lib", latest_sdk, "um", "x64")
-                            
-                            env['ENV']['INCLUDE'] += ";" + include_path
-                            env['ENV']['LIB'] += ";" + lib_path
+                    sdk_paths = [
+                        r"D:\Windows Kits\10\Include",
+                        r"C:\Program Files (x86)\Windows Kits\10\Include"
+                    ]
                     
-                    env['CXX'] = 'cl.exe'
-                    env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
-                    env.Append(CPPPATH=['src', '.'])
-                    print("手动配置Visual Studio编译器成功")
-                else:
-                    raise Exception("Visual Studio路径不存在")
-            except Exception as e:
-                print(f"手动配置编译器失败: {e}")
-                print("\n" + "="*60)
-                print("错误：系统中未找到可用的C++编译器！")
-                print("="*60)
-                print("\n请安装以下编译器之一：")
-                print("1. Clang编译器（推荐）：")
-                print("   - 下载地址：https://github.com/llvm/llvm-project/releases")
-                print("   - 安装到D:\\Code\\LLVM\\bin目录")
-                print("2. Visual Studio 2022：")
-                print("   - 下载地址：https://visualstudio.microsoft.com/")
-                print("   - 安装到D:\\Code\\VS2022\\Community目录")
-                print("3. MinGW-w64：")
-                print("   - 下载地址：https://www.mingw-w64.org/")
-                print("\n安装完成后，请重新运行scons命令。")
-                print("="*60)
-                # 退出构建过程
-                Exit(1)
+                    sdk_include = ""
+                    sdk_lib = ""
+                    for path in sdk_paths:
+                        if os.path.exists(path):
+                            # 查找最新的SDK版本
+                            sdk_versions = []
+                            for item in os.listdir(path):
+                                if item.replace('.', '').isdigit():
+                                    sdk_versions.append(item)
+                            
+                            if sdk_versions:
+                                latest_sdk = max(sdk_versions)
+                                # 设置包含路径：ucrt, um, shared, winrt
+                                sdk_include = os.path.join(path, latest_sdk, "ucrt") + ";" + \
+                                             os.path.join(path, latest_sdk, "um") + ";" + \
+                                             os.path.join(path, latest_sdk, "shared") + ";" + \
+                                             os.path.join(path, latest_sdk, "winrt")
+                                
+                                # 设置库路径
+                                sdk_lib = os.path.join(path.replace("Include", "Lib"), latest_sdk, "ucrt", "x64") + ";" + \
+                                          os.path.join(path.replace("Include", "Lib"), latest_sdk, "um", "x64")
+                                break
+                    
+                    # 设置环境变量
+                    env['ENV']['PATH'] = compiler_path + ";" + os.environ.get('PATH', '')
+                    env['ENV']['INCLUDE'] = include_path + ";" + sdk_include + ";" + os.environ.get('INCLUDE', '')
+                    env['ENV']['LIB'] = lib_path + ";" + sdk_lib + ";" + os.environ.get('LIB', '')
+                    
+                    print(f"手动设置Visual Studio编译器路径: {compiler_path}")
+                    return True
+    
+    except Exception as e:
+        print(f"设置Visual Studio环境时出错: {e}")
+    
+    return False
+
+# 设置Visual Studio环境
+if setup_visual_studio_environment():
+    env['CXX'] = 'cl.exe'
+    env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8', '/D_CRT_SECURE_NO_WARNINGS', '/DIDI_APP_ICON=1001']  # 添加禁用安全警告和IDI_APP_ICON定义
+    env.Append(CPPPATH=['src', '.', os.getcwd()])  # 添加当前工作目录路径
+    print("Visual Studio编译器配置成功")
 else:
-    # 非Windows环境
+    print("\n" + "="*60)
+    print("错误：无法设置Visual Studio编译器环境！")
+    print("="*60)
+    print("\n请检查以下内容：")
+    print("1. Visual Studio 2022是否已正确安装")
+    print("2. vcvars64.bat文件是否存在: D:\\Code\\VS2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat")
+    print("\n安装完成后，请重新运行scons命令。")
+    print("="*60)
+    # 退出构建过程
+    Exit(1)
+
+# 非Windows环境设置
+if os.name != 'nt':
     env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
 
 # 源文件 - 使用Windows API版本（文件已移动到src目录）
 sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp', 'src/file_manager.cpp', 'src/file_search_manager.cpp']
 
-# Windows环境下暂时不使用资源文件（resource.rc和resource.h在根目录）
-# 因为资源文件生成脚本存在问题，暂时禁用资源文件构建
+# Windows环境下使用资源文件（resource.rc和resource.h在根目录）
 if os.name == 'nt':
+    # 暂时禁用资源文件构建，因为资源编译器不可用
     resource_files = []
-    print("注意：资源文件构建已禁用，对话框将在代码中动态创建")
+    print("警告: 资源编译器不可用，跳过资源文件构建")
+    print("应用程序图标将通过预定义宏IDI_APP_ICON=1001在代码中处理")
 else:
     resource_files = []
 
-# Windows GUI应用程序设置
+# 强制使用Visual Studio编译器，避免Clang链接错误
+clang_found = False
+
+# Windows GUI应用程序设置 - 使用Visual Studio编译器
 if os.name == 'nt':
-    # 使用Clang编译器，但添加特定的错误抑制选项
-    if clang_found:
-        print("使用Clang编译器，添加WebView2头文件兼容性选项")
-        # 设置Clang编译器标志，添加更多错误抑制选项
-        env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-deprecated-declarations', 
-                          '-fms-extensions', '-fms-compatibility', '-Wno-error',
-                          '-Wno-bitfield-enum-conversion', '-Wno-enum-compare', '-Wno-enum-conversion',
-                          '-Wno-invalid-source-encoding', '-Wno-c++11-narrowing', '-Wno-c99-extensions',
-                          '-Wno-static-in-inline']
-        # 设置Clang特定的编译命令格式 - 使用GCC风格的include路径
-        env['CXXCOM'] = '$CXX -o $TARGET -c $CXXFLAGS $_CPPDEFFLAGS -I$CPPPATH $SOURCES'
-        # 设置Clang特定的链接标志
-        env['LINKCOM'] = '$CXX -o $TARGET $SOURCES $LINKFLAGS -L$LIBPATH $_LIBFLAGS'
-        # 清除旧的链接器标志，使用Clang风格的参数
-        env['LINKFLAGS'] = ['-Wl,--subsystem=windows', '-Wl,--entry=WinMainCRTStartup', '-static', '-lmsvcrt', '-lshell32', '-luser32', '-lgdi32', '-lcomctl32', '-limm32', '-ladvapi32', '-lole32', '-loleaut32', '-lWebView2LoaderStatic']
-        # 设置库文件路径（使用Clang风格的-L参数）
-        env['LIBPATH'] = [webview2_lib_x64]
-    else:
-        # 如果Clang不可用，使用Visual Studio编译器设置
-        env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8']
+    # 强制使用Visual Studio编译器设置
+    print("使用Visual Studio编译器")
+    # 使用Append而不是直接赋值，避免覆盖之前的设置
+    env.Append(CXXFLAGS=['/EHsc', '/W3', '/utf-8'])
+    env.Append(CPPPATH=['src', '.'])
+    # 添加必要的Windows库文件
+    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32'])
+    env.Append(LIBPATH=[webview2_lib_x64])
+    env.Append(LIBS=['WebView2LoaderStatic'])
 
 # 在构建前执行预处理任务
 bin_dir = ensure_bin_directory()

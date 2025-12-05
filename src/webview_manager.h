@@ -97,6 +97,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
 
 // 多行输入对话框函数声明
 BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int nNameSize, int nPathSize, int nCommentSize);
+BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int shortcutType);
 
 // 编辑和删除书签函数声明
 void ShowEditBookmarkDialog(int index);

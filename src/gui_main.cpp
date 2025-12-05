@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <imm.h>
 #include <windowsx.h>  // 用于GET_X_LPARAM和GET_Y_LPARAM宏
 #include <tchar.h>
@@ -819,10 +819,10 @@ void AddTrayIcon()
         LR_LOADFROMFILE | LR_DEFAULTSIZE
     );
     
-    // 如果加载自定义图标失败，使用系统默认图标作为备选
+    // 如果加载自定义图标失败，使用资源文件中的图标作为备选
     if (!g_notifyIconData.hIcon) {
-        g_notifyIconData.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-        LogToFile("AddTrayIcon: 加载自定义图标失败，使用系统默认图标");
+        g_notifyIconData.hIcon = LoadIcon(g_hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
+        LogToFile("AddTrayIcon: 加载自定义图标失败，使用资源文件图标");
     }
     
     // 使用memcpy来复制字符串，避免类型问题
@@ -2562,12 +2562,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         LR_LOADFROMFILE
     );
     
-    // 如果加载自定义图标失败，使用系统默认图标作为备选
+    // 如果加载自定义图标失败，使用资源文件中的图标作为备选
     if (!wc.hIcon) {
-        wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+        wc.hIcon = LoadIcon(g_hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
     }
     if (!wc.hIconSm) {
-        wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+        wc.hIconSm = LoadIcon(g_hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
     }
     
     // Register window class
@@ -3491,7 +3491,7 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
             {
                 itemsHtml += L"<tr class='item-row' onclick='onRowClick(";
                 itemsHtml += std::to_wstring(i);
-                itemsHtml += L")' ondblclick='onRowDblClick(";
+                itemsHtml += L", event)' ondblclick='onRowDblClick(";
                 itemsHtml += std::to_wstring(i);
                 itemsHtml += L")'>";
                 

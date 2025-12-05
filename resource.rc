@@ -1,6 +1,5 @@
 #include <windows.h>
-
-// 网址管理对话框资源ID
+#include "resource.h"
 #define IDD_BOOKMARK_DIALOG        2000
 #define IDC_BOOKMARK_LIST          2001
 #define IDC_BOOKMARK_NAME          2002
@@ -43,3 +42,6 @@ BEGIN
     IDS_BOOKMARK_DELETE     "删除"
     IDS_BOOKMARK_CLOSE      "关闭"
 END
+
+// 应用程序图标资源
+IDI_APP_ICON ICON "app_icon.ico"

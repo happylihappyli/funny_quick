@@ -27,7 +27,23 @@ function selectRow(index) {
   rows.forEach((r, i) => r.classList.toggle('selected', i === index));
   selectedIndex = index;
 }
-function onRowClick(index) {
+function onRowClick(index, event) {
+  // Prevent row click if triggered by edit button (defensive check)
+  var evt = event || window.event;
+  if (evt) {
+    var target = evt.target || evt.srcElement;
+    // Check if target is the edit button or inside it
+    // Handle text nodes by getting parent element
+    if (target.nodeType === 3) target = target.parentNode;
+    
+    if (target && target.closest && target.closest('.edit-button')) {
+      return;
+    }
+    if (target && target.classList && target.classList.contains('edit-button')) {
+      return;
+    }
+  }
+
   selectRow(index);
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({type:'itemClick', index:index}));
@@ -39,10 +55,16 @@ function onRowDblClick(index) {
   }
 }
 function onEditClick(index, event) {
-  event.stopPropagation(); // 阻止事件冒泡，避免触发行点击
+  var evt = event || window.event;
+  if (evt) {
+    evt.stopPropagation(); // 阻止事件冒泡，避免触发行点击
+    evt.cancelBubble = true;
+    evt.preventDefault();
+  }
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({type:'editItem', index:index}));
   }
+  return false;
 }
 </script>
 </head>

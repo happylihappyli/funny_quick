@@ -1,4 +1,4 @@
-﻿// 消息处理函数实现文件
+// 消息处理函数实现文件
 // 用于重构WindowProc函数，将消息处理逻辑分离到独立的函数
 
 #include "message_handlers.h"
@@ -424,9 +424,46 @@ void HandleListViewDoubleClick(HWND hwnd)
         }
         else
         {
-            // 正常模式，执行选中的项目
-            LogToFile("WM_COMMAND: 正常模式，执行选中的项目");
-            ExecuteSelectedItem(selIndex);
+            // 正常模式，编辑选中的项目（而不是执行）
+            LogToFile("WM_COMMAND: 正常模式，编辑选中的项目");
+            
+            // 检查ListView前面有多少行提示行，需要调整索引
+            int hintRowCount = 0;
+            int itemCount = ListView_GetItemCount(g_hListView);
+            for (int i = 0; i < itemCount; i++)
+            {
+                WCHAR itemText[1024] = {0};
+                LVITEMW lvItem = {0};
+                lvItem.mask = LVIF_TEXT;
+                lvItem.iItem = i;
+                lvItem.iSubItem = 0;
+                lvItem.pszText = itemText;
+                lvItem.cchTextMax = sizeof(itemText) / sizeof(WCHAR);
+                if (ListView_GetItem(g_hListView, &lvItem))
+                {
+                    // 检查是否是提示行
+                    if (wcsstr(itemText, L"提示:") == itemText || wcsstr(itemText, L"💡") == itemText)
+                    {
+                        hintRowCount++;
+                    }
+                    else
+                    {
+                        break;  // 遇到非提示行，停止计数
+                    }
+                }
+            }
+            
+            INT_PTR adjustedIndex = selIndex - hintRowCount;
+            
+            if (adjustedIndex >= 0 && (size_t)adjustedIndex < g_searchResults.size())
+            {
+                // 调用编辑快捷方式对话框
+                ShowEditShortcutDialog((int)adjustedIndex);
+            }
+            else
+            {
+                LogToFile("HandleListViewDoubleClick: 无效索引，无法编辑");
+            }
         }
     }
 }
