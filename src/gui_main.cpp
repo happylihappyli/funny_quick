@@ -33,6 +33,7 @@ using namespace Microsoft::WRL;
 
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "oleaut32.lib")
+#pragma comment(lib, "imm32.lib") // 链接输入法库
 
 // Define notification codes if not defined
 #ifndef EN_RETURN
@@ -720,77 +721,23 @@ void HideLauncherWindow()
 // 设置英文输入法
 void SetEnglishInputMethod()
 {
-    // 方法1: 使用输入法管理器直接关闭输入法
-    HIMC hIMC = ImmGetContext(g_hMainWindow);
-    if (hIMC)
-    {
-        // 关闭输入法（设置为英文状态）
-        BOOL result = ImmSetOpenStatus(hIMC, FALSE);
-        if (result)
-        {
-            LogToFile("SetEnglishInputMethod: 成功关闭输入法（设置为英文状态）");
-        }
-        else
-        {
-            LogToFile("SetEnglishInputMethod: 关闭输入法失败");
-        }
-        
-        // 释放输入法上下文
-        ImmReleaseContext(g_hMainWindow, hIMC);
-    }
-    else
-    {
-        LogToFile("SetEnglishInputMethod: 获取输入法上下文失败");
-    }
-    
-    // 方法2: 强制切换到英文键盘布局
-    HKL hCurrentLayout = GetKeyboardLayout(0);
-    
-    // 检查当前是否是英文键盘布局（0x0409 = 英语(美国)）
-    if (LOWORD(hCurrentLayout) != 0x0409)
-    {
-        // 尝试加载英文键盘布局
-        HKL hUSLayout = LoadKeyboardLayoutW(L"00000409", KLF_ACTIVATE);
-        if (hUSLayout)
-        {
-            // 激活英文键盘布局
-            ActivateKeyboardLayout(hUSLayout, KLF_SETFORPROCESS);
-            
-            // 设置到当前线程
-            ActivateKeyboardLayout(hUSLayout, 0);
-            
-            LogToFile("SetEnglishInputMethod: 成功切换到英文键盘布局");
-        }
-        else
-        {
-            LogToFile("SetEnglishInputMethod: 加载英文键盘布局失败");
-            
-            // 尝试使用系统默认的英文布局
-            HKL hDefaultLayout = (HKL)0x0409;
-            ActivateKeyboardLayout(hDefaultLayout, KLF_SETFORPROCESS);
-            LogToFile("SetEnglishInputMethod: 尝试使用默认英文布局");
-        }
-    }
-    else
-    {
-        LogToFile("SetEnglishInputMethod: 已经是英文键盘布局");
-    }
-    
-    // 方法3: 设置编辑框的输入法状态
+    // 用户反馈需要输入中文，因此移除了强制切换英文和禁用输入法的代码
+    // 改为确保输入法可用
     if (g_hEdit)
     {
-        // 设置编辑框的输入法模式为关闭
-        ImmAssociateContext(g_hEdit, NULL);
-        
-        // 重新关联输入法上下文，确保输入法状态正确
-        HIMC hEditIMC = ImmGetContext(g_hEdit);
-        if (hEditIMC)
+        HIMC hIMC = ImmGetContext(g_hEdit);
+        if (hIMC)
         {
-            ImmSetOpenStatus(hEditIMC, FALSE);
-            ImmReleaseContext(g_hEdit, hEditIMC);
+            ImmSetOpenStatus(hIMC, TRUE);
+            ImmReleaseContext(g_hEdit, hIMC);
+            LogToFile("SetEnglishInputMethod: 已确保输入法开启");
         }
-        
-        LogToFile("SetEnglishInputMethod: 已设置编辑框输入法状态");
+        else
+        {
+            LogToFile("SetEnglishInputMethod: 获取输入法上下文失败，尝试重新关联");
+            // 尝试获取默认IME窗口并关联
+            // 注意：这里不做过多干预，避免副作用，只是记录日志
+        }
     }
 }
 
@@ -2051,6 +1998,19 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
           10, 10, 280, 25,  // 调整位置和宽度：x=10, y=10, 宽度=280
           hwnd, (HMENU)IDC_EDIT,
           g_hInstance, NULL);
+    
+    // 确保编辑框关联输入法上下文
+    HIMC hIMC = ImmGetContext(g_hEdit);
+    if (hIMC)
+    {
+        ImmAssociateContext(g_hEdit, hIMC);
+        ImmReleaseContext(g_hEdit, hIMC);
+        LogToFile("HandleWMCreate: 已关联输入法上下文到搜索框");
+    }
+    else
+    {
+        LogToFile("HandleWMCreate: 无法获取输入法上下文");
+    }
     
     // Register hotkey for Enter key detection instead of relying on EN_RETURN
     LogToFile("Edit control created without ES_WANTRETURN style to receive WM_KEYDOWN messages");

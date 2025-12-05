@@ -1,4 +1,4 @@
-﻿fooocus2|C:\Users\happyli\Desktop\fooocus.lnk|2|桌面快捷方式: fooocus|C:\Users\happyli\Desktop\fooocus.lnk|1
+﻿fooocus|C:\Users\happyli\Desktop\fooocus.lnk|2|桌面快捷方式: fooocus|C:\Users\happyli\Desktop\fooocus.lnk|0
 NotepadABC|C:\Users\happyli\Desktop\NotepadABC.lnk|2|桌面快捷方式: NotepadABC|C:\Users\happyli\Desktop\NotepadABC.lnk|0
 run.bat - 快捷方式|C:\Users\happyli\Desktop\run.bat - 快捷方式.lnk|2|桌面快捷方式: run.bat - 快捷方式|C:\Users\happyli\Desktop\run.bat - 快捷方式.lnk|0
 run_nvidia_gpu - 快捷方式|C:\Users\happyli\Desktop\run_nvidia_gpu - 快捷方式.lnk|2|桌面快捷方式: run_nvidia_gpu - 快捷方式|C:\Users\happyli\Desktop\run_nvidia_gpu - 快捷方式.lnk|0
@@ -14,6 +14,6 @@ Start Menu|C:\Users\happyli\AppData\Roaming\Microsoft\Windows\Start Menu\Program
 Downloads|C:\Users\happyli\Documents\Downloads|0|下载文件夹，包含所有下载的文件|shell32.dll,-176|0
 Documents|C:\Users\happyli\Documents|0|文档文件夹，包含个人文档|shell32.dll,-235|0
 Google|https://www.google.com|1|谷歌搜索引擎，全球最大的搜索引擎|https://www.google.com/favicon.ico|0
-Baidu|https://www.baidu.com|1|百度搜索引擎，中文搜索引擎|https://www.baidu.com/favicon.ico|0
+Baidu搜索|https://www.baidu.com|1|百度搜索引擎，中文搜索引擎|https://www.baidu.com/favicon.ico|1
 Explorer|explorer.exe|2|文件资源管理器，浏览和管理文件|explorer.exe|0
 Notepad|notepad.exe|2|记事本程序，简单的文本编辑器|notepad.exe|0

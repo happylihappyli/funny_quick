@@ -282,18 +282,6 @@ function addBookmark() {
             url: finalUrl
         }));
     }
-    
-    // 显示成功消息
-    document.getElementById('successMessage').style.display = 'flex';
-    
-    // 清空表单
-    document.getElementById('bookmarkName').value = '';
-    document.getElementById('bookmarkUrl').value = '';
-    
-    // 3秒后自动关闭对话框
-    setTimeout(() => {
-        closeDialog();
-    }, 3000);
 }
 
 function closeDialog() {
@@ -302,6 +290,32 @@ function closeDialog() {
             type: 'closeBookmarkDialog'
         }));
     }
+}
+
+// 仅在 window.chrome.webview 存在时才添加事件监听器
+if (window.chrome && window.chrome.webview) {
+    // 监听从C++后端返回的消息
+    window.chrome.webview.addEventListener('message', event => {
+        const message = event.data;
+        if (message.type === 'addBookmarkResult') {
+            if (message.success) {
+                // 显示成功消息
+                document.getElementById('successMessage').style.display = 'flex';
+                
+                // 清空表单
+                document.getElementById('bookmarkName').value = '';
+                document.getElementById('bookmarkUrl').value = '';
+                
+                // 3秒后自动关闭对话框
+                setTimeout(() => {
+                    closeDialog();
+                }, 3000);
+            } else {
+                // 显示失败提示
+                alert('添加书签失败，请检查网址是否有效或是否已存在！');
+            }
+        }
+    });
 }
 
 // 按回车键提交表单

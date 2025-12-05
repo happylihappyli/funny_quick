@@ -3,7 +3,10 @@ import subprocess
 import datetime
 
 # 创建基本环境，确保包含所有必要的工具
-env = Environment(tools=['default'])
+env = Environment(
+    tools=['clang', 'clang++', 'ar', 'link'],
+    tool_path=['D:/scoop/apps/llvm/current/bin']
+)
 
 # 编译开始时间
 start_time = datetime.datetime.now()
@@ -74,184 +77,28 @@ def ensure_obj_directory():
 
 # Windows环境特殊设置
 if os.name == 'nt':
-    # 添加Windows特定库（使用Clang风格的库名称）
-    # 注意：这些库将在Clang配置部分被清除并重新添加
-    
     # WebView2 路径配置
     webview2_sdk_path = r'C:\Users\happyli\.nuget\packages\microsoft.web.webview2\1.0.3405.78'
     webview2_include = os.path.join(webview2_sdk_path, 'build', 'native', 'include')
     webview2_lib_x64 = os.path.join(webview2_sdk_path, 'build', 'native', 'x64')
-    webview2_lib_x86 = os.path.join(webview2_sdk_path, 'build', 'native', 'x86')
-    
-    # 添加 WebView2 头文件路径
-    if os.path.exists(webview2_include):
-        env.Append(CPPPATH=[webview2_include])
-        print(f"WebView2 头文件路径: {webview2_include}")
-    else:
-        print(f"警告: WebView2 头文件路径不存在: {webview2_include}")
-    
-    # 添加 WebView2 库文件路径（优先使用 x64）
-    # 注意：这些库路径将在Clang配置部分被清除并重新添加
-    if os.path.exists(webview2_lib_x64):
-        print(f"WebView2 库文件路径 (x64): {webview2_lib_x64}")
-    elif os.path.exists(webview2_lib_x86):
-        print(f"WebView2 库文件路径 (x86): {webview2_lib_x86}")
-    else:
-        print(f"警告: WebView2 库文件路径不存在")
-    
-    # 添加资源文件生成支持
-    # 由于rc.exe不可用，使用Python脚本生成资源文件
-    print("使用Python脚本生成资源文件（rc.exe不可用）")
-    
-    # 创建自定义的资源文件构建器
-    def generate_resource(target, source, env):
-        """使用Python脚本生成资源文件"""
-        import subprocess
-        try:
-            # 运行Python脚本生成资源文件
-            result = subprocess.run([
-                'python', 'test/generate_resource.py'
-            ], capture_output=True, text=True, cwd=env.Dir('.').abspath)
-            
-            if result.returncode == 0:
-                print("资源文件生成成功")
-                return None
-            else:
-                print(f"资源文件生成失败: {result.stderr}")
-                return "资源文件生成失败"
-        except Exception as e:
-            print(f"运行资源生成脚本时出错: {e}")
-            return f"脚本执行错误: {e}"
-    
-    # 添加自定义构建器
-    resource_builder = Builder(action=generate_resource)
-    env.Append(BUILDERS={'Resource': resource_builder})
-    
-    # 设置资源文件构建规则
-    env['RESOURCE_TARGET'] = 'obj/resource.res'
-    env['RESOURCE_SOURCE'] = 'resource.rc'
-    env['RCFLAGS'] = '/c65001'  # 设置UTF-8编码
-    env['BUILDERS']['RES'] = Builder(action='$RCCOM', suffix='.res', src_suffix='.rc')
-    
-    # 使用Windows API版本
-    print("使用Windows API版本")
-    
-    # 使用更可靠的方法设置Visual Studio编译器环境
-    
-def setup_visual_studio_environment():
-    """设置Visual Studio环境变量"""
-    try:
-        # 直接设置已知路径
-        vs_path = r"D:\Code\VS2022\Community"
-        vc_path = os.path.join(vs_path, "VC", "Tools", "MSVC")
-        
-        if os.path.exists(vc_path):
-            # 查找最新的MSVC版本
-            msvc_versions = []
-            for item in os.listdir(vc_path):
-                if item.replace('.', '').isdigit():
-                    msvc_versions.append(item)
-            
-            if msvc_versions:
-                latest_msvc = max(msvc_versions)
-                vc_tools_path = os.path.join(vc_path, latest_msvc)
-                
-                if os.path.exists(vc_tools_path):
-                    # 设置编译器路径
-                    compiler_path = os.path.join(vc_tools_path, "bin", "Hostx64", "x64")
-                    include_path = os.path.join(vc_tools_path, "include")
-                    lib_path = os.path.join(vc_tools_path, "lib", "x64")
-                    
-                    # 设置Windows SDK路径
-                    sdk_paths = [
-                        r"D:\Windows Kits\10\Include",
-                        r"C:\Program Files (x86)\Windows Kits\10\Include"
-                    ]
-                    
-                    sdk_include = ""
-                    sdk_lib = ""
-                    for path in sdk_paths:
-                        if os.path.exists(path):
-                            # 查找最新的SDK版本
-                            sdk_versions = []
-                            for item in os.listdir(path):
-                                if item.replace('.', '').isdigit():
-                                    sdk_versions.append(item)
-                            
-                            if sdk_versions:
-                                latest_sdk = max(sdk_versions)
-                                # 设置包含路径：ucrt, um, shared, winrt
-                                sdk_include = os.path.join(path, latest_sdk, "ucrt") + ";" + \
-                                             os.path.join(path, latest_sdk, "um") + ";" + \
-                                             os.path.join(path, latest_sdk, "shared") + ";" + \
-                                             os.path.join(path, latest_sdk, "winrt")
-                                
-                                # 设置库路径
-                                sdk_lib = os.path.join(path.replace("Include", "Lib"), latest_sdk, "ucrt", "x64") + ";" + \
-                                          os.path.join(path.replace("Include", "Lib"), latest_sdk, "um", "x64")
-                                break
-                    
-                    # 设置环境变量
-                    env['ENV']['PATH'] = compiler_path + ";" + os.environ.get('PATH', '')
-                    env['ENV']['INCLUDE'] = include_path + ";" + sdk_include + ";" + os.environ.get('INCLUDE', '')
-                    env['ENV']['LIB'] = lib_path + ";" + sdk_lib + ";" + os.environ.get('LIB', '')
-                    
-                    print(f"手动设置Visual Studio编译器路径: {compiler_path}")
-                    return True
-    
-    except Exception as e:
-        print(f"设置Visual Studio环境时出错: {e}")
-    
-    return False
 
-# 设置Visual Studio环境
-if setup_visual_studio_environment():
-    env['CXX'] = 'cl.exe'
-    env['CXXFLAGS'] = ['/EHsc', '/W3', '/utf-8', '/D_CRT_SECURE_NO_WARNINGS', '/DIDI_APP_ICON=1001']  # 添加禁用安全警告和IDI_APP_ICON定义
-    env.Append(CPPPATH=['src', '.', os.getcwd()])  # 添加当前工作目录路径
-    print("Visual Studio编译器配置成功")
-else:
-    print("\n" + "="*60)
-    print("错误：无法设置Visual Studio编译器环境！")
-    print("="*60)
-    print("\n请检查以下内容：")
-    print("1. Visual Studio 2022是否已正确安装")
-    print("2. vcvars64.bat文件是否存在: D:\\Code\\VS2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat")
-    print("\n安装完成后，请重新运行scons命令。")
-    print("="*60)
-    # 退出构建过程
-    Exit(1)
+    # Clang 环境特殊设置
+    env.Append(CXXFLAGS=['-std=c++17', '-Wall', '-Wextra', '-g', '-D_CRT_SECURE_NO_WARNINGS', '-DIDI_APP_ICON=1001'])
+    env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS'])
+    env.Append(CPPPATH=['src', '.', webview2_include])
+    env.Append(LIBPATH=[webview2_lib_x64])
+    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32', 'WebView2LoaderStatic'])
+    print("Clang 编译器配置成功")
 
-# 非Windows环境设置
-if os.name != 'nt':
-    env['CXXFLAGS'] = ['-std=c++17', '-Wall', '-Wextra']
-
-# 源文件 - 使用Windows API版本（文件已移动到src目录）
+# 源文件
 sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp', 'src/file_manager.cpp', 'src/file_search_manager.cpp']
 
-# Windows环境下使用资源文件（resource.rc和resource.h在根目录）
+# 资源文件
 if os.name == 'nt':
-    # 暂时禁用资源文件构建，因为资源编译器不可用
     resource_files = []
     print("警告: 资源编译器不可用，跳过资源文件构建")
-    print("应用程序图标将通过预定义宏IDI_APP_ICON=1001在代码中处理")
 else:
     resource_files = []
-
-# 强制使用Visual Studio编译器，避免Clang链接错误
-clang_found = False
-
-# Windows GUI应用程序设置 - 使用Visual Studio编译器
-if os.name == 'nt':
-    # 强制使用Visual Studio编译器设置
-    print("使用Visual Studio编译器")
-    # 使用Append而不是直接赋值，避免覆盖之前的设置
-    env.Append(CXXFLAGS=['/EHsc', '/W3', '/utf-8'])
-    env.Append(CPPPATH=['src', '.'])
-    # 添加必要的Windows库文件
-    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32'])
-    env.Append(LIBPATH=[webview2_lib_x64])
-    env.Append(LIBS=['WebView2LoaderStatic'])
 
 # 在构建前执行预处理任务
 bin_dir = ensure_bin_directory()

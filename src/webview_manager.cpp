@@ -1,4 +1,5 @@
 #include "webview_manager.h"
+#include "bookmark_manager.h"
 #include "common.h"
 #include "calculator.h"  // 计算器功能定义
 #include "logger.h"
@@ -10,6 +11,9 @@
 #include <sstream>
 #include <codecvt>
 #include <commctrl.h>
+#include <imm.h> // 输入法支持
+
+#pragma comment(lib, "imm32.lib") // 链接输入法库
 
 // HTML模板读取函数声明
 std::wstring ReadHtmlTemplate(const std::wstring& filePath);
@@ -298,11 +302,46 @@ void InitializeWebView2(HWND hwnd)
                                                 HandleSettingsMenuItemClick(actualIndex);
                                             }
                                         }
+                                        else if (msgStr.find(L"\"type\":\"addBookmarkFromDialog\"") != std::wstring::npos)
+                                        {
+                                            // 处理添加网址收藏请求
+                                            LogToFile("WebView2消息: 收到添加网址收藏请求");
+
+                                            std::wstring name;
+                                            std::wstring url;
+                                            size_t namePos = msgStr.find(L"\"name\":\"");
+                                            if (namePos != std::wstring::npos)
+                                            {
+                                                namePos += 8; // Skip past "name":"
+                                                size_t nameEndPos = msgStr.find(L"\"", namePos);
+                                                if (nameEndPos != std::wstring::npos)
+                                                {
+                                                    name = msgStr.substr(namePos, nameEndPos - namePos);
+                                                }
+                                            }
+
+                                            size_t urlPos = msgStr.find(L"\"url\":\"");
+                                            if (urlPos != std::wstring::npos)
+                                            {
+                                                urlPos += 7; // Skip past "url":"
+                                                size_t urlEndPos = msgStr.find(L"\"", urlPos);
+                                                if (urlEndPos != std::wstring::npos)
+                                                {
+                                                    url = msgStr.substr(urlPos, urlEndPos - urlPos);
+                                                }
+                                            }
+
+                                            if (!name.empty() && !url.empty())
+                                            {
+                                                bool success = AddBookmark(name.c_str(), url.c_str());
+                                                std::wstring script = L"window.chrome.webview.postMessage({ type: 'addBookmarkResult', success: " + (success ? L"true" : L"false") + L" });";
+                                                g_webView->ExecuteScript(script.c_str(), nullptr);
+                                            }
+                                        }
                                         else if (msgStr.find(L"\"type\":\"bookmarkClick\"") != std::wstring::npos)
                                         {
                                             // 处理网址收藏单击（回车键应该调用这个）
                                             int index = -1;
-                                            
                                             size_t indexPos = msgStr.find(L"\"index\":");
                                             if (indexPos != std::wstring::npos)
                                             {
@@ -1615,6 +1654,14 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     ShowWindow(hDlg, SW_SHOW);
     SetFocus(hNameEdit);
     
+    // 显式关联输入法上下文，确保中文输入可用
+    HIMC hIMC = ImmGetContext(hDlg);
+    if (hIMC)
+    {
+        ImmAssociateContext(hDlg, hIMC);
+        ImmReleaseContext(hDlg, hIMC);
+    }
+    
     // 设置对话框为模态窗口
     EnableWindow(g_hMainWindow, FALSE);
     
@@ -1639,6 +1686,22 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     
     while (bRunning && GetMessage(&msg, NULL, 0, 0))
     {
+        // 优先处理输入法相关消息，防止IsDialogMessage吞掉它们
+        if (msg.message == WM_IME_COMPOSITION || 
+            msg.message == WM_IME_STARTCOMPOSITION || 
+            msg.message == WM_IME_ENDCOMPOSITION ||
+            msg.message == WM_IME_NOTIFY ||
+            msg.message == WM_IME_SETCONTEXT ||
+            msg.message == WM_IME_CONTROL ||
+            msg.message == WM_IME_COMPOSITIONFULL ||
+            msg.message == WM_IME_SELECT ||
+            msg.message == WM_IME_CHAR)
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            continue;
+        }
+
         // 检查是否是对话框的消息
         if (!IsDialogMessage(hDlg, &msg))
         {

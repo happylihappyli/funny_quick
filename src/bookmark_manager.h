@@ -28,7 +28,7 @@
  * @param name 网址名称
  * @param url 网址URL
  */
-void AddBookmark(const WCHAR* name, const WCHAR* url);
+bool AddBookmark(const WCHAR* name, const WCHAR* url);
 
 /**
  * @brief 删除网址收藏

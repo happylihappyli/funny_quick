@@ -1,4 +1,4 @@
-﻿#include "bookmark_manager.h"
+#include "bookmark_manager.h"
 #include "common.h"
 #include "logger.h"
 #include "resource.h"
@@ -29,7 +29,7 @@ extern void UpdateWindowTitle();
  * @param name 网址名称
  * @param url 网址URL
  */
-void AddBookmark(const WCHAR* name, const WCHAR* url)
+bool AddBookmark(const WCHAR* name, const WCHAR* url)
 {
     LogToFile("AddBookmark: 添加网址收藏");
     
@@ -38,7 +38,7 @@ void AddBookmark(const WCHAR* name, const WCHAR* url)
     {
         LogToFile("AddBookmark: URL格式无效");
         MessageBoxW(g_hMainWindow, L"请输入有效的网址", L"添加网址失败", MB_OK | MB_ICONERROR);
-        return;
+        return false;
     }
     
     // 检查是否已存在相同的网址
@@ -48,7 +48,7 @@ void AddBookmark(const WCHAR* name, const WCHAR* url)
         {
             LogToFile("AddBookmark: 网址已存在");
             MessageBoxW(g_hMainWindow, L"该网址已存在于收藏中", L"添加网址失败", MB_OK | MB_ICONWARNING);
-            return;
+            return false;
         }
     }
     
@@ -59,9 +59,13 @@ void AddBookmark(const WCHAR* name, const WCHAR* url)
     SaveBookmarks();
     
     // 刷新显示
-    DisplayBookmarkResults();
+    if (g_bookmarkMode)
+    {
+        DisplayBookmarkResults();
+    }
     
     LogToFile("AddBookmark: 网址收藏添加成功");
+    return true;
 }
 
 /**
