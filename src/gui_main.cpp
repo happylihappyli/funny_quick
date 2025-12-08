@@ -3994,51 +3994,22 @@ std::wstring ReadHtmlTemplate(const std::wstring& filePath)
     file.read(&buffer[0], buffer.size());
     file.close();
     
-    // 简单的UTF-8到宽字符串转换（假设文件是UTF-8编码）
+    // 使用WinAPI进行UTF-8到宽字符串转换，正确处理四字节字符
     std::wstring content;
-    for (size_t i = 0; i < buffer.size(); )
+    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, buffer.data(), (int)buffer.size(), NULL, 0);
+    if (wideLen > 0)
     {
-        wchar_t wc = 0;
-        unsigned char c = buffer[i];
-        
-        if ((c & 0x80) == 0) // 单字节字符
+        content.resize(wideLen);
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, buffer.data(), (int)buffer.size(), &content[0], wideLen);
+    }
+    else
+    {
+        wideLen = MultiByteToWideChar(CP_UTF8, 0, buffer.data(), (int)buffer.size(), NULL, 0);
+        if (wideLen > 0)
         {
-            wc = c;
-            i += 1;
+            content.resize(wideLen);
+            MultiByteToWideChar(CP_UTF8, 0, buffer.data(), (int)buffer.size(), &content[0], wideLen);
         }
-        else if ((c & 0xE0) == 0xC0) // 双字节字符
-        {
-            if (i + 1 < buffer.size())
-            {
-                wc = ((c & 0x1F) << 6) | (buffer[i + 1] & 0x3F);
-                i += 2;
-            }
-            else
-            {
-                wc = L'?'; // 不完整的字符
-                i += 1;
-            }
-        }
-        else if ((c & 0xF0) == 0xE0) // 三字节字符
-        {
-            if (i + 2 < buffer.size())
-            {
-                wc = ((c & 0x0F) << 12) | ((buffer[i + 1] & 0x3F) << 6) | (buffer[i + 2] & 0x3F);
-                i += 3;
-            }
-            else
-            {
-                wc = L'?'; // 不完整的字符
-                i += 1;
-            }
-        }
-        else
-        {
-            wc = L'?'; // 无效的UTF-8字节
-            i += 1;
-        }
-        
-        content += wc;
     }
     
     std::string successMsg = "ReadHtmlTemplate: 成功读取HTML模板文件: " + std::string(foundPath.begin(), foundPath.end());
