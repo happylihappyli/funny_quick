@@ -1,4 +1,4 @@
-﻿#ifndef COMMON_H
+#ifndef COMMON_H
 #define COMMON_H
 
 #define _CRT_SECURE_NO_WARNINGS 1
@@ -64,6 +64,7 @@ extern WCHAR g_pendingFileSearchQuery[1024];  // 待处理的文件搜索查询
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_SHOW 1005
 #define ID_TRAY_EXIT 1006
+#define WM_APP_WEBVIEW_READY (WM_USER + 2)
 #define ID_CONTEXT_DELETE_ITEM 1007
 #define ID_CONTEXT_CLEAR_ALL 1008
 #define ID_ADD_BOOKMARK_BUTTON 1009

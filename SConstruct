@@ -84,7 +84,7 @@ if os.name == 'nt':
 
     # Clang 环境特殊设置
     env.Append(CXXFLAGS=['-std=c++17', '-Wall', '-Wextra', '-g', '-D_CRT_SECURE_NO_WARNINGS', '-DIDI_APP_ICON=1001'])
-    env.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS'])
+    env.Append(LINKFLAGS=['-mwindows'])
     env.Append(CPPPATH=['src', '.', webview2_include])
     env.Append(LIBPATH=[webview2_lib_x64])
     env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32', 'WebView2LoaderStatic'])

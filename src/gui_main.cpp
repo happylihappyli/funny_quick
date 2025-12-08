@@ -2409,6 +2409,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         case WM_CREATE:
             return HandleWMCreate(hwnd, (LPCREATESTRUCTW)lParam);
+
+        case WM_APP_WEBVIEW_READY:
+        {
+            // WebView2准备就绪，现在可以安全地进行UI更新
+            LogToFile("WM_APP_WEBVIEW_READY: WebView2 is ready, performing initial UI setup");
+            ShowHelpInfo();
+            std::vector<std::wstring> hints;
+            ProcessSearchQuery(L"", hints);
+            return 0;
+        }
             
         case WM_HOTKEY:
             return HandleWMHotkey(hwnd, wParam);
@@ -3934,13 +3944,46 @@ void ShowBasicUsage()
 // HTML模板读取辅助函数实现
 std::wstring ReadHtmlTemplate(const std::wstring& filePath)
 {
-    // 使用二进制方式读取文件，然后手动转换为宽字符串
-    std::ifstream file(filePath, std::ios::binary);
+    std::vector<std::wstring> pathsToCheck;
+    pathsToCheck.push_back(filePath);
+    pathsToCheck.push_back(L"bin\\" + filePath);
+    
+    // Get module directory
+    WCHAR modulePath[MAX_PATH];
+    if (GetModuleFileNameW(NULL, modulePath, MAX_PATH)) {
+        std::wstring moduleDir = modulePath;
+        size_t lastBackslash = moduleDir.find_last_of(L"\\");
+        if (lastBackslash != std::wstring::npos) {
+            moduleDir = moduleDir.substr(0, lastBackslash);
+            pathsToCheck.push_back(moduleDir + L"\\" + filePath);
+            
+            // Also check parent of module dir (if running from bin)
+            size_t parentBackslash = moduleDir.find_last_of(L"\\");
+            if (parentBackslash != std::wstring::npos) {
+                std::wstring parentDir = moduleDir.substr(0, parentBackslash);
+                pathsToCheck.push_back(parentDir + L"\\" + filePath);
+            }
+        }
+    }
+
+    std::ifstream file;
+    std::wstring foundPath;
+    
+    for (const auto& path : pathsToCheck) {
+        file.open(path, std::ios::binary);
+        if (file.is_open()) {
+            foundPath = path;
+            break;
+        }
+        file.close();
+    }
+
     if (!file.is_open())
     {
         std::string errorMsg = "ReadHtmlTemplate: 无法打开HTML模板文件: " + std::string(filePath.begin(), filePath.end());
         LogToFile(errorMsg.c_str());
-        return L"<html><body><h1>错误：无法加载模板文件</h1></body></html>";
+        // Return empty string to allow fallback
+        return L"";
     }
     
     // 读取文件内容到字节缓冲区
@@ -3998,7 +4041,7 @@ std::wstring ReadHtmlTemplate(const std::wstring& filePath)
         content += wc;
     }
     
-    std::string successMsg = "ReadHtmlTemplate: 成功读取HTML模板文件: " + std::string(filePath.begin(), filePath.end());
+    std::string successMsg = "ReadHtmlTemplate: 成功读取HTML模板文件: " + std::string(foundPath.begin(), foundPath.end());
     LogToFile(successMsg.c_str());
     return content;
 }

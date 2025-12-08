@@ -93,7 +93,8 @@ void InitializeWebView2(HWND hwnd)
                         g_webViewController->get_CoreWebView2(&g_webView);
                         if (g_webView)
                         {
-                            LogToFile("InitializeWebView2: WebView2 核心对象获取成功");
+                            // 通知主窗口 WebView2 已准备就绪
+                            PostMessage(g_hMainWindow, WM_APP_WEBVIEW_READY, 0, 0);
                             
                             // 设置消息接收处理器
                             g_webView->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>(
@@ -102,8 +103,16 @@ void InitializeWebView2(HWND hwnd)
                                     args->TryGetWebMessageAsString(&message);
                                     if (message)
                                     {
-                                        // 解析JSON消息
+                                        // 记录所有接收到的消息用于调试
                                         std::wstring msgStr = message;
+                                        std::string logMsg = "WebView2消息收到RAW: ";
+                                        // Convert wstring to string for logging (simple conversion)
+                                        for(wchar_t c : msgStr) {
+                                            if(c < 128) logMsg += (char)c;
+                                            else logMsg += '?';
+                                        }
+                                        LogToFile(logMsg.c_str());
+
                                         CoTaskMemFree(message);
                                         
                                         // 简单的JSON解析（查找type字段）
@@ -334,7 +343,7 @@ void InitializeWebView2(HWND hwnd)
                                             if (!name.empty() && !url.empty())
                                             {
                                                 bool success = AddBookmark(name.c_str(), url.c_str());
-                                                std::wstring script = L"window.chrome.webview.postMessage({ type: 'addBookmarkResult', success: " + (success ? L"true" : L"false") + L" });";
+                                                std::wstring script = L"window.chrome.webview.postMessage({ type: 'addBookmarkResult', success: " + std::wstring(success ? L"true" : L"false") + L" });";
                                                 g_webView->ExecuteScript(script.c_str(), nullptr);
                                             }
                                         }
@@ -1183,10 +1192,35 @@ void ShowHtmlEditBookmarkDialog(int index)
     size_t bodyPos = dialogHtml.find(L"<body>");
     if (bodyPos != std::wstring::npos)
     {
+        // Escape single quotes and backslashes for JavaScript
+        std::wstring escapedName = bookmark.first;
+        size_t pos = 0;
+        while ((pos = escapedName.find(L"\\", pos)) != std::wstring::npos) {
+            escapedName.replace(pos, 1, L"\\\\");
+            pos += 2;
+        }
+        pos = 0;
+        while ((pos = escapedName.find(L"'", pos)) != std::wstring::npos) {
+            escapedName.replace(pos, 1, L"\\'");
+            pos += 2;
+        }
+        
+        std::wstring escapedUrl = bookmark.second;
+        pos = 0;
+        while ((pos = escapedUrl.find(L"\\", pos)) != std::wstring::npos) {
+            escapedUrl.replace(pos, 1, L"\\\\");
+            pos += 2;
+        }
+        pos = 0;
+        while ((pos = escapedUrl.find(L"'", pos)) != std::wstring::npos) {
+            escapedUrl.replace(pos, 1, L"\\'");
+            pos += 2;
+        }
+
         // 在<body>标签后添加脚本以初始化对话框数据
         std::wstring script = L"<script>\n";
         script += L"window.onload = function() {\n";
-        script += L"    initializeDialog(" + std::to_wstring(index) + L", '" + bookmark.first + L"', '" + bookmark.second + L"');\n";
+        script += L"    initializeDialog(" + std::to_wstring(index) + L", '" + escapedName + L"', '" + escapedUrl + L"');\n";
         script += L"};\n";
         script += L"</script>\n";
         dialogHtml.insert(bodyPos + 6, script);
@@ -1201,6 +1235,7 @@ void ShowHtmlEditBookmarkDialog(int index)
 // 简单的输入框函数
 BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWSTR lpResult, int nResultSize)
 {
+    LogToFile("GetSimpleInput: called");
     // 使用简单的输入方式：直接使用编辑控件
     // 创建一个简单的编辑窗口
     HWND hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpDefault, 
@@ -1210,6 +1245,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
     
     if (!hEdit)
     {
+        LogToFile("GetSimpleInput: Failed to create edit control");
         return FALSE;
     }
     
@@ -1229,6 +1265,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
     
     if (!hDlg)
     {
+        LogToFile("GetSimpleInput: Failed to create dialog window");
         DestroyWindow(hEdit);
         return FALSE;
     }
@@ -1256,6 +1293,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
     
     // 显示窗口
     ShowWindow(hDlg, SW_SHOW);
+    LogToFile("GetSimpleInput: Dialog shown");
     SetFocus(hEdit);
     
     // 简单的消息循环
@@ -1268,6 +1306,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
         {
             if (LOWORD(msg.wParam) == IDOK)
             {
+                LogToFile("GetSimpleInput: OK clicked");
                 // 获取输入文本
                 GetWindowTextW(hEdit, lpResult, nResultSize);
                 bResult = TRUE;
@@ -1275,6 +1314,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
             }
             else if (LOWORD(msg.wParam) == IDCANCEL)
             {
+                LogToFile("GetSimpleInput: Cancel clicked");
                 bResult = FALSE;
                 break;
             }
@@ -1286,7 +1326,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
     
     // 清理资源
     DestroyWindow(hDlg);
-    DestroyWindow(hEdit);
+    DestroyWindow(hEdit); // Parent destroyed, child usually destroyed too but safe to be sure if not child
     
     return bResult;
 }
@@ -1949,6 +1989,51 @@ void UpdateBookmarkModeWebView()
         LogToFile("UpdateBookmarkModeWebView: WebView2未初始化，无法更新显示");
         return;
     }
+    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+    bool isSearchResult = !g_bookmarkSearchResults.empty();
+    std::wstring tpl = ReadHtmlTemplate(L"data/bookmark_template.html");
+    if (!tpl.empty())
+    {
+        std::wstring table;
+        if (displayBookmarks.empty())
+        {
+            table += L"<div class='empty'>";
+            table += isSearchResult ? L"未找到匹配的网址收藏" : L"暂无网址收藏";
+            table += L"</div>";
+        }
+        else
+        {
+            table += L"<table><thead><tr><th>名称</th><th>URL</th><th>操作</th></tr></thead><tbody>";
+            for (size_t i = 0; i < displayBookmarks.size(); ++i)
+            {
+                const auto& b = displayBookmarks[i];
+                table += L"<tr class='bookmark-row' onclick='onBookmarkRowClick(" + std::to_wstring(i) + L")' ondblclick='onBookmarkRowDblClick(" + std::to_wstring(i) + L")'>";
+                table += L"<td>" + b.first + L"</td>";
+                table += L"<td class='url-cell'>" + b.second + L"</td>";
+                table += L"<td>";
+                table += L"<button onclick=\"window.chrome.webview.postMessage(JSON.stringify({type:'editBookmark',index:" + std::to_wstring(i) + L"}))\">编辑</button>";
+                table += L"<button onclick=\"window.chrome.webview.postMessage(JSON.stringify({type:'deleteBookmark',index:" + std::to_wstring(i) + L"}))\">删除</button>";
+                table += L"</td>";
+                table += L"</tr>";
+            }
+            table += L"</tbody></table>";
+        }
+        const std::wstring placeholder = L"<!-- BOOKMARKS_TABLE_PLACEHOLDER -->";
+        size_t p = tpl.find(placeholder);
+        if (p != std::wstring::npos)
+        {
+            tpl.replace(p, placeholder.size(), table);
+        }
+        else
+        {
+            tpl += table;
+        }
+        UpdateWebView2Content(tpl.c_str());
+        char logMsg[200] = {0};
+        sprintf(logMsg, "UpdateBookmarkModeWebView: 更新完成，显示 %zu 条书签", displayBookmarks.size());
+        LogToFile(logMsg);
+        return;
+    }
     
     // 创建HTML内容
     std::wstring htmlContent;
@@ -1989,6 +2074,19 @@ void UpdateBookmarkModeWebView()
     htmlContent += L".empty-state { text-align: center; padding: 40px; color: rgba(255,255,255,0.8); }\n";
     htmlContent += L".search-info { background: rgba(255,255,255,0.15); border-left: 4px solid #4a90e2; padding: 10px 15px; margin: 10px 0; border-radius: 5px; font-size: 0.9em; color: rgba(255,255,255,0.9); }\n";
     htmlContent += L"</style>\n";
+    htmlContent += L"<script>\n";
+    htmlContent += L"function sendMessage(type, data) {\n";
+    htmlContent += L"    try {\n";
+    htmlContent += L"        var msg = {type: type};\n";
+    htmlContent += L"        if (data) Object.assign(msg, data);\n";
+    htmlContent += L"        window.chrome.webview.postMessage(JSON.stringify(msg));\n";
+    htmlContent += L"    } catch (e) {\n";
+    htmlContent += L"        console.error('PostMessage Error:', e);\n";
+    htmlContent += L"        // Only alert if we really can't communicate\n";
+    htmlContent += L"        // alert('Error sending message: ' + e.message);\n";
+    htmlContent += L"    }\n";
+    htmlContent += L"}\n";
+    htmlContent += L"</script>\n";
     htmlContent += L"</head>\n";
     htmlContent += L"<body>\n";
     
@@ -1996,7 +2094,7 @@ void UpdateBookmarkModeWebView()
     htmlContent += L"<div class=\"header\">\n";
     htmlContent += L"<h2>网址收藏管理</h2>\n";
     htmlContent += L"<div class=\"action-buttons\">\n";
-    htmlContent += L"<button class=\"action-btn\" onclick=\"window.chrome.webview.postMessage('{\\\"type\\\":\\\"addBookmark\\\"}');\">添加网址</button>\n";
+    htmlContent += L"<button class=\"action-btn\" onclick=\"sendMessage('addBookmark')\">添加网址</button>\n";
     htmlContent += L"</div>\n";
     htmlContent += L"</div>\n";
     
@@ -2004,8 +2102,7 @@ void UpdateBookmarkModeWebView()
     htmlContent += L"<div class=\"bookmark-list\">\n";
     
     // 获取要显示的书签列表（搜索结果或全部书签）
-    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-    bool isSearchResult = !g_bookmarkSearchResults.empty();
+    // 使用函数开头已定义的 `displayBookmarks` 和 `isSearchResult`
     
     if (displayBookmarks.empty())
     {
@@ -2048,24 +2145,16 @@ void UpdateBookmarkModeWebView()
             htmlContent += itemClass;
             htmlContent += L"\">\n";
             htmlContent += L"<div class=\"bookmark-actions\">\n";
-            htmlContent += L"<button class=\"bookmark-btn edit\" onclick=\"window.chrome.webview.postMessage('{\\\"type\\\":\\\"editBookmark\\\",\\\"index\\\":";
-            htmlContent += std::to_wstring(i);
-            htmlContent += L"}');\">编辑</button>\n";
-            htmlContent += L"<button class=\"bookmark-btn delete\" onclick=\"window.chrome.webview.postMessage('{\\\"type\\\":\\\"deleteBookmark\\\",\\\"index\\\":";
-            htmlContent += std::to_wstring(i);
-            htmlContent += L"}');\">删除</button>\n";
+            htmlContent += L"<button class=\"bookmark-btn edit\" onclick=\"sendMessage('editBookmark', {index: " + std::to_wstring(i) + L"})\">编辑</button>\n";
+            htmlContent += L"<button class=\"bookmark-btn delete\" onclick=\"sendMessage('deleteBookmark', {index: " + std::to_wstring(i) + L"})\">删除</button>\n";
             htmlContent += L"</div>\n";
-            htmlContent += L"<div class=\"bookmark-name\" onclick=\"window.chrome.webview.postMessage('{\\\"type\\\":\\\"bookmarkClick\\\",\\\"index\\\":";
-            htmlContent += std::to_wstring(i);
-            htmlContent += L"}');\" style=\"cursor: pointer;\">\n";
+            htmlContent += L"<div class=\"bookmark-name\" onclick=\"sendMessage('bookmarkClick', {index: " + std::to_wstring(i) + L"})\" style=\"cursor: pointer;\">\n";
             htmlContent += L"<span class=\"";
             htmlContent += iconClass;
             htmlContent += L"\"></span>";
             htmlContent += bookmark.first;
             htmlContent += L"</div>\n";
-            htmlContent += L"<div class=\"bookmark-url\" onclick=\"window.chrome.webview.postMessage('{\\\"type\\\":\\\"bookmarkClick\\\",\\\"index\\\":";
-            htmlContent += std::to_wstring(i);
-            htmlContent += L"}');\" style=\"cursor: pointer;\">";
+            htmlContent += L"<div class=\"bookmark-url\" onclick=\"sendMessage('bookmarkClick', {index: " + std::to_wstring(i) + L"})\" style=\"cursor: pointer;\">";
             htmlContent += bookmark.second;
             htmlContent += L"</div>\n";
             htmlContent += L"</div>\n";
