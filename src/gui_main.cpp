@@ -49,6 +49,7 @@ HWND g_hExitCalcButton = NULL;  // 退出计算模式按钮
 HWND g_hSettingsButton = NULL;   // 设置按钮
 
 HWND g_hCalcMenuButton = NULL;  // 计算模式操作菜单按钮
+
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
 // WebView2 HTML内容缓存
@@ -92,6 +93,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #define ID_CONTEXT_CLEAR_ALL 1008    // 清空所有历史记录
 #define ID_CONTEXT_EDIT_SHORTCUT 1009  // 编辑快捷方式
 #define ID_CONTEXT_DELETE_SHORTCUT 1010  // 删除快捷方式
+#define ID_CONTEXT_ADD_SHORTCUT 1011  // 添加快捷方式
 
 // Global data
 std::vector<ShortcutItem> g_shortcuts;
@@ -1153,6 +1155,13 @@ void AddDesktopShortcuts()
 // Initialize common shortcuts
 void InitializeCommonShortcuts()
 {
+    // 优先从文件加载用户保存的快捷方式
+    if (LoadShortcuts())
+    {
+        LogToFile("InitializeCommonShortcuts: 已从文件加载快捷方式，跳过默认初始化");
+        return;
+    }
+    
     g_shortcuts.clear();
     
     // Add desktop shortcuts first
@@ -1263,6 +1272,39 @@ void InitializeCommonShortcuts()
     {
         g_shortcuts.push_back(notepad);
     }
+    
+    // Control Panel
+    ShortcutItem controlPanel = {0};
+    wcscpy(controlPanel.name, L"Control Panel");
+    wcscpy(controlPanel.comment, L"控制面板，管理系统设置");
+    wcscpy(controlPanel.iconPath, L"shell32.dll,-137"); // Control Panel icon
+    wcscpy(controlPanel.path, L"control.exe");
+    controlPanel.type = 2;
+    controlPanel.usageCount = 0;
+    g_shortcuts.push_back(controlPanel);
+    
+    // Uninstall Programs
+    ShortcutItem uninstall = {0};
+    wcscpy(uninstall.name, L"Uninstall Programs");
+    wcscpy(uninstall.comment, L"卸载程序，管理已安装的软件");
+    wcscpy(uninstall.iconPath, L"shell32.dll,-16718"); // Uninstall icon (approximate)
+    wcscpy(uninstall.path, L"appwiz.cpl");
+    uninstall.type = 2;
+    uninstall.usageCount = 0;
+    g_shortcuts.push_back(uninstall);
+    
+    // Advanced System Settings
+    ShortcutItem sysSettings = {0};
+    wcscpy(sysSettings.name, L"System Settings");
+    wcscpy(sysSettings.comment, L"高级系统设置，环境变量等");
+    wcscpy(sysSettings.iconPath, L"sysdm.cpl"); // Use sysdm.cpl as icon source
+    wcscpy(sysSettings.path, L"SystemPropertiesAdvanced.exe");
+    sysSettings.type = 2;
+    sysSettings.usageCount = 0;
+    g_shortcuts.push_back(sysSettings);
+    
+    // 保存初始快捷方式，便于后续编辑持久化
+    SaveShortcuts();
 }
 
 // Search and display matching results
@@ -1413,44 +1455,55 @@ void HandleShortcutSearch(const WCHAR* query)
         char itemNameLog[1024] = {0};
         WideCharToMultiByte(CP_UTF8, 0, g_shortcuts[i].name, -1, itemNameLog, sizeof(itemNameLog), NULL, NULL);
         
+        bool match = false;
+        size_t queryLen = wcslen(query);
+
+        // Helper to check if str contains query (case-insensitive)
+        auto containsQuery = [&](const WCHAR* str) -> bool {
+            if (!str) return false;
+            size_t strLen = wcslen(str);
+            if (queryLen > strLen) return false;
+            
+            for (size_t j = 0; j <= strLen - queryLen; j++)
+            {
+                if (_wcsnicmp(&str[j], query, queryLen) == 0)
+                    return true;
+            }
+            return false;
+        };
+        
         // Check for exact match (already case-insensitive)
         if (_wcsicmp(g_shortcuts[i].name, query) == 0)
         {
+            match = true;
             sprintf(logMsg, "HandleShortcutSearch: 找到精确匹配 '%s'", itemNameLog);
             LogToFile(logMsg);
-            
-            g_searchResults.push_back(g_shortcuts[i]);
         }
-        else
+        // Check name substring
+        else if (containsQuery(g_shortcuts[i].name))
         {
-            // Check for case-insensitive substring match
-            size_t queryLen = wcslen(query);
-            size_t nameLen = wcslen(g_shortcuts[i].name);
-            
-            // First check exact match (already done above)
-            // Then check for case-insensitive substring match
-            if (_wcsnicmp(g_shortcuts[i].name, query, queryLen) == 0)
-            {
-                sprintf(logMsg, "HandleShortcutSearch: 找到前缀匹配 '%s'", itemNameLog);
-                LogToFile(logMsg);
-                
-                g_searchResults.push_back(g_shortcuts[i]);
-            }
-            else if (queryLen <= nameLen)
-            {
-                // Also check for substring match anywhere in the name
-                for (size_t j = 0; j <= nameLen - queryLen; j++)
-                {
-                    if (_wcsnicmp(&g_shortcuts[i].name[j], query, queryLen) == 0)
-                    {
-                        sprintf(logMsg, "HandleShortcutSearch: 找到子字符串匹配 '%s'", itemNameLog);
-                        LogToFile(logMsg);
-                        
-                        g_searchResults.push_back(g_shortcuts[i]);
-                        break;
-                    }
-                }
-            }
+            match = true;
+            sprintf(logMsg, "HandleShortcutSearch: 找到名称匹配 '%s'", itemNameLog);
+            LogToFile(logMsg);
+        }
+        // Check path/URL substring
+        else if (containsQuery(g_shortcuts[i].path))
+        {
+            match = true;
+            sprintf(logMsg, "HandleShortcutSearch: 找到路径/URL匹配 '%s'", itemNameLog);
+            LogToFile(logMsg);
+        }
+        // Check comment substring
+        else if (containsQuery(g_shortcuts[i].comment))
+        {
+            match = true;
+            sprintf(logMsg, "HandleShortcutSearch: 找到备注匹配 '%s'", itemNameLog);
+            LogToFile(logMsg);
+        }
+        
+        if (match)
+        {
+            g_searchResults.push_back(g_shortcuts[i]);
         }
     }
 }
@@ -2129,13 +2182,39 @@ LRESULT HandleWMHotkey(HWND hwnd, WPARAM wParam)
     if (wParam == HOTKEY_ID) // Ctrl+Alt+Q
     {
         // Toggle window visibility when hotkey (Ctrl+Alt+Q) is pressed
-        if (IsWindowVisible(hwnd))
+        // 如果窗口可见且非最小化，则隐藏
+        if (IsWindowVisible(hwnd) && !IsIconic(hwnd))
         {
             ShowWindow(hwnd, SW_HIDE);
         }
         else
         {
+            // 如果是最小化状态，先还原
+            if (IsIconic(hwnd))
+            {
+                ShowWindow(hwnd, SW_RESTORE);
+            }
+            
             ShowLauncherWindow();
+            
+            // 确保窗口在屏幕可见区域内
+            // 获取当前窗口位置和大小
+            RECT rc;
+            GetWindowRect(hwnd, &rc);
+            int width = rc.right - rc.left;
+            int height = rc.bottom - rc.top;
+            
+            // 获取屏幕尺寸
+            int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+            int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+            
+            // 重新计算居中位置
+            int x = (screenWidth - width) / 2;
+            int y = (screenHeight - height) / 2;
+            
+            // 强制设置窗口位置，确保在桌面上可见
+            SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+            LogToFile("Ctrl+Alt+Q pressed: Window positioned to center to ensure visibility");
         }
     }
     else if (wParam == HOTKEY_ID_CTRL_F1) // Ctrl+F1
@@ -2701,6 +2780,192 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 }
 
 // Edit control subclassing procedure implementation
+static void HandleReturnKey(HWND hwnd)
+{
+    LogToFile("EditSubclassProc: WM_KEYDOWN with VK_RETURN received");
+    WCHAR currentText[1024] = {0};
+    GetWindowTextW(hwnd, currentText, sizeof(currentText)/sizeof(WCHAR));
+    char currentTextLog[1024] = {0};
+    WideCharToMultiByte(CP_UTF8, 0, currentText, -1, currentTextLog, sizeof(currentTextLog), NULL, NULL);
+    char enterLog[1100] = {0};
+    sprintf(enterLog, "  EditSubclassProc: Current edit text: '%s'", currentTextLog);
+    LogToFile(enterLog);
+    LogToFile("  EditSubclassProc: 回车键按下，打印ListView内容:");
+    LogListViewContents();
+    int itemCount = ListView_GetItemCount(g_hListView);
+    char logMsg[200] = {0};
+    sprintf(logMsg, "  EditSubclassProc: Listbox item count: %d", itemCount);
+    LogToFile(logMsg);
+    if (itemCount > 0)
+    {
+        if (wcscmp(currentText, L"js") == 0 || wcscmp(currentText, L"wz") == 0 || wcscmp(currentText, L"dir") == 0 || wcscmp(currentText, L"file") == 0 || wcscmp(currentText, L"set") == 0 || wcscmp(currentText, L"help") == 0)
+        {
+            LogToFile("  EditSubclassProc: 检测到特殊命令，调用ProcessCommand处理");
+            ProcessCommand(currentText);
+            return;
+        }
+        if (g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode)
+        {
+            if (wcscmp(currentText, L"q") == 0)
+            {
+                LogToFile("  EditSubclassProc: 检测到特殊模式下输入'q'，退出当前模式");
+                if (g_calculatorMode) ExitCalculatorMode();
+                if (g_dirMode) ExitDirMode();
+                if (g_bookmarkMode) ExitBookmarkMode();
+                if (g_fileMode) ExitFileMode();
+            }
+            else if (g_bookmarkMode)
+            {
+                LogToFile("  EditSubclassProc: WZ模式下用户按回车键，打开第一个网址收藏");
+                INT_PTR firstSelIndex = 0;
+                const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+                if (!displayBookmarks.empty() && firstSelIndex < (INT_PTR)displayBookmarks.size())
+                {
+                    ShellExecuteW(NULL, L"open", displayBookmarks[firstSelIndex].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                    char logMsg2[500] = {0};
+                    char nameLog[256] = {0};
+                    char urlLog[256] = {0};
+                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].first.c_str(), -1, nameLog, sizeof(nameLog), NULL, NULL);
+                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].second.c_str(), -1, urlLog, sizeof(urlLog), NULL, NULL);
+                    sprintf(logMsg2, "  EditSubclassProc: 已打开网址收藏[%Id] '%s' -> '%s'", firstSelIndex, nameLog, urlLog);
+                    LogToFile(logMsg2);
+                }
+                else
+                {
+                    LogToFile("  EditSubclassProc: WZ模式下没有可用的网址收藏");
+                }
+            }
+            else if (g_fileMode)
+            {
+                LogToFile("  EditSubclassProc: 文件模式下用户按回车键，进行文件搜索");
+                SearchFiles(currentText);
+            }
+            else if (g_calculatorMode)
+            {
+                LogToFile("  EditSubclassProc: 计算模式下，忽略列表项，调用EvaluateExpression");
+                EvaluateExpression(currentText);
+            }
+            return;
+        }
+        INT_PTR firstSelIndex = GetFirstActualItemIndex();
+        if (firstSelIndex == -1)
+        {
+            LogToFile("  EditSubclassProc: 只有提示行，没有实际项目");
+            return;
+        }
+        ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+        LogToFile("  EditSubclassProc: Force selecting first actual item (跳过提示行)");
+        WCHAR firstItemText[1024] = {0};
+        LVITEMW lvItem = {0};
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = (int)firstSelIndex;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = firstItemText;
+        lvItem.cchTextMax = sizeof(firstItemText) / sizeof(WCHAR);
+        int getItemResult = ListView_GetItem(g_hListView, &lvItem);
+        char firstItemLog[1024] = {0};
+        WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
+        sprintf(logMsg, "  EditSubclassProc: First actual item text: '%s' (GetItem返回值: %d, 文本长度: %zu)", firstItemLog, getItemResult, wcslen(firstItemText));
+        LogToFile(logMsg);
+        if (wcslen(firstItemText) == 0 && !g_searchResults.empty())
+        {
+            char fallbackLog[300] = {0};
+            char fallbackName[256] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, g_searchResults[0].name, -1, fallbackName, sizeof(fallbackName), NULL, NULL);
+            sprintf(fallbackLog, "  EditSubclassProc: ListView获取失败，使用g_searchResults[0]: '%s'", fallbackName);
+            LogToFile(fallbackLog);
+        }
+        if (!g_windowInitializing && !g_searchResults.empty() && g_searchResults.size() > 0)
+        {
+            if (g_bookmarkMode)
+            {
+                LogToFile("  EditSubclassProc: WZ模式下用户按回车键，打开第一个网址收藏");
+                const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+                if (firstSelIndex >= 0 && firstSelIndex < (INT_PTR)displayBookmarks.size())
+                {
+                    ShellExecuteW(NULL, L"open", displayBookmarks[firstSelIndex].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                    char logMsg2[500] = {0};
+                    char nameLog[256] = {0};
+                    char urlLog[256] = {0};
+                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].first.c_str(), -1, nameLog, sizeof(nameLog), NULL, NULL);
+                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].second.c_str(), -1, urlLog, sizeof(urlLog), NULL, NULL);
+                    sprintf(logMsg2, "  EditSubclassProc: 已打开网址收藏[%Id] '%s' -> '%s'", firstSelIndex, nameLog, urlLog);
+                    LogToFile(logMsg2);
+                }
+                else
+                {
+                    LogToFile("  EditSubclassProc: WZ模式下索引无效，无法打开网址");
+                }
+            }
+            else
+            {
+                LogToFile("  EditSubclassProc: 用户按回车键，执行第一个搜索结果");
+                ExecuteSelectedItem(firstSelIndex);
+            }
+        }
+        else if (g_windowInitializing)
+        {
+            LogToFile("  EditSubclassProc: 窗口初始化中，跳过自动执行");
+        }
+        else
+        {
+            if (wcscmp(firstItemText, L"No matching items found") == 0)
+            {
+                LogToFile("  EditSubclassProc: First item is 'No matching items found' message, not executing");
+            }
+            else
+            {
+                LogToFile("  EditSubclassProc: 搜索结果为空，不执行");
+            }
+        }
+        return;
+    }
+    if (GetWindowTextLengthW(hwnd) > 0)
+    {
+        char logMsg3[1100] = {0};
+        sprintf(logMsg3, "  EditSubclassProc: List empty, processing input as command: '%s'", currentTextLog);
+        LogToFile(logMsg3);
+        if ((g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode) && wcscmp(currentText, L"q") == 0)
+        {
+            LogToFile("  EditSubclassProc: 检测到特殊模式下输入'q'，退出当前模式");
+            if (g_calculatorMode) ExitCalculatorMode();
+            if (g_dirMode) ExitDirMode();
+            if (g_bookmarkMode) ExitBookmarkMode();
+            if (g_fileMode) ExitFileMode();
+            return;
+        }
+        LogToFile("  EditSubclassProc: 调用ProcessCommand处理命令");
+        ProcessCommand(currentText);
+        if (g_calculatorMode && wcscmp(currentText, L"js") != 0 && wcscmp(currentText, L"wz") != 0 && wcscmp(currentText, L"q") != 0)
+        {
+            LogToFile("  EditSubclassProc: 计算模式下，调用EvaluateExpression");
+            EvaluateExpression(currentText);
+        }
+        else if (g_bookmarkMode && wcscmp(currentText, L"js") != 0 && wcscmp(currentText, L"wz") != 0 && wcscmp(currentText, L"q") != 0)
+        {
+            LogToFile("  EditSubclassProc: WZ模式下，进行书签搜索");
+            SearchBookmarks(currentText);
+        }
+        else if (g_fileMode && wcscmp(currentText, L"js") != 0 && wcscmp(currentText, L"wz") != 0 && wcscmp(currentText, L"q") != 0)
+        {
+            LogToFile("  EditSubclassProc: 文件模式下，进行文件搜索");
+            SearchFiles(currentText);
+        }
+    }
+    else
+    {
+        if (g_calculatorMode)
+        {
+            LogToFile("  EditSubclassProc: 计算模式下空输入，显示帮助信息");
+            ShowCalculatorHelpInfo();
+        }
+        else
+        {
+            LogToFile("  EditSubclassProc: List empty and input text empty, no action taken");
+        }
+    }
+}
+
 LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
     switch (uMsg)
@@ -2708,323 +2973,23 @@ LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_KEYDOWN:
             if (wParam == VK_RETURN)
             {
-                LogToFile("EditSubclassProc: WM_KEYDOWN with VK_RETURN received");
-                
-                // Get current text from edit control
-                WCHAR currentText[1024] = {0};
-                GetWindowTextW(hwnd, currentText, sizeof(currentText)/sizeof(WCHAR));
-                char currentTextLog[1024] = {0};
-                WideCharToMultiByte(CP_UTF8, 0, currentText, -1, currentTextLog, sizeof(currentTextLog), NULL, NULL);
-                char enterLog[1100] = {0};
-                sprintf(enterLog, "  EditSubclassProc: Current edit text: '%s'", currentTextLog);
-                LogToFile(enterLog);
-                
-                // 打印ListView所有内容用于调试
-                LogToFile("  EditSubclassProc: 回车键按下，打印ListView内容:");
-                LogListViewContents();
-                
-                // Handle return key - Ensure it executes the first item
-                {
-                    int itemCount = ListView_GetItemCount(g_hListView);
-                    char logMsg[200] = {0};
-                    sprintf(logMsg, "  EditSubclassProc: Listbox item count: %d", itemCount);
-                    LogToFile(logMsg);
-                
-                    // If list has items, explicitly select and open the first one
-                    if (itemCount > 0)
-                    {
-                        // 首先检查特殊命令（"js"、"wz"、"dir"、"file"、"set"、"help"等），优先处理这些命令
-                        if (wcscmp(currentText, L"js") == 0 || wcscmp(currentText, L"wz") == 0 || wcscmp(currentText, L"dir") == 0 || wcscmp(currentText, L"file") == 0 || wcscmp(currentText, L"set") == 0 || wcscmp(currentText, L"help") == 0)
-                        {
-                            LogToFile("  EditSubclassProc: 检测到特殊命令，调用ProcessCommand处理");
-                            ProcessCommand(currentText);
-                            return 0; // 特殊命令处理完成，不执行搜索结果
-                        }
-                        
-                        // 检查是否在计算模式、目录浏览模式、网址模式或文件模式，优先处理"q"退出命令
-                        if (g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode)
-                        {
-                            // 在特殊模式下，首先检查"q"退出命令
-                            if (wcscmp(currentText, L"q") == 0)
-                            {
-                                LogToFile("  EditSubclassProc: 检测到特殊模式下输入'q'，退出当前模式");
-                                if (g_calculatorMode)
-                                {
-                                    ExitCalculatorMode();
-                                }
-
-                                if (g_dirMode)
-                                {
-                                    ExitDirMode();
-                                }
-
-                                if (g_bookmarkMode)
-                                {
-                                    ExitBookmarkMode();
-                                }
-                                
-                                if (g_fileMode)
-                                {
-                                    ExitFileMode();
-                                }
-                            }
-                            else if (g_bookmarkMode && wParam == VK_RETURN)
-                            {
-                                // WZ模式下回车键的特殊处理
-                                LogToFile("  EditSubclassProc: WZ模式下用户按回车键，打开第一个网址收藏");
-                                
-                                // 获取第一个实际项目索引（WZ模式下需要特殊处理）
-                                INT_PTR firstSelIndex = 0; // WZ模式下默认打开第一个项目
-                                
-                                // 获取要显示的网址列表（搜索结果或全部网址）
-                                const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                
-                                if (!displayBookmarks.empty() && firstSelIndex < (INT_PTR)displayBookmarks.size())
-                                {
-                                    // 直接打开网址
-                                    ShellExecuteW(NULL, L"open", displayBookmarks[firstSelIndex].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                    
-                                    char logMsg[500] = {0};
-                                    char nameLog[256] = {0};
-                                    char urlLog[256] = {0};
-                                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].first.c_str(), -1, nameLog, sizeof(nameLog), NULL, NULL);
-                                    WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].second.c_str(), -1, urlLog, sizeof(urlLog), NULL, NULL);
-                                    sprintf(logMsg, "  EditSubclassProc: 已打开网址收藏[%Id] '%s' -> '%s'", firstSelIndex, nameLog, urlLog);
-                                    LogToFile(logMsg);
-                                }
-                                else
-                                {
-                                    LogToFile("  EditSubclassProc: WZ模式下没有可用的网址收藏");
-                                }
-                            }
-                            else if (g_fileMode && wParam == VK_RETURN)
-                            {
-                                // 文件模式下回车键的特殊处理：进行文件搜索
-                                LogToFile("  EditSubclassProc: 文件模式下用户按回车键，进行文件搜索");
-                                
-                                // 调用SearchFiles函数进行文件搜索
-                                SearchFiles(currentText);
-                            }
-                            else
-                            {
-                                // 不是"q"命令，按照模式特定方式处理
-                                if (g_calculatorMode)
-                                {
-                                    LogToFile("  EditSubclassProc: 计算模式下，忽略列表项，调用EvaluateExpression");
-                                    EvaluateExpression(currentText);
-                                }
-
-                            }
-                            return 0; // 特殊模式处理完成
-                        }
-                        else
-                        {
-                            // 获取第一个实际项目（跳过提示行）
-                            INT_PTR firstSelIndex = GetFirstActualItemIndex();
-                            if (firstSelIndex == -1)
-                            {
-                                LogToFile("  EditSubclassProc: 只有提示行，没有实际项目");
-                                return 0;
-                            }
-                            
-                            // Force select the first actual item to ensure it's highlighted
-                            ListView_SetItemState(g_hListView, firstSelIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
-                            LogToFile("  EditSubclassProc: Force selecting first actual item (跳过提示行)");
-                            
-                            // Get first actual item text
-                            WCHAR firstItemText[1024] = {0};
-                            LVITEMW lvItem = {0};
-                            lvItem.mask = LVIF_TEXT;  // 添加mask标志
-                            lvItem.iItem = (int)firstSelIndex;
-                            lvItem.iSubItem = 0;
-                            lvItem.pszText = firstItemText;
-                            lvItem.cchTextMax = sizeof(firstItemText) / sizeof(WCHAR);
-                            int getItemResult = ListView_GetItem(g_hListView, &lvItem);
-                            char firstItemLog[1024] = {0};
-                            WideCharToMultiByte(CP_UTF8, 0, firstItemText, -1, firstItemLog, sizeof(firstItemLog), NULL, NULL);
-                            sprintf(logMsg, "  EditSubclassProc: First actual item text: '%s' (GetItem返回值: %d, 文本长度: %zu)", 
-                                    firstItemLog, getItemResult, wcslen(firstItemText));
-                            LogToFile(logMsg);
-                            
-                            // 如果获取失败，尝试直接使用g_searchResults
-                            if (wcslen(firstItemText) == 0 && !g_searchResults.empty())
-                            {
-                                char fallbackLog[300] = {0};
-                                char fallbackName[256] = {0};
-                                WideCharToMultiByte(CP_UTF8, 0, g_searchResults[0].name, -1, fallbackName, sizeof(fallbackName), NULL, NULL);
-                                sprintf(fallbackLog, "  EditSubclassProc: ListView获取失败，使用g_searchResults[0]: '%s'", fallbackName);
-                                LogToFile(fallbackLog);
-                            }
-                            
-                            // Verify g_searchResults has items before executing
-                            // Also check if the first item is not the "No matching items found" message
-                            // 只有在不是窗口初始化时才自动执行
-                            // 并且只有在用户明确按回车键时才执行，不允许自动执行
-                            if (!g_windowInitializing && !g_searchResults.empty() && g_searchResults.size() > 0)
-                            {
-                                // 只有在用户按回车键时才执行，不允许自动执行
-                                // 这里已经是WM_KEYDOWN with VK_RETURN，所以是用户按了回车键
-                                
-                                // WZ模式下的特殊处理：直接打开网址收藏
-                                if (g_bookmarkMode)
-                                {
-                                    LogToFile("  EditSubclassProc: WZ模式下用户按回车键，打开第一个网址收藏");
-                                    
-                                    // 获取要显示的网址列表（搜索结果或全部网址）
-                                    const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                    
-                                    if (firstSelIndex >= 0 && firstSelIndex < (INT_PTR)displayBookmarks.size())
-                                    {
-                                        // 直接打开网址
-                                        ShellExecuteW(NULL, L"open", displayBookmarks[firstSelIndex].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                        
-                                        char logMsg[500] = {0};
-                                        char nameLog[256] = {0};
-                                        char urlLog[256] = {0};
-                                        WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].first.c_str(), -1, nameLog, sizeof(nameLog), NULL, NULL);
-                                        WideCharToMultiByte(CP_UTF8, 0, displayBookmarks[firstSelIndex].second.c_str(), -1, urlLog, sizeof(urlLog), NULL, NULL);
-                                        sprintf(logMsg, "  EditSubclassProc: 已打开网址收藏[%Id] '%s' -> '%s'", firstSelIndex, nameLog, urlLog);
-                                        LogToFile(logMsg);
-                                    }
-                                    else
-                                    {
-                                        LogToFile("  EditSubclassProc: WZ模式下索引无效，无法打开网址");
-                                    }
-                                }
-                                else
-                                {
-                                    // 普通模式下的处理
-                                    LogToFile("  EditSubclassProc: 用户按回车键，执行第一个搜索结果");
-                                    ExecuteSelectedItem(firstSelIndex);
-                                }
-                            }
-                            else if (g_windowInitializing)
-                            {
-                                LogToFile("  EditSubclassProc: 窗口初始化中，跳过自动执行");
-                            }
-                            else
-                            {
-                                // Check if the first item is "No matching items found"
-                                if (wcscmp(firstItemText, L"No matching items found") == 0)
-                                {
-                                    LogToFile("  EditSubclassProc: First item is 'No matching items found' message, not executing");
-                                }
-                                else
-                                {
-                                    LogToFile("  EditSubclassProc: 搜索结果为空，不执行");
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // If no items, process as command
-                        if (wcslen(currentText) > 0)
-                        {
-                            sprintf(logMsg, "  EditSubclassProc: List empty, processing input as command: '%s'", currentTextLog);
-                            LogToFile(logMsg);
-                            
-                            // 检查是否在计算模式、目录浏览模式、网址模式或文件模式，优先处理"q"退出命令
-                            if ((g_calculatorMode || g_dirMode || g_bookmarkMode || g_fileMode) && wcscmp(currentText, L"q") == 0)
-                            {
-                                LogToFile("  EditSubclassProc: 检测到特殊模式下输入'q'，退出当前模式");
-                                if (g_calculatorMode)
-                                {
-                                    ExitCalculatorMode();
-                                }
-
-                                if (g_dirMode)
-                                {
-                                    ExitDirMode();
-                                }
-
-                                if (g_bookmarkMode)
-                                {
-                                    ExitBookmarkMode();
-                                }
-                                
-                                if (g_fileMode)
-                                {
-                                    ExitFileMode();
-                                }
-                                return 0; // 特殊模式退出处理完成
-                            }
-                            else
-                            {
-                                // 调用ProcessCommand处理特殊命令（包括set、help、js、wz等）
-                                LogToFile("  EditSubclassProc: 调用ProcessCommand处理命令");
-                                ProcessCommand(currentText);
-                                
-                                // 如果在计算模式下且不是"js"/"wz"命令，则调用EvaluateExpression
-                                if (g_calculatorMode && 
-                                    wcscmp(currentText, L"js") != 0 && 
-                                    wcscmp(currentText, L"wz") != 0 &&
-                                    wcscmp(currentText, L"q") != 0)
-                                {
-                                    LogToFile("  EditSubclassProc: 计算模式下，调用EvaluateExpression");
-                                    EvaluateExpression(currentText);
-                                }
-                                // 如果在WZ模式下且不是"js"/"wz"/"q"命令，则进行书签搜索
-                                else if (g_bookmarkMode && 
-                                         wcscmp(currentText, L"js") != 0 && 
-                                         wcscmp(currentText, L"wz") != 0 &&
-                                         wcscmp(currentText, L"q") != 0)
-                                {
-                                    LogToFile("  EditSubclassProc: WZ模式下，进行书签搜索");
-                                    SearchBookmarks(currentText);
-                                }
-                                // 如果在文件模式下且不是"js"/"wz"/"q"命令，则进行文件搜索
-                                else if (g_fileMode && 
-                                         wcscmp(currentText, L"js") != 0 && 
-                                         wcscmp(currentText, L"wz") != 0 &&
-                                         wcscmp(currentText, L"q") != 0)
-                                {
-                                    LogToFile("  EditSubclassProc: 文件模式下，进行文件搜索");
-                                    SearchFiles(currentText);
-                                }
-
-                            }
-                        }
-                        else
-                        {
-                            // 在计算模式下，如果输入为空，显示提示信息
-                            if (g_calculatorMode)
-                            {
-                                LogToFile("  EditSubclassProc: 计算模式下空输入，显示帮助信息");
-                                ShowCalculatorHelpInfo();
-                            }
-                            else
-                            {
-                                LogToFile("  EditSubclassProc: List empty and input text empty, no action taken");
-                            }
-                        }
-                    }
-                }
-                return 0; // Message handled, no further processing needed
+                HandleReturnKey(hwnd);
+                return 0;
             }
             break;
-            
         case WM_SETFOCUS:
-            // 在计算模式下，允许文本框正常获得焦点，但记录状态
             if (g_calculatorMode)
             {
                 LogToFile("EditSubclassProc: 计算模式下文本框获得焦点，允许正常处理");
-                // 不阻止焦点处理，允许用户正常输入
             }
-            // 不再自动执行程序，只有回车或双击listview时才执行
             break;
-
         case WM_KILLFOCUS:
-            // 在计算模式下，允许焦点正常失去
             if (g_calculatorMode)
             {
                 LogToFile("EditSubclassProc: 计算模式下文本框失去焦点，正常处理");
-                // 不阻止焦点处理
             }
             break;
     }
-    
-    // For other messages, call the original edit control procedure
     return DefSubclassProc(hwnd, uMsg, wParam, lParam);
 }
 
@@ -3440,7 +3405,12 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
         std::wstring hintsHtml;
         if (!hints.empty())
         {
-            hintsHtml = L"<div class='hint-banner'><div class='banner-title'>💡 操作提示</div><ul>";
+            hintsHtml = L"<div class='hint-banner'>";
+            hintsHtml += L"<div class='banner-header'>";
+            hintsHtml += L"<div class='banner-title'>💡 操作提示</div>";
+            hintsHtml += L"<button class='add-button' onclick='onAddClick()'>➕ 添加快捷方式</button>";
+            hintsHtml += L"</div>";
+            hintsHtml += L"<ul>";
             for (const auto& hint : hints)
             {
                 hintsHtml += L"<li>";
@@ -3448,6 +3418,16 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
                 hintsHtml += L"</li>";
             }
             hintsHtml += L"</ul></div>";
+        }
+        else
+        {
+            // 即使没有提示，也显示添加按钮
+             hintsHtml = L"<div class='hint-banner'>";
+             hintsHtml += L"<div class='banner-header'>";
+             hintsHtml += L"<div class='banner-title'>💡 操作提示</div>";
+             hintsHtml += L"<button class='add-button' onclick='onAddClick()'>➕ 添加快捷方式</button>";
+             hintsHtml += L"</div>";
+             hintsHtml += L"</div>";
         }
         
         std::wstring itemsHtml;
@@ -3472,22 +3452,24 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
                 WCHAR iconPath[512] = {0};
                 if (ExtractShortcutIcon(items[i], iconPath, 512))
                 {
-                    // 检查图标路径类型，如果是系统图标资源，使用特殊格式
-                    if (wcsstr(iconPath, L".dll,") != NULL)
+                    if (wcsncmp(iconPath, L"emoji:", 6) == 0)
                     {
-                        // 系统图标资源，使用span元素和data-type属性
-                        itemsHtml += L"<span class='item-icon' data-type='system'>📄</span>";
+                        itemsHtml += L"<span class='item-icon' style='font-size:20px; display:inline-block; width:24px; height:24px; text-align:center; vertical-align:middle; line-height:24px; margin-right:8px;'>";
+                        itemsHtml += (iconPath + 6);
+                        itemsHtml += L"</span>";
+                    }
+                    else if (wcsstr(iconPath, L".dll,") != NULL)
+                    {
+                        itemsHtml += L"<img src=\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'><rect x='3' y='3' width='18' height='18' rx='4' ry='4' fill='%23e9f0ff' stroke='%23008cff' stroke-width='2'/><path d='M9 9h6v6' fill='none' stroke='%23008cff' stroke-width='2'/><path d='M9 15l6-6' fill='none' stroke='%23008cff' stroke-width='2'/></svg>\" class='item-icon' alt='图标'>";
                     }
                     else if (wcsstr(iconPath, L"http") != NULL)
                     {
-                        // 网络图标，直接使用img标签
                         itemsHtml += L"<img src='";
                         itemsHtml += iconPath;
                         itemsHtml += L"' class='item-icon' alt='图标'>";
                     }
                     else
                     {
-                        // 本地文件图标，使用img标签
                         itemsHtml += L"<img src='";
                         itemsHtml += iconPath;
                         itemsHtml += L"' class='item-icon' alt='图标'>";
@@ -3495,8 +3477,7 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
                 }
                 else
                 {
-                    // 图标提取失败，使用默认图标
-                    itemsHtml += L"<span class='item-icon' data-type='system'>📄</span>";
+                    itemsHtml += L"<img src=\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'><rect x='3' y='3' width='18' height='18' rx='4' ry='4' fill='%23e9f0ff' stroke='%23008cff' stroke-width='2'/><path d='M9 9h6v6' fill='none' stroke='%23008cff' stroke-width='2'/><path d='M9 15l6-6' fill='none' stroke='%23008cff' stroke-width='2'/></svg>\" class='item-icon' alt='图标'>";
                 }
                 
                 itemsHtml += items[i].name;
@@ -4191,6 +4172,7 @@ LRESULT HandleWMContextMenu(HWND hwnd, WPARAM wParam)
     
     // 添加菜单项
     AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_EDIT_SHORTCUT, L"编辑快捷方式");
+    AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_ADD_SHORTCUT, L"添加快捷方式");
     AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hMenu, MF_STRING, ID_CONTEXT_DELETE_SHORTCUT, L"删除快捷方式");
     
@@ -4232,6 +4214,11 @@ LRESULT HandleWMContextMenu(HWND hwnd, WPARAM wParam)
             MessageBoxW(hwnd, L"无法找到对应的快捷方式", L"错误", MB_OK | MB_ICONERROR);
             LogToFile("HandleWMContextMenu: 无法找到对应的快捷方式");
         }
+    }
+    else if (command == ID_CONTEXT_ADD_SHORTCUT)
+    {
+        LogToFile("HandleWMContextMenu: 用户选择添加快捷方式");
+        ShowAddShortcutDialog();
     }
     else if (command == ID_CONTEXT_DELETE_SHORTCUT)
     {

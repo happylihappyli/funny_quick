@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <windows.h>
 #include <string>
@@ -28,6 +28,7 @@ void UpdateCalculatorModeWebView();
  * @return 解析得到的数字
  */
 double parseNumber(const std::wstring& expr, size_t& pos);
+double parseFactor(const std::wstring& expr, size_t& pos);
 
 /**
  * @brief 表达式解析辅助函数 - 解析项（乘除法）

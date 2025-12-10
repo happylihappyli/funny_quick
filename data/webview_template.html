@@ -19,8 +19,17 @@ tr.empty-row td { text-align: center; color: #777; font-style: italic; }
 .item-name { display: flex; align-items: center; }
 .edit-button { background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 8px; }
 .edit-button:hover { background: #1976D2; }
+.add-button { background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s; }
+.add-button:hover { background: #45a049; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+.add-button:active { transform: translateY(0); box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+.banner-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 </style>
 <script>
+function onAddClick() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'addShortcut'}));
+  }
+}
 let selectedIndex = -1;
 function selectRow(index) {
   let rows = document.querySelectorAll('tr.item-row');

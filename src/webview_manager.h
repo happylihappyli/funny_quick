@@ -97,7 +97,7 @@ BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWS
 
 // 多行输入对话框函数声明
 BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int nNameSize, int nPathSize, int nCommentSize);
-BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int shortcutType);
+BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, LPWSTR lpIconPath, int shortcutType);
 
 // 编辑和删除书签函数声明
 void ShowEditBookmarkDialog(int index);
@@ -106,9 +106,13 @@ void ShowHtmlEditBookmarkDialog(int index);
 
 // 快捷方式编辑函数声明
 void ShowEditShortcutDialog(int index);
+// 快捷方式添加函数声明
+void ShowAddShortcutDialog();
 
 // 快捷方式保存函数声明
 void SaveShortcuts();
+// 快捷方式加载函数声明
+bool LoadShortcuts();
 
 // 图标提取函数声明
 BOOL ExtractShortcutIcon(const ShortcutItem& shortcut, WCHAR* iconPath, int iconPathSize);

@@ -10,6 +10,7 @@
 #include <fstream>
 #include <codecvt>
 #include <commctrl.h>
+#include <windows.h>
 
 // 前向声明
 extern void UpdateWindowTitle();
@@ -106,29 +107,73 @@ void SaveBookmarks()
 {
     LogToFile("SaveBookmarks: 开始保存网址收藏");
     
-    // 创建数据目录（如果不存在）
-    CreateDirectoryW(L"data", NULL);
+    WCHAR modulePath[MAX_PATH] = {0};
+    GetModuleFileNameW(NULL, modulePath, MAX_PATH);
+    std::wstring moduleDir = modulePath;
+    size_t lastBackslash = moduleDir.find_last_of(L"\\");
+    if (lastBackslash != std::wstring::npos) moduleDir = moduleDir.substr(0, lastBackslash);
     
-    // 打开网址收藏文件
-    FILE* file = _wfopen(L"data\\bookmarks.txt", L"w, ccs=UTF-8");
-    if (!file)
+    // 收集所有可能的保存路径
+    std::vector<std::wstring> savePaths;
+    
+    // 1. 当前目录/data
+    std::wstring binDataDir = moduleDir + L"\\data";
+    savePaths.push_back(binDataDir + L"\\bookmarks.txt");
+    CreateDirectoryW(binDataDir.c_str(), NULL);
+    
+    // 2. 父目录/data (对应 bin/data)
+    std::wstring parentDir = moduleDir;
+    size_t parentBackslash = parentDir.find_last_of(L"\\");
+    if (parentBackslash != std::wstring::npos) 
     {
-        LogToFile("SaveBookmarks: 无法打开网址收藏文件进行写入");
-        return;
+        parentDir = parentDir.substr(0, parentBackslash);
+        std::wstring rootDataDir = parentDir + L"\\data";
+        savePaths.push_back(rootDataDir + L"\\bookmarks.txt");
+        CreateDirectoryW(rootDataDir.c_str(), NULL);
+        
+        // 3. 祖父目录/data (对应项目根目录，如果运行在 bin/Debug 或 bin/Release)
+        std::wstring grandParentDir = parentDir;
+        size_t grandParentBackslash = grandParentDir.find_last_of(L"\\");
+        if (grandParentBackslash != std::wstring::npos)
+        {
+            grandParentDir = grandParentDir.substr(0, grandParentBackslash);
+            std::wstring projectDataDir = grandParentDir + L"\\data";
+            savePaths.push_back(projectDataDir + L"\\bookmarks.txt");
+            CreateDirectoryW(projectDataDir.c_str(), NULL);
+        }
     }
-    
-    // 写入网址收藏
-    for (const auto& bookmark : g_bookmarks)
+
+    int successCount = 0;
+    for (const auto& path : savePaths)
     {
-        // 格式：名称|URL
-        fwprintf(file, L"%s|%s\n", bookmark.first.c_str(), bookmark.second.c_str());
+        FILE* file = _wfopen(path.c_str(), L"w, ccs=UTF-8");
+        if (file)
+        {
+            for (const auto& bookmark : g_bookmarks)
+            {
+                fwprintf(file, L"%s|%s\n", bookmark.first.c_str(), bookmark.second.c_str());
+            }
+            fclose(file);
+            successCount++;
+            
+            char pathLog[MAX_PATH * 2] = {0};
+            char pathUtf8[MAX_PATH] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, pathUtf8, sizeof(pathUtf8), NULL, NULL);
+            sprintf(pathLog, "SaveBookmarks: 成功保存到 %s", pathUtf8);
+            LogToFile(pathLog);
+        }
+        else
+        {
+            char pathLog[MAX_PATH * 2] = {0};
+            char pathUtf8[MAX_PATH] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, pathUtf8, sizeof(pathUtf8), NULL, NULL);
+            sprintf(pathLog, "SaveBookmarks: 无法写入 %s", pathUtf8);
+            LogToFile(pathLog);
+        }
     }
-    
-    fclose(file);
-    
-    // 记录保存的网址收藏数量
+
     char logMsg[200] = {0};
-    sprintf(logMsg, "SaveBookmarks: 保存了 %zu 条网址收藏", g_bookmarks.size());
+    sprintf(logMsg, "SaveBookmarks: 保存了 %zu 条网址收藏到 %d 个位置", g_bookmarks.size(), successCount);
     LogToFile(logMsg);
     LogToFile("SaveBookmarks: 函数结束");
 }
@@ -144,25 +189,36 @@ void LoadBookmarks()
     
     try
     {
-        // 检查数据目录是否存在
-        DWORD dwAttrib = GetFileAttributesW(L"data");
-        if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
-        {
-            LogToFile("LoadBookmarks: 数据目录不存在，创建目录");
-            CreateDirectoryW(L"data", NULL);
-        }
+        WCHAR modulePath[MAX_PATH] = {0};
+        GetModuleFileNameW(NULL, modulePath, MAX_PATH);
+        std::wstring moduleDir = modulePath;
+        size_t lastBackslash = moduleDir.find_last_of(L"\\");
+        if (lastBackslash != std::wstring::npos) moduleDir = moduleDir.substr(0, lastBackslash);
+        std::wstring parentDir = moduleDir;
+        size_t parentBackslash = parentDir.find_last_of(L"\\");
+        if (parentBackslash != std::wstring::npos) parentDir = parentDir.substr(0, parentBackslash);
         
-        // 检查网址收藏文件是否存在
-        dwAttrib = GetFileAttributesW(L"data\\bookmarks.txt");
-        if (dwAttrib == INVALID_FILE_ATTRIBUTES)
+        std::wstring rootFile = parentDir + L"\\data\\bookmarks.txt";
+        std::wstring binFile = moduleDir + L"\\data\\bookmarks.txt";
+        
+        DWORD dwAttrib = GetFileAttributesW(rootFile.c_str());
+        std::wstring chosenFile;
+        if (dwAttrib != INVALID_FILE_ATTRIBUTES)
+        {
+            chosenFile = rootFile;
+        }
+        else if (GetFileAttributesW(binFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+        {
+            chosenFile = binFile;
+        }
+        else
         {
             LogToFile("LoadBookmarks: 网址收藏文件不存在，可能是首次运行");
             return;
         }
         
-        // 打开网址收藏文件
         LogToFile("LoadBookmarks: 尝试打开网址收藏文件");
-        FILE* file = _wfopen(L"data\\bookmarks.txt", L"r, ccs=UTF-8");
+        FILE* file = _wfopen(chosenFile.c_str(), L"r, ccs=UTF-8");
         if (!file)
         {
             LogToFile("LoadBookmarks: 无法打开网址收藏文件进行读取，可能是首次运行");

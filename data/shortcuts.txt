@@ -5,7 +5,7 @@ run_nvidia_gpu - 快捷方式|C:\Users\happyli\Desktop\run_nvidia_gpu - 快捷�
 ScreenOff.bat - 快捷方式|C:\Users\happyli\Desktop\ScreenOff.bat - 快捷方式.lnk|2|桌面快捷方式: ScreenOff.bat - 快捷方式|C:\Users\happyli\Desktop\ScreenOff.bat - 快捷方式.lnk|0
 Trae CN|C:\Users\happyli\Desktop\Trae CN.lnk|2|桌面快捷方式: Trae CN|C:\Users\happyli\Desktop\Trae CN.lnk|0
 Trae|C:\Users\happyli\Desktop\Trae.lnk|2|桌面快捷方式: Trae|C:\Users\happyli\Desktop\Trae.lnk|0
-uTools|C:\Users\happyli\Desktop\uTools.lnk|2|桌面快捷方式: uTools|C:\Users\happyli\Desktop\uTools.lnk|0
+uTools|C:\Users\happyli\Desktop\uTools.lnk|2|桌面快捷方式: uTools|shell32.dll,-34|2
 微信开发者工具|C:\Users\happyli\Desktop\微信开发者工具.lnk|2|桌面快捷方式: 微信开发者工具|C:\Users\happyli\Desktop\微信开发者工具.lnk|0
 百度网盘同步空间|C:\Users\happyli\Desktop\百度网盘同步空间.lnk|2|桌面快捷方式: 百度网盘同步空间|C:\Users\happyli\Desktop\百度网盘同步空间.lnk|0
 Desktop|C:\Users\happyli\Desktop|0|桌面文件夹，包含所有桌面快捷方式|shell32.dll,-34|0
@@ -14,6 +14,7 @@ Start Menu|C:\Users\happyli\AppData\Roaming\Microsoft\Windows\Start Menu\Program
 Downloads|C:\Users\happyli\Documents\Downloads|0|下载文件夹，包含所有下载的文件|shell32.dll,-176|0
 Documents|C:\Users\happyli\Documents|0|文档文件夹，包含个人文档|shell32.dll,-235|0
 Google|https://www.google.com|1|谷歌搜索引擎，全球最大的搜索引擎|https://www.google.com/favicon.ico|0
-Baidu搜索|https://www.baidu.com|1|百度搜索引擎，中文搜索引擎|https://www.baidu.com/favicon.ico|1
+百度搜索|https://www.baidu.com|1|百度搜索引擎，中文搜索引擎|https://www.baidu.com/favicon.ico|7
 Explorer|explorer.exe|2|文件资源管理器，浏览和管理文件|explorer.exe|0
-Notepad|notepad.exe|2|记事本程序，简单的文本编辑器|notepad.exe|0
+记事本|notepad.exe|2|记事本程序，简单的文本编辑器|shell32.dll,-34|2
+我的资源管理器|E:\GitHub3\cpp\cpp_explorer\bin\myexplorer.exe|2|快速启动工具|emoji:📁|2

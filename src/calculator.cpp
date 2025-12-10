@@ -1,4 +1,4 @@
-﻿#include "calculator.h"
+#include "calculator.h"
 #include "common.h"
 #include "logger.h"
 #include <windows.h>
@@ -10,6 +10,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <cmath>
 
 // 全局变量声明（在gui_main.cpp中定义）
 extern HWND g_hListView;
@@ -37,6 +38,32 @@ double parseNumber(const std::wstring& expr, size_t& pos)
     return numStr.empty() ? 0.0 : _wtof(numStr.c_str());
 }
 
+double parseFactor(const std::wstring& expr, size_t& pos)
+{
+    if (pos >= expr.length()) return 0.0;
+    if (expr[pos] == L'+') { pos++; return parseFactor(expr, pos); }
+    if (expr[pos] == L'-') { pos++; return -parseFactor(expr, pos); }
+    if (expr[pos] == L'(') { pos++; double v = parseExpression(expr, pos); if (pos < expr.length() && expr[pos] == L')') pos++; return v; }
+    if (iswalpha(expr[pos])) {
+        std::wstring id;
+        while (pos < expr.length() && (iswalpha(expr[pos]) || expr[pos] == L'_')) { id += expr[pos]; pos++; }
+        if (pos < expr.length() && expr[pos] == L'(') {
+            pos++;
+            double arg = parseExpression(expr, pos);
+            if (pos < expr.length() && expr[pos] == L')') pos++;
+            if (id == L"sin") return std::sin(arg);
+            if (id == L"cos") return std::cos(arg);
+            if (id == L"tan") return std::tan(arg);
+            if (id == L"sqrt") return std::sqrt(arg);
+            if (id == L"abs") return std::fabs(arg);
+            return 0.0;
+        }
+        if (id == L"pi") return 3.1415926;
+        return 0.0;
+    }
+    return parseNumber(expr, pos);
+}
+
 /**
  * @brief 表达式解析辅助函数 - 解析项（乘除法）
  * @param expr 表达式字符串
@@ -45,13 +72,13 @@ double parseNumber(const std::wstring& expr, size_t& pos)
  */
 double parseTerm(const std::wstring& expr, size_t& pos)
 {
-    double value = parseNumber(expr, pos);
+    double value = parseFactor(expr, pos);
     
     while (pos < expr.length() && (expr[pos] == L'*' || expr[pos] == L'/'))
     {
         wchar_t op = expr[pos];
         pos++;
-        double nextValue = parseNumber(expr, pos);
+        double nextValue = parseFactor(expr, pos);
         
         if (op == L'*')
         {

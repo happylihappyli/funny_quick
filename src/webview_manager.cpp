@@ -13,10 +13,23 @@
 #include <commctrl.h>
 #include <imm.h> // 输入法支持
 
+#define IDC_EMOJI_COMBO 2001
+
 #pragma comment(lib, "imm32.lib") // 链接输入法库
 
 // HTML模板读取函数声明
 std::wstring ReadHtmlTemplate(const std::wstring& filePath);
+static void ProcessWebViewMessage(const std::wstring& msgStr);
+static void UpdateControllerBounds();
+static void UpdateInitialWebViewContent();
+static void HandleSearchItemMessage(const std::wstring& msgStr);
+static void HandleCalculatorMessage(const std::wstring& msgStr);
+static void HandleSettingsMessage(const std::wstring& msgStr);
+static void HandleBookmarkMessage(const std::wstring& msgStr);
+static void HandleDirMessage(const std::wstring& msgStr);
+static void HandleShortcutMessage(const std::wstring& msgStr);
+static int FindShortcutOriginalIndex(const ShortcutItem& item);
+static int FindBookmarkOriginalIndex(const std::pair<std::wstring, std::wstring>& b);
 
 // WebView2相关全局变量定义
 ComPtr<ICoreWebView2Environment> g_webViewEnvironment;
@@ -76,18 +89,7 @@ void InitializeWebView2(HWND hwnd)
                         g_webViewController->AddRef();
                         
                         // 设置 WebView2 控制器的位置和大小（匹配占位窗口）
-                        if (g_hWebView2)
-                        {
-                            RECT bounds;
-                            if (GetClientRect(g_hWebView2, &bounds))
-                            {
-                                g_webViewController->put_Bounds(bounds);
-                                char logMsg[200] = {0};
-                                sprintf(logMsg, "InitializeWebView2: 设置 WebView2 位置和大小: (%d, %d, %d, %d)", 
-                                        bounds.left, bounds.top, bounds.right, bounds.bottom);
-                                LogToFile(logMsg);
-                            }
-                        }
+                        UpdateControllerBounds();
                         
                         // 获取 WebView2 核心对象
                         g_webViewController->get_CoreWebView2(&g_webView);
@@ -105,772 +107,18 @@ void InitializeWebView2(HWND hwnd)
                                     {
                                         // 记录所有接收到的消息用于调试
                                         std::wstring msgStr = message;
-                                        std::string logMsg = "WebView2消息收到RAW: ";
-                                        // Convert wstring to string for logging (simple conversion)
-                                        for(wchar_t c : msgStr) {
-                                            if(c < 128) logMsg += (char)c;
-                                            else logMsg += '?';
-                                        }
+                                        
+                                        // 使用 UTF-8 转换以支持中文显示
+                                        int size_needed = WideCharToMultiByte(CP_UTF8, 0, msgStr.c_str(), (int)msgStr.length(), NULL, 0, NULL, NULL);
+                                        std::string utf8Msg(size_needed, 0);
+                                        WideCharToMultiByte(CP_UTF8, 0, msgStr.c_str(), (int)msgStr.length(), &utf8Msg[0], size_needed, NULL, NULL);
+                                        
+                                        std::string logMsg = "WebView2消息收到RAW: " + utf8Msg;
                                         LogToFile(logMsg.c_str());
 
                                         CoTaskMemFree(message);
-                                        
-                                        // 简单的JSON解析（查找type字段）
-                                        if (msgStr.find(L"\"type\":\"itemClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理搜索结果点击
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                int index = _wtoi(indexStr.c_str());
-                                                if (index >= 0 && index < (int)g_searchResults.size())
-                                                {
-                                                    ExecuteSelectedItem(index);
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"itemDblClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理搜索结果双击
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                int index = _wtoi(indexStr.c_str());
-                                                if (index >= 0 && index < (int)g_searchResults.size())
-                                                {
-                                                    ExecuteSelectedItem(index);
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"editItem\"") != std::wstring::npos)
-                                        {
-                                            // 处理编辑快捷方式请求
-                                            LogToFile("WebView2消息: 收到编辑快捷方式请求");
-                                            
-                                            int index = -1;
-                                            
-                                            // 解析索引
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 在普通模式下，检查索引是否在g_shortcuts范围内
-                                            // 在搜索模式下，检查索引是否在g_searchResults范围内
-                                            if (index >= 0)
-                                            {
-                                                if (g_searchResults.empty())
-                                                {
-                                                    // 普通模式：使用g_shortcuts列表
-                                                    if (index < (int)g_shortcuts.size())
-                                                    {
-                                                        // 显示编辑快捷方式对话框
-                                                        ShowEditShortcutDialog(index);
-                                                    }
-                                                    else
-                                                    {
-                                                        LogToFile("WebView2消息: 编辑快捷方式失败 - 索引超出g_shortcuts范围");
-                                                        MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    // 搜索模式：使用g_searchResults列表
-                                                    if (index < (int)g_searchResults.size())
-                                                    {
-                                                        // 显示编辑快捷方式对话框
-                                                        ShowEditShortcutDialog(index);
-                                                    }
-                                                    else
-                                                    {
-                                                        LogToFile("WebView2消息: 编辑快捷方式失败 - 索引超出g_searchResults范围");
-                                                        MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
-                                                    }
-                                                }
-                                            }
-                                            else
-                                            {
-                                                LogToFile("WebView2消息: 编辑快捷方式失败 - 索引无效");
-                                                MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"calcAction\"") != std::wstring::npos)
-                                        {
-                                            // 处理计算模式操作
-                                            std::wstring action;
-                                            int index = -1;
-                                            
-                                            size_t actionPos = msgStr.find(L"\"action\":\"");
-                                            if (actionPos != std::wstring::npos)
-                                            {
-                                                size_t start = actionPos + 10;
-                                                size_t end = msgStr.find(L"\"", start);
-                                                action = msgStr.substr(start, end - start);
-                                            }
-                                            
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 处理操作
-                                            if (action == L"copy")
-                                            {
-                                                if (index >= 0 && index < (int)g_calculationHistory.size())
-                                                {
-                                                    size_t actualIndex = g_calculationHistory.size() - 1 - index;
-                                                    if (actualIndex < g_calculationHistory.size())
-                                                    {
-                                                        std::wstring text = g_calculationHistory[actualIndex].expression + L" = " + g_calculationHistory[actualIndex].result;
-                                                        if (OpenClipboard(g_hMainWindow))
-                                                        {
-                                                            EmptyClipboard();
-                                                            size_t byteCount = (text.length() + 1) * sizeof(wchar_t);
-                                                            HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, byteCount);
-                                                            if (hClipboardData)
-                                                            {
-                                                                LPVOID lpMem = GlobalLock(hClipboardData);
-                                                                memcpy(lpMem, text.c_str(), byteCount);
-                                                                GlobalUnlock(hClipboardData);
-                                                                SetClipboardData(CF_UNICODETEXT, hClipboardData);
-                                                            }
-                                                            CloseClipboard();
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            else if (action == L"delete")
-                                            {
-                                                if (g_calculationHistory.empty() || index < 0)
-                                                {
-                                                    MessageBoxW(g_hMainWindow, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
-                                                    return S_OK;
-                                                }
-                                                
-                                                size_t actualIndex = g_calculationHistory.size() - 1 - index;
-                                                if (actualIndex >= g_calculationHistory.size())
-                                                {
-                                                    MessageBoxW(g_hMainWindow, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
-                                                    return S_OK;
-                                                }
-                                                
-                                                g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
-                                                SaveCalculationHistory();
-                                                DisplayCalculationHistory();
-                                                UpdateCalculatorModeWebView();
-                                            }
-                                            else if (action == L"clearAll")
-                                            {
-                                                if (MessageBoxW(g_hMainWindow, L"确定要清空所有计算历史吗？", 
-                                                    L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
-                                                {
-                                                    g_calculationHistory.clear();
-                                                    SaveCalculationHistory();
-                                                    DisplayCalculationHistory();
-                                                    UpdateCalculatorModeWebView();
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"settingsAction\"") != std::wstring::npos)
-                                        {
-                                            // 处理设置菜单操作
-                                            int index = -1;
-                                            
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 处理设置菜单项点击（需要跳过提示行）
-                                            if (index >= 0)
-                                            {
-                                                INT_PTR actualIndex = index + GetHintRowCount();
-                                                HandleSettingsMenuItemClick(actualIndex);
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"addBookmarkFromDialog\"") != std::wstring::npos)
-                                        {
-                                            // 处理添加网址收藏请求
-                                            LogToFile("WebView2消息: 收到添加网址收藏请求");
-
-                                            std::wstring name;
-                                            std::wstring url;
-                                            size_t namePos = msgStr.find(L"\"name\":\"");
-                                            if (namePos != std::wstring::npos)
-                                            {
-                                                namePos += 8; // Skip past "name":"
-                                                size_t nameEndPos = msgStr.find(L"\"", namePos);
-                                                if (nameEndPos != std::wstring::npos)
-                                                {
-                                                    name = msgStr.substr(namePos, nameEndPos - namePos);
-                                                }
-                                            }
-
-                                            size_t urlPos = msgStr.find(L"\"url\":\"");
-                                            if (urlPos != std::wstring::npos)
-                                            {
-                                                urlPos += 7; // Skip past "url":"
-                                                size_t urlEndPos = msgStr.find(L"\"", urlPos);
-                                                if (urlEndPos != std::wstring::npos)
-                                                {
-                                                    url = msgStr.substr(urlPos, urlEndPos - urlPos);
-                                                }
-                                            }
-
-                                            if (!name.empty() && !url.empty())
-                                            {
-                                                bool success = AddBookmark(name.c_str(), url.c_str());
-                                                std::wstring script = L"window.chrome.webview.postMessage({ type: 'addBookmarkResult', success: " + std::wstring(success ? L"true" : L"false") + L" });";
-                                                g_webView->ExecuteScript(script.c_str(), nullptr);
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"bookmarkClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理网址收藏单击（回车键应该调用这个）
-                                            int index = -1;
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 获取要打开的网址
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                LogToFile("WebView2消息: 通过单击打开了网址收藏");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"bookmarkDblClick\"") != std::wstring::npos)
-                                        {
-                                            // 处理网址收藏双击
-                                            int index = -1;
-                                            
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 获取要打开的网址
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                LogToFile("WebView2消息: 通过双击打开了网址收藏");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"addBookmark\"") != std::wstring::npos)
-                                        {
-                                            // 处理添加网址请求
-                                            LogToFile("WebView2消息: 收到添加网址请求");
-                                            
-                                            // 显示HTML添加网址对话框
-                                            ShowHtmlAddBookmarkDialog();
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"editBookmark\"") != std::wstring::npos)
-                                        {
-                                            // 处理编辑网址请求
-                                            LogToFile("WebView2消息: 收到编辑网址请求");
-                                            
-                                            int index = -1;
-                                            
-                                            // 解析索引
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 获取要显示的书签列表（搜索结果或全部书签）
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                // 显示HTML编辑对话框
-                                                ShowHtmlEditBookmarkDialog(index);
-                                            }
-                                            else
-                                            {
-                                                LogToFile("WebView2消息: 编辑网址失败 - 索引无效");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"deleteBookmark\"") != std::wstring::npos)
-                                        {
-                                            // 处理删除网址请求
-                                            LogToFile("WebView2消息: 收到删除网址请求");
-                                            
-                                            int index = -1;
-                                            
-                                            // 解析索引
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 获取要显示的书签列表（搜索结果或全部书签）
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                // 显示确认对话框
-                                                std::wstring confirmMsg = L"确定要删除网址收藏 \"" + displayBookmarks[index].first + L"\" 吗？";
-                                                if (MessageBoxW(g_hMainWindow, confirmMsg.c_str(), L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
-                                                {
-                                                    // 删除网址收藏
-                                                    DeleteBookmarkFromDisplayList(index);
-                                                    
-                                                    // 更新WebView显示
-                                                    UpdateBookmarkModeWebView();
-                                                    
-                                                    LogToFile("WebView2消息: 成功删除网址收藏");
-                                                }
-                                            }
-                                            else
-                                            {
-                                                LogToFile("WebView2消息: 删除网址失败 - 索引无效");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"addBookmarkFromDialog\"") != std::wstring::npos)
-                                        {
-                                            // 处理从HTML对话框添加网址
-                                            LogToFile("WebView2消息: 收到从HTML对话框添加网址请求");
-                                            
-                                            std::wstring name, url;
-                                            
-                                            // 解析名称
-                                            size_t namePos = msgStr.find(L"\"name\":\"");
-                                            if (namePos != std::wstring::npos)
-                                            {
-                                                namePos += 7;  // 跳过 "name":
-                                                size_t nameEnd = msgStr.find(L"\"", namePos);
-                                                if (nameEnd != std::wstring::npos)
-                                                {
-                                                    name = msgStr.substr(namePos, nameEnd - namePos);
-                                                }
-                                            }
-                                            
-                                            // 解析URL
-                                            size_t urlPos = msgStr.find(L"\"url\":\"");
-                                            if (urlPos != std::wstring::npos)
-                                            {
-                                                urlPos += 6;  // 跳过 "url":
-                                                size_t urlEnd = msgStr.find(L"\"", urlPos);
-                                                if (urlEnd != std::wstring::npos)
-                                                {
-                                                    url = msgStr.substr(urlPos, urlEnd - urlPos);
-                                                }
-                                            }
-                                            
-                                            // 验证输入
-                                            if (name.empty() || url.empty())
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框添加网址失败 - 名称或URL为空");
-                                                return S_OK;
-                                            }
-                                            
-                                            // 验证URL格式
-                                            if (url.find(L"http://") != 0 && url.find(L"https://") != 0 && 
-                                                url.find(L"ftp://") != 0 && url.find(L"file://") != 0)
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框添加网址失败 - URL格式无效");
-                                                return S_OK;
-                                            }
-                                            
-                                            // 检查是否已存在相同URL
-                                            for (const auto& bookmark : g_bookmarks)
-                                            {
-                                                if (bookmark.second == url)
-                                                {
-                                                    LogToFile("WebView2消息: 从HTML对话框添加网址失败 - 网址已存在");
-                                                    return S_OK;
-                                                }
-                                            }
-                                            
-                                            // 添加网址收藏
-                                            g_bookmarks.push_back(std::make_pair(name, url));
-                                            
-                                            // 保存收藏列表
-                                            SaveBookmarks();
-                                            
-                                            // 更新WebView显示
-                                            if (g_bookmarkMode)
-                                            {
-                                                UpdateBookmarkModeWebView();
-                                            }
-                                            else
-                                            {
-                                                // 返回到原来的界面
-                                                UpdateHelpInfoWebView();
-                                            }
-                                            
-                                            std::string logMsg = "WebView2消息: 从HTML对话框成功添加网址收藏 - " + std::string(name.begin(), name.end()) + " -> " + std::string(url.begin(), url.end());
-                                            LogToFile(logMsg.c_str());
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"getBookmarkData\"") != std::wstring::npos)
-                                        {
-                                            // 处理获取书签数据请求（用于HTML编辑对话框）
-                                            LogToFile("WebView2消息: 收到获取书签数据请求");
-                                            
-                                            int index = -1;
-                                            
-                                            // 解析索引
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 获取要显示的书签列表（搜索结果或全部书签）
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                // 构建书签数据JSON（符合JavaScript期望的格式）
-                                                std::wstringstream bookmarkData;
-                                                bookmarkData << L"{\"type\":\"bookmarkData\",\"bookmark\":{" 
-                                                             << L"\"index\":" << index 
-                                                             << L",\"name\":\"" << displayBookmarks[index].first 
-                                                             << L"\",\"url\":\"" << displayBookmarks[index].second << L"\"}}";
-                                                
-                                                // 发送书签数据到WebView
-                                                if (g_webViewController && g_webView)
-                                                {
-                                                    g_webView->PostWebMessageAsJson(bookmarkData.str().c_str());
-                                                    LogToFile("WebView2消息: 成功发送书签数据");
-                                                }
-                                            }
-                                            else
-                                            {
-                                                LogToFile("WebView2消息: 获取书签数据失败 - 索引无效");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"editBookmarkFromDialog\"") != std::wstring::npos)
-                                        {
-                                            // 处理从HTML对话框编辑网址
-                                            LogToFile("WebView2消息: 收到从HTML对话框编辑网址请求");
-                                            
-                                            int index = -1;
-                                            std::wstring name, url;
-                                            
-                                            // 解析索引
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 解析名称
-                                            size_t namePos = msgStr.find(L"\"name\":\"");
-                                            if (namePos != std::wstring::npos)
-                                            {
-                                                namePos += 7;  // 跳过 "name":
-                                                size_t nameEnd = msgStr.find(L"\"", namePos);
-                                                if (nameEnd != std::wstring::npos)
-                                                {
-                                                    name = msgStr.substr(namePos, nameEnd - namePos);
-                                                }
-                                            }
-                                            
-                                            // 解析URL
-                                            size_t urlPos = msgStr.find(L"\"url\":\"");
-                                            if (urlPos != std::wstring::npos)
-                                            {
-                                                urlPos += 6;  // 跳过 "url":
-                                                size_t urlEnd = msgStr.find(L"\"", urlPos);
-                                                if (urlEnd != std::wstring::npos)
-                                                {
-                                                    url = msgStr.substr(urlPos, urlEnd - urlPos);
-                                                }
-                                            }
-                                            
-                                            // 验证输入
-                                            if (index < 0 || name.empty() || url.empty())
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框编辑网址失败 - 索引、名称或URL无效");
-                                                return S_OK;
-                                            }
-                                            
-                                            // 验证URL格式
-                                            if (url.find(L"http://") != 0 && url.find(L"https://") != 0 && 
-                                                url.find(L"ftp://") != 0 && url.find(L"file://") != 0)
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框编辑网址失败 - URL格式无效");
-                                                return S_OK;
-                                            }
-                                            
-                                            // 获取要显示的书签列表（搜索结果或全部书签）
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                // 更新网址收藏
-                                                g_bookmarks[index] = std::make_pair(name, url);
-                                                
-                                                // 保存收藏列表
-                                                SaveBookmarks();
-                                                
-                                                // 更新WebView显示
-                                                if (g_bookmarkMode)
-                                                {
-                                                    UpdateBookmarkModeWebView();
-                                                }
-                                                else
-                                                {
-                                                    // 返回到原来的界面
-                                                    UpdateHelpInfoWebView();
-                                                }
-                                                
-                                                std::string logMsg = "WebView2消息: 从HTML对话框成功编辑网址收藏 - " + std::string(name.begin(), name.end()) + " -> " + std::string(url.begin(), url.end());
-                                                LogToFile(logMsg.c_str());
-                                            }
-                                            else
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框编辑网址失败 - 索引无效");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"closeBookmarkDialog\"") != std::wstring::npos)
-                                        {
-                                            // 处理关闭HTML对话框
-                                            LogToFile("WebView2消息: 收到关闭HTML对话框请求");
-                                            
-                                            // 返回到原来的界面
-                                            if (g_bookmarkMode)
-                                            {
-                                                UpdateBookmarkModeWebView();
-                                            }
-                                            else
-                                            {
-                                                UpdateHelpInfoWebView();
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"deleteBookmarkFromDialog\"") != std::wstring::npos)
-                                        {
-                                            // 处理从HTML对话框删除网址
-                                            LogToFile("WebView2消息: 收到从HTML对话框删除网址请求");
-                                            
-                                            int index = -1;
-                                            
-                                            // 解析索引
-                                            size_t indexPos = msgStr.find(L"\"index\":");
-                                            if (indexPos != std::wstring::npos)
-                                            {
-                                                size_t start = msgStr.find(L":", indexPos) + 1;
-                                                size_t end = msgStr.find(L",", start);
-                                                if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-                                                std::wstring indexStr = msgStr.substr(start, end - start);
-                                                index = _wtoi(indexStr.c_str());
-                                            }
-                                            
-                                            // 验证索引
-                                            if (index < 0)
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框删除网址失败 - 索引无效");
-                                                return S_OK;
-                                            }
-                                            
-                                            // 获取要显示的书签列表（搜索结果或全部书签）
-                                            const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
-                                            
-                                            if (index >= 0 && index < (int)displayBookmarks.size())
-                                            {
-                                                // 删除网址收藏
-                                                g_bookmarks.erase(g_bookmarks.begin() + index);
-                                                
-                                                // 保存收藏列表
-                                                SaveBookmarks();
-                                                
-                                                // 更新WebView显示
-                                                if (g_bookmarkMode)
-                                                {
-                                                    UpdateBookmarkModeWebView();
-                                                }
-                                                else
-                                                {
-                                                    // 返回到原来的界面
-                                                    UpdateHelpInfoWebView();
-                                                }
-                                                
-                                                std::string logMsg = "WebView2消息: 从HTML对话框成功删除网址收藏 - 索引: " + std::to_string(index);
-                                                LogToFile(logMsg.c_str());
-                                            }
-                                            else
-                                            {
-                                                LogToFile("WebView2消息: 从HTML对话框删除网址失败 - 索引无效");
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"dirExpand\"") != std::wstring::npos)
-                                        {
-                                            // 处理目录展开
-                                            std::wstring path;
-                                            
-                                            size_t pathPos = msgStr.find(L"\"path\":\"");
-                                            if (pathPos != std::wstring::npos)
-                                            {
-                                                pathPos += 8;  // 跳过 "path":"
-                                                size_t pathEnd = msgStr.find(L"\"", pathPos);
-                                                if (pathEnd != std::wstring::npos)
-                                                {
-                                                    path = msgStr.substr(pathPos, pathEnd - pathPos);
-                                                    
-                                                    // 处理转义的路径
-                                                    size_t pos = 0;
-                                                    while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
-                                                    {
-                                                        path.replace(pos, 2, L"\\");
-                                                        pos += 1;
-                                                    }
-                                                    
-                                                    // 切换展开状态
-                                                    if (g_expandedPaths.find(path) != g_expandedPaths.end())
-                                                    {
-                                                        g_expandedPaths.erase(path);
-                                                        if (g_currentDirPath == path)
-                                                        {
-                                                            g_currentDirPath.clear();
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        g_expandedPaths.insert(path);
-                                                        g_currentDirPath = path;
-                                                    }
-                                                    
-                                                    UpdateDirModeWebView();
-                                                    LogToFile("WebView2消息: 展开/收起目录");
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"dirOpen\"") != std::wstring::npos)
-                                        {
-                                            // 处理文件/目录打开
-                                            std::wstring path;
-                                            bool isDir = false;
-                                            
-                                            size_t pathPos = msgStr.find(L"\"path\":\"");
-                                            if (pathPos != std::wstring::npos)
-                                            {
-                                                pathPos += 8;  // 跳过 "path":"
-                                                size_t pathEnd = msgStr.find(L"\"", pathPos);
-                                                if (pathEnd != std::wstring::npos)
-                                                {
-                                                    path = msgStr.substr(pathPos, pathEnd - pathPos);
-                                                    
-                                                    // 处理转义的路径
-                                                    size_t pos = 0;
-                                                    while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
-                                                    {
-                                                        path.replace(pos, 2, L"\\");
-                                                        pos += 1;
-                                                    }
-                                                    
-                                                    // 检查是否为目录
-                                                    size_t isDirPos = msgStr.find(L"\"isDir\":");
-                                                    if (isDirPos != std::wstring::npos)
-                                                    {
-                                                        size_t isDirStart = msgStr.find(L":", isDirPos) + 1;
-                                                        size_t isDirEnd = msgStr.find(L",", isDirStart);
-                                                        if (isDirEnd == std::wstring::npos) isDirEnd = msgStr.find(L"}", isDirStart);
-                                                        std::wstring isDirStr = msgStr.substr(isDirStart, isDirEnd - isDirStart);
-                                                        isDir = (isDirStr.find(L"true") != std::wstring::npos);
-                                                    }
-                                                    
-                                                    if (isDir)
-                                                    {
-                                                        // 展开目录
-                                                        g_expandedPaths.insert(path);
-                                                        g_currentDirPath = path;
-                                                        UpdateDirModeWebView();
-                                                        LogToFile("WebView2消息: 打开目录");
-                                                    }
-                                                    else
-                                                    {
-                                                        // 打开文件
-                                                        ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                        LogToFile("WebView2消息: 打开文件");
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else if (msgStr.find(L"\"type\":\"openShortcut\"") != std::wstring::npos)
-                                        {
-                                            // 处理快捷方式打开
-                                            std::wstring command;
-                                            
-                                            size_t commandPos = msgStr.find(L"\"command\":\"");
-                                            if (commandPos != std::wstring::npos)
-                                            {
-                                                commandPos += 11;  // 跳过 "command":"
-                                                size_t commandEnd = msgStr.find(L"\"", commandPos);
-                                                if (commandEnd != std::wstring::npos)
-                                                {
-                                                    command = msgStr.substr(commandPos, commandEnd - commandPos);
-                                                    
-                                                    // 处理转义的路径
-                                                    size_t pos = 0;
-                                                    while ((pos = command.find(L"\\\\", pos)) != std::wstring::npos)
-                                                    {
-                                                        command.replace(pos, 2, L"\\");
-                                                        pos += 1;
-                                                    }
-                                                    
-                                                    // 执行快捷方式命令
-                                                    ShellExecuteW(NULL, L"open", command.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                                                    
-                                                    std::wstring logMsg = L"WebView2消息: 打开快捷方式 - " + command;
-                                                    LogToFile(std::string(logMsg.begin(), logMsg.end()).c_str());
-                                                }
-                                            }
-                                        }
+                                        ProcessWebViewMessage(msgStr);
+                                        return S_OK;
                                     }
                                     return S_OK;
                                 }).Get(), nullptr);
@@ -878,35 +126,7 @@ void InitializeWebView2(HWND hwnd)
                             // WebView2 初始化完成，根据当前状态显示内容
                             LogToFile("InitializeWebView2: WebView2 初始化完成，更新显示内容");
                             
-                            // 根据当前模式显示相应内容
-                            if (g_settingsMenuMode)
-                            {
-                                UpdateSettingsMenuWebView();
-                            }
-                            else if (g_calculatorMode)
-                            {
-                                UpdateCalculatorModeWebView();
-                            }
-                            else if (g_bookmarkMode)
-                            {
-                                // 网址收藏模式显示所有网址
-                                UpdateBookmarkModeWebView();
-                            }
-                            else if (g_dirMode)
-                            {
-                                // 目录浏览模式显示目录浏览界面
-                                UpdateDirModeWebView();
-                            }
-                            else if (g_shortcuts.empty())
-                            {
-                                // 如果快捷方式还未初始化，显示帮助信息
-                                UpdateHelpInfoWebView();
-                            }
-                            else
-                            {
-                                // 显示搜索结果
-                                SearchAndDisplayResults(g_currentSearch);
-                            }
+                            UpdateInitialWebViewContent();
                         }
                         
                         return S_OK;
@@ -924,6 +144,714 @@ void InitializeWebView2(HWND hwnd)
         // 显示基本用法界面
         LogToFile("InitializeWebView2: 显示基本用法界面（环境创建失败）");
         ShowBasicUsage();
+    }
+}
+
+static void ProcessWebViewMessage(const std::wstring& msgStr)
+{
+    if (msgStr.find(L"\"type\":\"itemClick\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"itemDblClick\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"editItem\"") != std::wstring::npos)
+    {
+        HandleSearchItemMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"calcAction\"") != std::wstring::npos)
+    {
+        HandleCalculatorMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"settingsAction\"") != std::wstring::npos)
+    {
+        HandleSettingsMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"bookmarkClick\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"bookmarkDblClick\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"addBookmark\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"editBookmark\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"deleteBookmark\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"addBookmarkFromDialog\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"getBookmarkData\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"editBookmarkFromDialog\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"closeBookmarkDialog\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"deleteBookmarkFromDialog\"") != std::wstring::npos)
+    {
+        HandleBookmarkMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"dirExpand\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"dirOpen\"") != std::wstring::npos)
+    {
+        HandleDirMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"addShortcut\"") != std::wstring::npos)
+    {
+        ShowAddShortcutDialog();
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"openShortcut\"") != std::wstring::npos)
+    {
+        HandleShortcutMessage(msgStr);
+        return;
+    }
+}
+
+static void HandleSearchItemMessage(const std::wstring& msgStr)
+{
+    if (msgStr.find(L"\"type\":\"itemClick\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"itemDblClick\"") != std::wstring::npos)
+    {
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            int index = _wtoi(indexStr.c_str());
+            if (index >= 0 && index < (int)g_searchResults.size())
+            {
+                ExecuteSelectedItem(index);
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"editItem\"") != std::wstring::npos)
+    {
+        int index = -1;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        if (index >= 0)
+        {
+            if (g_searchResults.empty())
+            {
+                if (index < (int)g_shortcuts.size())
+                {
+                    ShowEditShortcutDialog(index);
+                }
+                else
+                {
+                    LogToFile("WebView2消息: 编辑快捷方式失败 - 索引超出g_shortcuts范围");
+                    MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
+                }
+            }
+            else
+            {
+                if (index < (int)g_searchResults.size())
+                {
+                    const ShortcutItem& s = g_searchResults[index];
+                    int originalIndex = FindShortcutOriginalIndex(s);
+                    if (originalIndex >= 0)
+                    {
+                        ShowEditShortcutDialog(originalIndex);
+                    }
+                }
+                else
+                {
+                    LogToFile("WebView2消息: 编辑快捷方式失败 - 索引超出g_searchResults范围");
+                    MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
+                }
+            }
+        }
+        else
+        {
+            LogToFile("WebView2消息: 编辑快捷方式失败 - 索引无效");
+            MessageBoxW(g_hMainWindow, L"无效的快捷方式索引", L"错误", MB_OK | MB_ICONERROR);
+        }
+    }
+}
+
+static void HandleCalculatorMessage(const std::wstring& msgStr)
+{
+    std::wstring action;
+    int index = -1;
+    size_t actionPos = msgStr.find(L"\"action\":\"");
+    if (actionPos != std::wstring::npos)
+    {
+        size_t start = actionPos + 10;
+        size_t end = msgStr.find(L"\"", start);
+        action = msgStr.substr(start, end - start);
+    }
+    size_t indexPos = msgStr.find(L"\"index\":");
+    if (indexPos != std::wstring::npos)
+    {
+        size_t start = msgStr.find(L":", indexPos) + 1;
+        size_t end = msgStr.find(L",", start);
+        if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+        std::wstring indexStr = msgStr.substr(start, end - start);
+        index = _wtoi(indexStr.c_str());
+    }
+    if (action == L"copy")
+    {
+        if (index >= 0 && index < (int)g_calculationHistory.size())
+        {
+            size_t actualIndex = g_calculationHistory.size() - 1 - index;
+            if (actualIndex < g_calculationHistory.size())
+            {
+                std::wstring text = g_calculationHistory[actualIndex].expression + L" = " + g_calculationHistory[actualIndex].result;
+                if (OpenClipboard(g_hMainWindow))
+                {
+                    EmptyClipboard();
+                    size_t byteCount = (text.length() + 1) * sizeof(wchar_t);
+                    HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, byteCount);
+                    if (hClipboardData)
+                    {
+                        LPVOID lpMem = GlobalLock(hClipboardData);
+                        memcpy(lpMem, text.c_str(), byteCount);
+                        GlobalUnlock(hClipboardData);
+                        SetClipboardData(CF_UNICODETEXT, hClipboardData);
+                    }
+                    CloseClipboard();
+                }
+            }
+        }
+    }
+    else if (action == L"delete")
+    {
+        if (g_calculationHistory.empty() || index < 0)
+        {
+            MessageBoxW(g_hMainWindow, L"请先选择要删除的项目", L"提示", MB_OK | MB_ICONINFORMATION);
+            return;
+        }
+        size_t actualIndex = g_calculationHistory.size() - 1 - index;
+        if (actualIndex >= g_calculationHistory.size())
+        {
+            MessageBoxW(g_hMainWindow, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
+            return;
+        }
+        g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
+        SaveCalculationHistory();
+        DisplayCalculationHistory();
+        UpdateCalculatorModeWebView();
+    }
+    else if (action == L"clearAll")
+    {
+        if (MessageBoxW(g_hMainWindow, L"确定要清空所有计算历史吗？", L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES)
+        {
+            g_calculationHistory.clear();
+            SaveCalculationHistory();
+            DisplayCalculationHistory();
+            UpdateCalculatorModeWebView();
+        }
+    }
+}
+
+static void HandleSettingsMessage(const std::wstring& msgStr)
+{
+    int index = -1;
+    size_t indexPos = msgStr.find(L"\"index\":");
+    if (indexPos != std::wstring::npos)
+    {
+        size_t start = msgStr.find(L":", indexPos) + 1;
+        size_t end = msgStr.find(L",", start);
+        if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+        std::wstring indexStr = msgStr.substr(start, end - start);
+        index = _wtoi(indexStr.c_str());
+    }
+    if (index >= 0)
+    {
+        INT_PTR actualIndex = index + GetHintRowCount();
+        HandleSettingsMenuItemClick(actualIndex);
+    }
+}
+
+static void HandleBookmarkMessage(const std::wstring& msgStr)
+{
+    if (msgStr.find(L"\"type\":\"addBookmark\"") != std::wstring::npos)
+    {
+        ShowHtmlAddBookmarkDialog();
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"bookmarkClick\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"bookmarkDblClick\"") != std::wstring::npos)
+    {
+        int index = -1;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+        if (index >= 0 && index < (int)displayBookmarks.size())
+        {
+            ShellExecuteW(NULL, L"open", displayBookmarks[index].second.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"editBookmark\"") != std::wstring::npos)
+    {
+        int index = -1;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+        if (index >= 0 && index < (int)displayBookmarks.size())
+        {
+            const auto& target = displayBookmarks[index];
+            int originalIndex = -1;
+            for (int i = 0; i < (int)g_bookmarks.size(); ++i)
+            {
+                if (g_bookmarks[i].first == target.first && g_bookmarks[i].second == target.second)
+                {
+                    originalIndex = i;
+                    break;
+                }
+            }
+            if (originalIndex >= 0)
+            {
+                ShowHtmlEditBookmarkDialog(originalIndex);
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"deleteBookmark\"") != std::wstring::npos)
+    {
+        int index = -1;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+        if (index >= 0 && index < (int)displayBookmarks.size())
+        {
+            const auto& target = displayBookmarks[index];
+            int originalIndex = -1;
+            for (int i = 0; i < (int)g_bookmarks.size(); ++i)
+            {
+                if (g_bookmarks[i].first == target.first && g_bookmarks[i].second == target.second)
+                {
+                    originalIndex = i;
+                    break;
+                }
+            }
+            if (originalIndex >= 0)
+            {
+                std::wstring confirmMsg = L"确定要删除网址收藏 \"" + g_bookmarks[originalIndex].first + L"\" 吗？";
+                if (MessageBoxW(g_hMainWindow, confirmMsg.c_str(), L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                {
+                    DeleteBookmarkFromDisplayList(originalIndex);
+                    UpdateBookmarkModeWebView();
+                }
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"addBookmarkFromDialog\"") != std::wstring::npos)
+    {
+        std::wstring name, url;
+        size_t namePos = msgStr.find(L"\"name\":\"");
+        if (namePos != std::wstring::npos)
+        {
+            namePos += 8;
+            size_t nameEnd = msgStr.find(L"\"", namePos);
+            if (nameEnd != std::wstring::npos)
+            {
+                name = msgStr.substr(namePos, nameEnd - namePos);
+            }
+        }
+        size_t urlPos = msgStr.find(L"\"url\":\"");
+        if (urlPos != std::wstring::npos)
+        {
+            urlPos += 7;
+            size_t urlEnd = msgStr.find(L"\"", urlPos);
+            if (urlEnd != std::wstring::npos)
+            {
+                url = msgStr.substr(urlPos, urlEnd - urlPos);
+            }
+        }
+
+        // Debug logging for parsed values (Add Bookmark)
+        {
+            int nameSize = WideCharToMultiByte(CP_UTF8, 0, name.c_str(), -1, NULL, 0, NULL, NULL);
+            std::string nameUtf8(nameSize > 0 ? nameSize : 1, 0);
+            if (nameSize > 0) WideCharToMultiByte(CP_UTF8, 0, name.c_str(), -1, &nameUtf8[0], nameSize, NULL, NULL);
+            
+            int urlSize = WideCharToMultiByte(CP_UTF8, 0, url.c_str(), -1, NULL, 0, NULL, NULL);
+            std::string urlUtf8(urlSize > 0 ? urlSize : 1, 0);
+            if (urlSize > 0) WideCharToMultiByte(CP_UTF8, 0, url.c_str(), -1, &urlUtf8[0], urlSize, NULL, NULL);
+            
+            char logMsg[1024] = {0};
+            sprintf(logMsg, "HandleBookmarkMessage(Add): 解析结果 name='%s', url='%s'", nameUtf8.c_str(), urlUtf8.c_str());
+            LogToFile(logMsg);
+        }
+
+        if (name.empty() || url.empty())
+        {
+            LogToFile("HandleBookmarkMessage(Add): 名称或URL为空，无法添加");
+            return;
+        }
+        if (url.find(L"http://") != 0 && url.find(L"https://") != 0 && url.find(L"ftp://") != 0 && url.find(L"file://") != 0)
+        {
+            LogToFile("HandleBookmarkMessage(Add): URL格式无效 (必须以 http://, https://, ftp://, or file:// 开头)");
+            return;
+        }
+        for (const auto& bookmark : g_bookmarks)
+        {
+            if (bookmark.second == url)
+            {
+                LogToFile("HandleBookmarkMessage(Add): URL已存在，跳过添加");
+                return;
+            }
+        }
+        g_bookmarks.push_back(std::make_pair(name, url));
+        SaveBookmarks();
+        if (g_bookmarkMode)
+        {
+            UpdateBookmarkModeWebView();
+        }
+        else
+        {
+            UpdateHelpInfoWebView();
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"getBookmarkData\"") != std::wstring::npos)
+    {
+        int index = -1;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+        if (index >= 0 && index < (int)displayBookmarks.size())
+        {
+            std::wstringstream bookmarkData;
+            bookmarkData << L"{\"type\":\"bookmarkData\",\"bookmark\":{"
+                         << L"\"index\":" << index
+                         << L",\"name\":\"" << displayBookmarks[index].first
+                         << L"\",\"url\":\"" << displayBookmarks[index].second << L"\"}}";
+            if (g_webViewController && g_webView)
+            {
+                g_webView->PostWebMessageAsJson(bookmarkData.str().c_str());
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"editBookmarkFromDialog\"") != std::wstring::npos)
+    {
+        int index = -1;
+        std::wstring name, url;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        size_t namePos = msgStr.find(L"\"name\":\"");
+        if (namePos != std::wstring::npos)
+        {
+            namePos += 8;
+            size_t nameEnd = msgStr.find(L"\"", namePos);
+            if (nameEnd != std::wstring::npos)
+            {
+                name = msgStr.substr(namePos, nameEnd - namePos);
+            }
+        }
+        size_t urlPos = msgStr.find(L"\"url\":\"");
+        if (urlPos != std::wstring::npos)
+        {
+            urlPos += 7;
+            size_t urlEnd = msgStr.find(L"\"", urlPos);
+            if (urlEnd != std::wstring::npos)
+            {
+                url = msgStr.substr(urlPos, urlEnd - urlPos);
+            }
+        }
+
+        // Debug logging for parsed values
+        {
+            int nameSize = WideCharToMultiByte(CP_UTF8, 0, name.c_str(), -1, NULL, 0, NULL, NULL);
+            std::string nameUtf8(nameSize > 0 ? nameSize : 1, 0);
+            if (nameSize > 0) WideCharToMultiByte(CP_UTF8, 0, name.c_str(), -1, &nameUtf8[0], nameSize, NULL, NULL);
+            
+            int urlSize = WideCharToMultiByte(CP_UTF8, 0, url.c_str(), -1, NULL, 0, NULL, NULL);
+            std::string urlUtf8(urlSize > 0 ? urlSize : 1, 0);
+            if (urlSize > 0) WideCharToMultiByte(CP_UTF8, 0, url.c_str(), -1, &urlUtf8[0], urlSize, NULL, NULL);
+            
+            char logMsg[1024] = {0};
+            sprintf(logMsg, "HandleBookmarkMessage: 解析结果 index=%d, name='%s', url='%s'", index, nameUtf8.c_str(), urlUtf8.c_str());
+            LogToFile(logMsg);
+        }
+
+        if (index < 0 || name.empty() || url.empty())
+        {
+            char logMsg[200] = {0};
+            sprintf(logMsg, "HandleBookmarkMessage: 编辑参数无效 index=%d", index);
+            LogToFile(logMsg);
+            return;
+        }
+        if (url.find(L"http://") != 0 && url.find(L"https://") != 0 && url.find(L"ftp://") != 0 && url.find(L"file://") != 0)
+        {
+            LogToFile("HandleBookmarkMessage: URL格式无效");
+            return;
+        }
+        const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+        if (index >= 0 && index < (int)displayBookmarks.size())
+        {
+            int originalIndex = FindBookmarkOriginalIndex(displayBookmarks[index]);
+            
+            char logMsg[512] = {0};
+            sprintf(logMsg, "HandleBookmarkMessage: 查找原始索引 index=%d, originalIndex=%d, displaySize=%zu", 
+                    index, originalIndex, displayBookmarks.size());
+            LogToFile(logMsg);
+
+            if (originalIndex >= 0)
+            {
+                g_bookmarks[originalIndex] = std::make_pair(name, url);
+                LogToFile("HandleBookmarkMessage: 更新 g_bookmarks 成功");
+            }
+            else
+            {
+                LogToFile("HandleBookmarkMessage: 未找到原始书签，无法更新 g_bookmarks");
+            }
+
+            if (!g_bookmarkSearchResults.empty() && index >= 0 && index < (int)g_bookmarkSearchResults.size())
+            {
+                g_bookmarkSearchResults[index] = std::make_pair(name, url);
+                LogToFile("HandleBookmarkMessage: 更新 g_bookmarkSearchResults 成功");
+            }
+            SaveBookmarks();
+            DisplayBookmarkResults();
+            if (g_bookmarkMode)
+            {
+                UpdateBookmarkModeWebView();
+            }
+            else
+            {
+                UpdateHelpInfoWebView();
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"closeBookmarkDialog\"") != std::wstring::npos)
+    {
+        if (g_bookmarkMode)
+        {
+            UpdateBookmarkModeWebView();
+        }
+        else
+        {
+            UpdateHelpInfoWebView();
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"deleteBookmarkFromDialog\"") != std::wstring::npos)
+    {
+        int index = -1;
+        size_t indexPos = msgStr.find(L"\"index\":");
+        if (indexPos != std::wstring::npos)
+        {
+            size_t start = msgStr.find(L":", indexPos) + 1;
+            size_t end = msgStr.find(L",", start);
+            if (end == std::wstring::npos) end = msgStr.find(L"}", start);
+            std::wstring indexStr = msgStr.substr(start, end - start);
+            index = _wtoi(indexStr.c_str());
+        }
+        if (index < 0)
+        {
+            return;
+        }
+        const auto& displayBookmarks = g_bookmarkSearchResults.empty() ? g_bookmarks : g_bookmarkSearchResults;
+        if (index >= 0 && index < (int)displayBookmarks.size())
+        {
+            int originalIndex = FindBookmarkOriginalIndex(displayBookmarks[index]);
+            if (originalIndex >= 0)
+            {
+                g_bookmarks.erase(g_bookmarks.begin() + originalIndex);
+            }
+            if (!g_bookmarkSearchResults.empty() && index >= 0 && index < (int)g_bookmarkSearchResults.size())
+            {
+                g_bookmarkSearchResults.erase(g_bookmarkSearchResults.begin() + index);
+            }
+            SaveBookmarks();
+            DisplayBookmarkResults();
+            if (g_bookmarkMode)
+            {
+                UpdateBookmarkModeWebView();
+            }
+            else
+            {
+                UpdateHelpInfoWebView();
+            }
+        }
+        return;
+    }
+}
+
+static void HandleDirMessage(const std::wstring& msgStr)
+{
+    if (msgStr.find(L"\"type\":\"dirExpand\"") != std::wstring::npos)
+    {
+        std::wstring path;
+        size_t pathPos = msgStr.find(L"\"path\":\"");
+        if (pathPos != std::wstring::npos)
+        {
+            pathPos += 8;
+            size_t pathEnd = msgStr.find(L"\"", pathPos);
+            if (pathEnd != std::wstring::npos)
+            {
+                path = msgStr.substr(pathPos, pathEnd - pathPos);
+                size_t pos = 0;
+                while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
+                {
+                    path.replace(pos, 2, L"\\");
+                    pos += 1;
+                }
+                if (g_expandedPaths.find(path) != g_expandedPaths.end())
+                {
+                    g_expandedPaths.erase(path);
+                    if (g_currentDirPath == path)
+                    {
+                        g_currentDirPath.clear();
+                    }
+                }
+                else
+                {
+                    g_expandedPaths.insert(path);
+                    g_currentDirPath = path;
+                }
+                UpdateDirModeWebView();
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"dirOpen\"") != std::wstring::npos)
+    {
+        std::wstring path;
+        bool isDir = false;
+        size_t pathPos = msgStr.find(L"\"path\":\"");
+        if (pathPos != std::wstring::npos)
+        {
+            pathPos += 8;
+            size_t pathEnd = msgStr.find(L"\"", pathPos);
+            if (pathEnd != std::wstring::npos)
+            {
+                path = msgStr.substr(pathPos, pathEnd - pathPos);
+                size_t pos = 0;
+                while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
+                {
+                    path.replace(pos, 2, L"\\");
+                    pos += 1;
+                }
+                size_t isDirPos = msgStr.find(L"\"isDir\":");
+                if (isDirPos != std::wstring::npos)
+                {
+                    size_t isDirStart = msgStr.find(L":", isDirPos) + 1;
+                    size_t isDirEnd = msgStr.find(L",", isDirStart);
+                    if (isDirEnd == std::wstring::npos) isDirEnd = msgStr.find(L"}", isDirStart);
+                    std::wstring isDirStr = msgStr.substr(isDirStart, isDirEnd - isDirStart);
+                    isDir = (isDirStr.find(L"true") != std::wstring::npos);
+                }
+                if (isDir)
+                {
+                    g_expandedPaths.insert(path);
+                    g_currentDirPath = path;
+                    UpdateDirModeWebView();
+                }
+                else
+                {
+                    ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                }
+            }
+        }
+    }
+}
+
+static void HandleShortcutMessage(const std::wstring& msgStr)
+{
+    std::wstring command;
+    size_t commandPos = msgStr.find(L"\"command\":\"");
+    if (commandPos != std::wstring::npos)
+    {
+        commandPos += 11;
+        size_t commandEnd = msgStr.find(L"\"", commandPos);
+        if (commandEnd != std::wstring::npos)
+        {
+            command = msgStr.substr(commandPos, commandEnd - commandPos);
+            size_t pos = 0;
+            while ((pos = command.find(L"\\\\", pos)) != std::wstring::npos)
+            {
+                command.replace(pos, 2, L"\\");
+                pos += 1;
+            }
+            ShellExecuteW(NULL, L"open", command.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+    }
+}
+
+static void UpdateInitialWebViewContent()
+{
+    if (g_settingsMenuMode)
+    {
+        UpdateSettingsMenuWebView();
+    }
+    else if (g_calculatorMode)
+    {
+        UpdateCalculatorModeWebView();
+    }
+    else if (g_bookmarkMode)
+    {
+        UpdateBookmarkModeWebView();
+    }
+    else if (g_dirMode)
+    {
+        UpdateDirModeWebView();
+    }
+    else if (g_shortcuts.empty())
+    {
+        UpdateHelpInfoWebView();
+    }
+    else
+    {
+        SearchAndDisplayResults(g_currentSearch);
+    }
+}
+
+static void UpdateControllerBounds()
+{
+    if (g_hWebView2)
+    {
+        RECT bounds;
+        if (GetClientRect(g_hWebView2, &bounds))
+        {
+            g_webViewController->put_Bounds(bounds);
+            char logMsg[200] = {0};
+            sprintf(logMsg, "InitializeWebView2: 设置 WebView2 位置和大小: (%ld, %ld, %ld, %ld)",
+                    bounds.left, bounds.top, bounds.right, bounds.bottom);
+            LogToFile(logMsg);
+        }
     }
 }
 
@@ -1492,9 +1420,12 @@ struct PropertiesDialogState {
     BOOL* pResult;
     HWND hNameEdit;
     HWND hTargetEdit;
+    HWND hIconEdit; // 新增：图标路径编辑框
+    HWND hEmojiCombo; // 新增：表情选择下拉框
     HWND hCommentEdit;
     LPWSTR lpName;
     LPWSTR lpPath;
+    LPWSTR lpIconPath; // 新增：图标路径指针
     LPWSTR lpComment;
     WNDPROC oldProc;
 };
@@ -1505,9 +1436,27 @@ LRESULT CALLBACK PropertiesDlgSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, L
     
     if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
+        int code = HIWORD(wParam);
+
+        if (id == IDC_EMOJI_COMBO && code == CBN_SELCHANGE && pState) {
+             int idx = (int)SendMessageW(pState->hEmojiCombo, CB_GETCURSEL, 0, 0);
+             if (idx != CB_ERR) {
+                 WCHAR buffer[32] = {0};
+                 SendMessageW(pState->hEmojiCombo, CB_GETLBTEXT, idx, (LPARAM)buffer);
+                 if (wcscmp(buffer, L"自定义图标") != 0) {
+                     // 提取纯表情符号（去掉可能的说明文字，这里假设只有表情）
+                     std::wstring emojiPath = L"emoji:";
+                     emojiPath += buffer;
+                     SetWindowTextW(pState->hIconEdit, emojiPath.c_str());
+                 }
+             }
+             return 0;
+        }
+
         if (id == IDOK && pState) {
             GetWindowTextW(pState->hNameEdit, pState->lpName, 256);
             GetWindowTextW(pState->hTargetEdit, pState->lpPath, 1024);
+            GetWindowTextW(pState->hIconEdit, pState->lpIconPath, 512); // 获取图标路径
             GetWindowTextW(pState->hCommentEdit, pState->lpComment, 512);
             *(pState->pResult) = TRUE;
             *(pState->pRunning) = FALSE;
@@ -1539,16 +1488,17 @@ LRESULT CALLBACK PropertiesDlgSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, L
  * @param lpName 名称编辑框的初始值和返回结果
  * @param lpPath 路径编辑框的初始值和返回结果
  * @param lpComment 备注编辑框的初始值和返回结果
+ * @param lpIconPath 图标路径编辑框的初始值和返回结果
  * @param shortcutType 快捷方式类型
  * @return BOOL 如果用户点击确定返回TRUE，点击取消返回FALSE
  */
-BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int shortcutType)
+BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, LPWSTR lpIconPath, int shortcutType)
 {
     // 计算对话框在屏幕中心的位置
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
     int dialogWidth = 450;
-    int dialogHeight = 350;
+    int dialogHeight = 410; // 增加高度以容纳表情选择
     int dialogX = (screenWidth - dialogWidth) / 2;
     int dialogY = (screenHeight - dialogHeight) / 2;
     
@@ -1637,57 +1587,104 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
                                       120, 83, 300, 25, 
                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
-    
-    // 创建备注标签
-    HWND hCommentLabel = CreateWindowExW(0, L"STATIC", L"备注:",
-                                        WS_VISIBLE | WS_CHILD,
-                                        60, 115, 60, 20,
-                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
-    
-    // 创建备注编辑框（多行）
-    HWND hCommentEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpComment, 
-                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL,
-                                       120, 115, 300, 80, 
+
+    // 创建图标路径标签 (新增)
+    HWND hIconLabel = CreateWindowExW(0, L"STATIC", L"图标:",
+                                       WS_VISIBLE | WS_CHILD,
+                                       60, 110, 60, 20,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
     
-    // 创建起始位置标签
+    // 创建图标路径编辑框 (新增)
+    HWND hIconEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpIconPath, 
+                                      WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+                                      120, 108, 300, 25, 
+                                      hDlg, NULL, GetModuleHandle(NULL), NULL);
+
+    // 创建表情选择标签
+    HWND hEmojiLabel = CreateWindowExW(0, L"STATIC", L"表情:",
+                                       WS_VISIBLE | WS_CHILD,
+                                       60, 137, 60, 20,
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+
+    // 创建表情选择下拉框
+    HWND hEmojiCombo = CreateWindowExW(WS_EX_CLIENTEDGE, L"COMBOBOX", L"",
+                                       WS_VISIBLE | WS_CHILD | WS_BORDER | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                       120, 135, 300, 200,
+                                       hDlg, (HMENU)IDC_EMOJI_COMBO, GetModuleHandle(NULL), NULL);
+
+    // 添加表情选项
+    SendMessageW(hEmojiCombo, CB_ADDSTRING, 0, (LPARAM)L"自定义图标");
+    const WCHAR* emojis[] = {L"📁", L"🌐", L"📱", L"📝", L"🎮", L"🎵", L"🎬", L"🖼️", L"⚙️", L"❤️", L"⭐", L"🔥", L"⚠️", L"✅", L"❌", L"❓"};
+    for (const auto& emoji : emojis)
+    {
+        SendMessageW(hEmojiCombo, CB_ADDSTRING, 0, (LPARAM)emoji);
+    }
+
+    // 初始化选中项
+    if (wcsncmp(lpIconPath, L"emoji:", 6) == 0)
+    {
+        const WCHAR* emoji = lpIconPath + 6;
+        int idx = (int)SendMessageW(hEmojiCombo, CB_FINDSTRINGEXACT, -1, (LPARAM)emoji);
+        if (idx != CB_ERR)
+        {
+            SendMessageW(hEmojiCombo, CB_SETCURSEL, idx, 0);
+        }
+    }
+    else
+    {
+        SendMessageW(hEmojiCombo, CB_SETCURSEL, 0, 0); // 选中"自定义图标"
+    }
+    
+    // 创建备注标签 (位置下移)
+    HWND hCommentLabel = CreateWindowExW(0, L"STATIC", L"备注:",
+                                        WS_VISIBLE | WS_CHILD,
+                                        60, 165, 60, 20,
+                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建备注编辑框（多行，位置下移）
+    HWND hCommentEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpComment, 
+                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL,
+                                       120, 165, 300, 80, 
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 创建起始位置标签 (位置下移)
     HWND hStartInLabel = CreateWindowExW(0, L"STATIC", L"起始位置:",
                                         WS_VISIBLE | WS_CHILD,
-                                        60, 205, 60, 20,
+                                        60, 260, 60, 20,
                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
     
     HWND hStartInValue = CreateWindowExW(0, L"STATIC", L".",
                                         WS_VISIBLE | WS_CHILD,
-                                        120, 205, 150, 20,
+                                        120, 260, 150, 20,
                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
     
-    // 创建快捷键标签
+    // 创建快捷键标签 (位置下移)
     HWND hShortcutKeyLabel = CreateWindowExW(0, L"STATIC", L"快捷键:",
                                             WS_VISIBLE | WS_CHILD,
-                                            60, 230, 60, 20,
+                                            60, 285, 60, 20,
                                             hDlg, NULL, GetModuleHandle(NULL), NULL);
     
     HWND hShortcutKeyValue = CreateWindowExW(0, L"STATIC", L"无",
                                             WS_VISIBLE | WS_CHILD,
-                                            120, 230, 60, 20,
+                                            120, 285, 60, 20,
                                             hDlg, NULL, GetModuleHandle(NULL), NULL);
     
-    // 创建按钮组框架
+    // 创建按钮组框架 (位置下移)
     HWND hButtonGroup = CreateWindowExW(0, L"BUTTON", NULL,
                                        WS_VISIBLE | WS_CHILD | BS_GROUPBOX,
-                                       15, 255, 415, 60,
+                                       15, 310, 415, 60,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
     
-    // 创建确定按钮
+    // 创建确定按钮 (位置下移)
     HWND hOkBtn = CreateWindowExW(0, L"BUTTON", L"确定", 
                                  WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                                 250, 275, 80, 30, 
+                                 250, 330, 80, 30, 
                                  hDlg, (HMENU)IDOK, GetModuleHandle(NULL), NULL);
     
-    // 创建取消按钮
+    // 创建取消按钮 (位置下移)
     HWND hCancelBtn = CreateWindowExW(0, L"BUTTON", L"取消", 
                                      WS_VISIBLE | WS_CHILD,
-                                     340, 275, 80, 30, 
+                                     340, 330, 80, 30, 
                                      hDlg, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
     
     // 显示窗口
@@ -1716,9 +1713,12 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     state.pResult = &bResult;
     state.hNameEdit = hNameEdit;
     state.hTargetEdit = hTargetEdit;
+    state.hIconEdit = hIconEdit; // 新增
+    state.hEmojiCombo = hEmojiCombo; // 新增
     state.hCommentEdit = hCommentEdit;
     state.lpName = lpName;
     state.lpPath = lpPath;
+    state.lpIconPath = lpIconPath; // 新增
     state.lpComment = lpComment;
     
     SetWindowLongPtrW(hDlg, GWLP_USERDATA, (LONG_PTR)&state);
@@ -1785,14 +1785,16 @@ void ShowEditShortcutDialog(int index)
     WCHAR name[256] = {0};
     WCHAR path[1024] = {0};
     WCHAR comment[512] = {0};
+    WCHAR iconPath[512] = {0};
     
     // 复制当前值到缓冲区
     wcscpy_s(name, 255, shortcut.name);
     wcscpy_s(path, 1023, shortcut.path);
     wcscpy_s(comment, 511, shortcut.comment);
+    wcscpy_s(iconPath, 511, shortcut.iconPath);
     
     // 显示类似Windows属性对话框的编辑界面
-    if (!GetPropertiesStyleInput(L"属性", name, path, comment, shortcut.type))
+    if (!GetPropertiesStyleInput(L"属性", name, path, comment, iconPath, shortcut.type))
     {
         LogToFile("ShowEditShortcutDialog: 用户取消编辑");
         return;
@@ -1818,6 +1820,7 @@ void ShowEditShortcutDialog(int index)
     wcscpy_s(shortcut.name, 255, name);
     wcscpy_s(shortcut.path, 1023, path);
     wcscpy_s(shortcut.comment, 511, comment);
+    wcscpy_s(shortcut.iconPath, 511, iconPath);
     
     // 更新使用次数
     shortcut.usageCount++;
@@ -1832,6 +1835,74 @@ void ShowEditShortcutDialog(int index)
 }
 
 /**
+ * @brief 显示添加快捷方式对话框
+ * 
+ * 此函数显示添加快捷方式的对话框
+ */
+void ShowAddShortcutDialog()
+{
+    LogToFile("ShowAddShortcutDialog: 显示添加快捷方式对话框");
+    
+    WCHAR name[256] = {0};
+    WCHAR path[1024] = {0};
+    WCHAR comment[512] = {0};
+    WCHAR iconPath[512] = {0};
+    
+    // 显示类似Windows属性对话框的编辑界面
+    // 默认为URL类型(1)
+    if (!GetPropertiesStyleInput(L"添加快捷方式", name, path, comment, iconPath, 1))
+    {
+        LogToFile("ShowAddShortcutDialog: 用户取消添加");
+        return;
+    }
+    
+    // 检查名称是否为空
+    if (wcslen(name) == 0)
+    {
+        MessageBoxW(g_hMainWindow, L"快捷方式名称不能为空", L"错误", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // 检查路径是否为空
+    if (wcslen(path) == 0)
+    {
+        MessageBoxW(g_hMainWindow, L"快捷方式路径不能为空", L"错误", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    ShortcutItem shortcut = {0};
+    wcscpy_s(shortcut.name, 255, name);
+    wcscpy_s(shortcut.path, 1023, path);
+    wcscpy_s(shortcut.comment, 511, comment);
+    wcscpy_s(shortcut.iconPath, 511, iconPath);
+    
+    // 简单的类型推断
+    if (wcsstr(path, L"http://") || wcsstr(path, L"https://"))
+        shortcut.type = 1; // URL
+    else
+    {
+        // 检查是否是目录
+        DWORD attrs = GetFileAttributesW(path);
+        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY))
+            shortcut.type = 0; // Directory
+        else
+            shortcut.type = 2; // Application
+    }
+        
+    shortcut.usageCount = 0;
+    
+    g_shortcuts.push_back(shortcut);
+    
+    // 保存快捷方式列表
+    SaveShortcuts();
+    
+    // 刷新显示
+    SearchAndDisplayResults(g_currentSearch);
+    
+    LogToFile("ShowAddShortcutDialog: 快捷方式添加成功");
+}
+
+/**
  * @brief 保存快捷方式列表到文件
  * 
  * 此函数将当前快捷方式列表保存到data\shortcuts.txt文件中
@@ -1839,12 +1910,32 @@ void ShowEditShortcutDialog(int index)
 void SaveShortcuts()
 {
     LogToFile("SaveShortcuts: 开始保存快捷方式列表");
-    
-    // 创建数据目录（如果不存在）
-    CreateDirectoryW(L"data", NULL);
-    
-    // 打开快捷方式文件
-    FILE* file = _wfopen(L"data\\shortcuts.txt", L"w, ccs=UTF-8");
+
+    WCHAR modulePath[MAX_PATH] = {0};
+    GetModuleFileNameW(NULL, modulePath, MAX_PATH);
+    std::wstring moduleDir = modulePath;
+    size_t lastBackslash = moduleDir.find_last_of(L"\\");
+    if (lastBackslash != std::wstring::npos) moduleDir = moduleDir.substr(0, lastBackslash);
+    std::wstring parentDir = moduleDir;
+    size_t parentBackslash = parentDir.find_last_of(L"\\");
+    if (parentBackslash != std::wstring::npos) parentDir = parentDir.substr(0, parentBackslash);
+
+    std::wstring rootDataDir = parentDir + L"\\data";
+    std::wstring rootFile = rootDataDir + L"\\shortcuts.txt";
+    std::wstring binDataDir = moduleDir + L"\\data";
+    std::wstring binFile = binDataDir + L"\\shortcuts.txt";
+
+    FILE* file = _wfopen(rootFile.c_str(), L"w, ccs=UTF-8");
+    if (!file)
+    {
+        CreateDirectoryW(rootDataDir.c_str(), NULL);
+        file = _wfopen(rootFile.c_str(), L"w, ccs=UTF-8");
+    }
+    if (!file)
+    {
+        CreateDirectoryW(binDataDir.c_str(), NULL);
+        file = _wfopen(binFile.c_str(), L"w, ccs=UTF-8");
+    }
     if (!file)
     {
         LogToFile("SaveShortcuts: 无法打开快捷方式文件进行写入");
@@ -1871,6 +1962,120 @@ void SaveShortcuts()
     sprintf(logMsg, "SaveShortcuts: 保存了 %zu 条快捷方式", g_shortcuts.size());
     LogToFile(logMsg);
     LogToFile("SaveShortcuts: 函数结束");
+}
+
+static int FindShortcutOriginalIndex(const ShortcutItem& item)
+{
+    for (int i = 0; i < (int)g_shortcuts.size(); ++i)
+    {
+        if (_wcsicmp(g_shortcuts[i].name, item.name) == 0 && _wcsicmp(g_shortcuts[i].path, item.path) == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int FindBookmarkOriginalIndex(const std::pair<std::wstring, std::wstring>& b)
+{
+    for (int i = 0; i < (int)g_bookmarks.size(); ++i)
+    {
+        if (g_bookmarks[i].first == b.first && g_bookmarks[i].second == b.second)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * @brief 从文件加载快捷方式列表
+ *
+ * 优先从上层目录的 data\shortcuts.txt 读取；若不存在则尝试从当前模块目录的 data\shortcuts.txt 读取
+ * 文件格式：名称|路径|类型|备注|图标路径|使用次数
+ *
+ * @return true 如果成功加载（文件存在且解析成功，可能为空列表也算成功）
+ * @return false 如果文件不存在或打开失败
+ */
+bool LoadShortcuts()
+{
+    LogToFile("LoadShortcuts: 开始加载快捷方式列表");
+
+    WCHAR modulePath[MAX_PATH] = {0};
+    GetModuleFileNameW(NULL, modulePath, MAX_PATH);
+    std::wstring moduleDir = modulePath;
+    size_t lastBackslash = moduleDir.find_last_of(L"\\");
+    if (lastBackslash != std::wstring::npos) moduleDir = moduleDir.substr(0, lastBackslash);
+    std::wstring parentDir = moduleDir;
+    size_t parentBackslash = parentDir.find_last_of(L"\\");
+    if (parentBackslash != std::wstring::npos) parentDir = parentDir.substr(0, parentBackslash);
+
+    std::wstring rootFile = parentDir + L"\\data\\shortcuts.txt";
+    std::wstring binFile = moduleDir + L"\\data\\shortcuts.txt";
+
+    std::wstring chosenFile;
+    if (GetFileAttributesW(rootFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+    {
+        chosenFile = rootFile;
+    }
+    else if (GetFileAttributesW(binFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+    {
+        chosenFile = binFile;
+    }
+    else
+    {
+        LogToFile("LoadShortcuts: 快捷方式文件不存在");
+        return false;
+    }
+
+    FILE* file = _wfopen(chosenFile.c_str(), L"r, ccs=UTF-8");
+    if (!file)
+    {
+        LogToFile("LoadShortcuts: 无法打开快捷方式文件进行读取");
+        return false;
+    }
+
+    // 清空现有列表
+    g_shortcuts.clear();
+
+    WCHAR line[2048];
+    while (fgetws(line, sizeof(line)/sizeof(WCHAR), file))
+    {
+        size_t len = wcslen(line);
+        if (len > 0 && line[len - 1] == L'\n') line[len - 1] = L'\0';
+        if (line[0] == L'\0') continue;
+
+        // 分割字段
+        std::wstring s = line;
+        std::vector<std::wstring> parts;
+        size_t start = 0;
+        while (true)
+        {
+            size_t p = s.find(L'|', start);
+            if (p == std::wstring::npos) { parts.push_back(s.substr(start)); break; }
+            parts.push_back(s.substr(start, p - start));
+            start = p + 1;
+        }
+
+        if (parts.size() < 2) continue; // 至少需要名称和路径
+
+        ShortcutItem item = {0};
+        wcscpy_s(item.name, 255, parts[0].c_str());
+        wcscpy_s(item.path, 255, parts[1].c_str());
+        item.type = (parts.size() >= 3) ? _wtoi(parts[2].c_str()) : 2;
+        wcscpy_s(item.comment, 511, (parts.size() >= 4) ? parts[3].c_str() : L"");
+        wcscpy_s(item.iconPath, 511, (parts.size() >= 5) ? parts[4].c_str() : L"" );
+        item.usageCount = (parts.size() >= 6) ? _wtoi(parts[5].c_str()) : 0;
+
+        g_shortcuts.push_back(item);
+    }
+
+    fclose(file);
+
+    char logMsg[200] = {0};
+    sprintf(logMsg, "LoadShortcuts: 加载了 %zu 条快捷方式", g_shortcuts.size());
+    LogToFile(logMsg);
+    return true;
 }
 
 /**
@@ -2034,142 +2239,9 @@ void UpdateBookmarkModeWebView()
         LogToFile(logMsg);
         return;
     }
-    
-    // 创建HTML内容
-    std::wstring htmlContent;
-    
-    // HTML头部
-    htmlContent += L"<!DOCTYPE html>\n";
-    htmlContent += L"<html>\n";
-    htmlContent += L"<head>\n";
-    htmlContent += L"<meta charset=\"UTF-8\">\n";
-    htmlContent += L"<title>网址收藏管理</title>\n";
-    htmlContent += L"<style>\n";
-    htmlContent += L"body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }\n";
-    htmlContent += L".header { background: linear-gradient(90deg, #4a90e2, #357abd); color: white; padding: 15px; position: relative; border-radius: 0 0 10px 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }\n";
-    htmlContent += L".header h2 { margin: 0; text-align: center; }\n";
-    htmlContent += L".action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; }\n";
-    htmlContent += L".action-btn { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }\n";
-    htmlContent += L".action-btn:hover { background: linear-gradient(135deg, #45a049, #3d8b40); }\n";
-    htmlContent += L".action-btn.delete { background: linear-gradient(135deg, #e74c3c, #c0392b); }\n";
-    htmlContent += L".action-btn.delete:hover { background: linear-gradient(135deg, #c0392b, #a93226); }\n";
-    htmlContent += L".bookmark-list { padding: 20px; }\n";
-    htmlContent += L".bookmark-item { background: rgba(255,255,255,0.95); margin: 10px 0; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; border-left: 4px solid #4a90e2; }\n";
-    htmlContent += L".bookmark-item:hover { background: rgba(255,255,255,0.98); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }\n";
-    htmlContent += L".bookmark-item.search-result { border-left: 4px solid #4a90e2; background: rgba(255,255,255,0.95); }\n";
-    htmlContent += L".bookmark-item.search-result:hover { background: rgba(255,255,255,0.98); }\n";
-    htmlContent += L".bookmark-icon { display: inline-block; width: 20px; height: 20px; margin-right: 8px; vertical-align: middle; background: linear-gradient(135deg, #4a90e2, #357abd); border-radius: 50%; position: relative; }\n";
-    htmlContent += L".bookmark-icon::before { content: '🔗'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; }\n";
-    htmlContent += L".bookmark-icon.search-result { background: linear-gradient(135deg, #4a90e2, #357abd); }\n";
-    htmlContent += L".bookmark-icon.search-result::before { content: '🔗'; }\n";
-    htmlContent += L".bookmark-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: flex; align-items: center; }\n";
-    htmlContent += L".bookmark-url { color: #666; font-size: 0.9em; word-break: break-all; margin-left: 28px; }\n";
-    htmlContent += L".bookmark-actions { position: absolute; right: 15px; top: 15px; display: flex; gap: 5px; }\n";
-    htmlContent += L".bookmark-btn { background: linear-gradient(135deg, #95a5a6, #7f8c8d); color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.8em; }\n";
-    htmlContent += L".bookmark-btn:hover { background: linear-gradient(135deg, #7f8c8d, #6c7b7d); }\n";
-    htmlContent += L".bookmark-btn.edit { background: linear-gradient(135deg, #f39c12, #d35400); }\n";
-    htmlContent += L".bookmark-btn.edit:hover { background: linear-gradient(135deg, #d35400, #b34700); }\n";
-    htmlContent += L".bookmark-btn.delete { background: linear-gradient(135deg, #e74c3c, #c0392b); }\n";
-    htmlContent += L".bookmark-btn.delete:hover { background: linear-gradient(135deg, #c0392b, #a93226); }\n";
-    htmlContent += L".empty-state { text-align: center; padding: 40px; color: rgba(255,255,255,0.8); }\n";
-    htmlContent += L".search-info { background: rgba(255,255,255,0.15); border-left: 4px solid #4a90e2; padding: 10px 15px; margin: 10px 0; border-radius: 5px; font-size: 0.9em; color: rgba(255,255,255,0.9); }\n";
-    htmlContent += L"</style>\n";
-    htmlContent += L"<script>\n";
-    htmlContent += L"function sendMessage(type, data) {\n";
-    htmlContent += L"    try {\n";
-    htmlContent += L"        var msg = {type: type};\n";
-    htmlContent += L"        if (data) Object.assign(msg, data);\n";
-    htmlContent += L"        window.chrome.webview.postMessage(JSON.stringify(msg));\n";
-    htmlContent += L"    } catch (e) {\n";
-    htmlContent += L"        console.error('PostMessage Error:', e);\n";
-    htmlContent += L"        // Only alert if we really can't communicate\n";
-    htmlContent += L"        // alert('Error sending message: ' + e.message);\n";
-    htmlContent += L"    }\n";
-    htmlContent += L"}\n";
-    htmlContent += L"</script>\n";
-    htmlContent += L"</head>\n";
-    htmlContent += L"<body>\n";
-    
-    // 头部
-    htmlContent += L"<div class=\"header\">\n";
-    htmlContent += L"<h2>网址收藏管理</h2>\n";
-    htmlContent += L"<div class=\"action-buttons\">\n";
-    htmlContent += L"<button class=\"action-btn\" onclick=\"sendMessage('addBookmark')\">添加网址</button>\n";
-    htmlContent += L"</div>\n";
-    htmlContent += L"</div>\n";
-    
-    // 书签列表
-    htmlContent += L"<div class=\"bookmark-list\">\n";
-    
-    // 获取要显示的书签列表（搜索结果或全部书签）
-    // 使用函数开头已定义的 `displayBookmarks` 和 `isSearchResult`
-    
-    if (displayBookmarks.empty())
-    {
-        // 空状态
-        htmlContent += L"<div class=\"empty-state\">\n";
-        if (isSearchResult)
-        {
-            htmlContent += L"<h3>未找到匹配的网址收藏</h3>\n";
-            htmlContent += L"<p>请尝试其他搜索关键词</p>\n";
-        }
-        else
-        {
-            htmlContent += L"<h3>暂无网址收藏</h3>\n";
-            htmlContent += L"<p>点击右上角的添加按钮来添加第一个网址收藏</p>\n";
-        }
-        htmlContent += L"</div>\n";
-    }
-    else
-    {
-        // 如果是搜索结果，显示搜索信息
-        if (isSearchResult)
-        {
-            htmlContent += L"<div class=\"search-info\">\n";
-            htmlContent += L"<strong>🔍 搜索结果</strong> - 找到 ";
-            htmlContent += std::to_wstring(displayBookmarks.size());
-            htmlContent += L" 个匹配的网址收藏\n";
-            htmlContent += L"</div>\n";
-        }
-        
-        // 显示书签列表
-        for (size_t i = 0; i < displayBookmarks.size(); i++)
-        {
-            const auto& bookmark = displayBookmarks[i];
-            
-            // 根据是否为搜索结果设置不同的样式类
-            std::wstring itemClass = isSearchResult ? L"bookmark-item search-result" : L"bookmark-item";
-            std::wstring iconClass = isSearchResult ? L"bookmark-icon search-result" : L"bookmark-icon";
-            
-            htmlContent += L"<div class=\"";
-            htmlContent += itemClass;
-            htmlContent += L"\">\n";
-            htmlContent += L"<div class=\"bookmark-actions\">\n";
-            htmlContent += L"<button class=\"bookmark-btn edit\" onclick=\"sendMessage('editBookmark', {index: " + std::to_wstring(i) + L"})\">编辑</button>\n";
-            htmlContent += L"<button class=\"bookmark-btn delete\" onclick=\"sendMessage('deleteBookmark', {index: " + std::to_wstring(i) + L"})\">删除</button>\n";
-            htmlContent += L"</div>\n";
-            htmlContent += L"<div class=\"bookmark-name\" onclick=\"sendMessage('bookmarkClick', {index: " + std::to_wstring(i) + L"})\" style=\"cursor: pointer;\">\n";
-            htmlContent += L"<span class=\"";
-            htmlContent += iconClass;
-            htmlContent += L"\"></span>";
-            htmlContent += bookmark.first;
-            htmlContent += L"</div>\n";
-            htmlContent += L"<div class=\"bookmark-url\" onclick=\"sendMessage('bookmarkClick', {index: " + std::to_wstring(i) + L"})\" style=\"cursor: pointer;\">";
-            htmlContent += bookmark.second;
-            htmlContent += L"</div>\n";
-            htmlContent += L"</div>\n";
-        }
-    }
-    
-    htmlContent += L"</div>\n";
-    htmlContent += L"</body>\n";
-    htmlContent += L"</html>\n";
-    
-    // 更新WebView2内容
+    std::wstring htmlContent = L"<!DOCTYPE html><html><body><div>bookmark_template.html 未找到</div></body></html>";
     UpdateWebView2Content(htmlContent.c_str());
-    
-    // 记录更新状态
     char logMsg[200] = {0};
-    sprintf(logMsg, "UpdateBookmarkModeWebView: 更新完成，显示 %zu 条书签", displayBookmarks.size());
+    sprintf(logMsg, "UpdateBookmarkModeWebView: 模板缺失，显示 %zu 条书签", displayBookmarks.size());
     LogToFile(logMsg);
 }
