@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box; }
+        .wizard-container { width: 100%; max-width: 500px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #1a73e8; display: flex; align-items: center; gap: 10px; }
+        .icon { font-size: 24px; }
+        .desc { color: #666; margin-bottom: 25px; font-style: italic; line-height: 1.5; border-left: 4px solid #e8f0fe; padding-left: 10px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #3c4043; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; transition: border-color 0.2s; }
+        .input-group input:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
+        .btn-group { margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; }
+        button { padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s; }
+        .btn-cancel { background: #f1f3f4; color: #3c4043; }
+        .btn-cancel:hover { background: #e8eaed; }
+        .btn-calc { background: #1a73e8; color: white; }
+        .btn-calc:hover { background: #1557b0; }
+        .result-box { margin-top: 25px; padding: 20px; background: #e8f0fe; border-radius: 8px; display: none; animation: fadeIn 0.3s; }
+        .result-label { color: #1967d2; font-size: 13px; font-weight: 600; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .result-val { font-size: 28px; font-weight: bold; color: #1a73e8; word-break: break-all; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <h2><span class="icon">🪄</span> {{FORMULA_NAME}} 向导</h2>
+        <div class="desc">{{FORMULA_DESC}}</div>
+        
+        <div id="inputs">
+            {{FORMULA_INPUTS}}
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <div class="result-label">计算结果</div>
+            <div class="result-val" id="resultVal"></div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-cancel" onclick="closeWizard()">取消</button>
+            <button class="btn-calc" onclick="submitCalculate()">计算</button>
+        </div>
+    </div>
+
+    <script>
+        const formulaName = "{{FORMULA_NAME}}";
+        
+        // 自动聚焦第一个输入框
+        window.onload = function() {
+            const firstInput = document.querySelector('input');
+            if(firstInput) firstInput.focus();
+        };
+
+        // 支持回车提交
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submitCalculate();
+            if (e.key === 'Escape') closeWizard();
+        });
+
+        function closeWizard() {
+            window.chrome.webview.postMessage(JSON.stringify({ type: 'closeWizard' }));
+        }
+
+        function submitCalculate() {
+            const inputs = document.querySelectorAll('#inputs input');
+            const args = [];
+            for (let input of inputs) {
+                const val = input.value.trim();
+                if (val === '' || isNaN(Number(val))) {
+                    input.focus();
+                    // Shake animation or error
+                    input.style.borderColor = '#d93025';
+                    setTimeout(() => input.style.borderColor = '#ddd', 2000);
+                    return;
+                }
+                args.push(Number(val));
+            }
+
+            const expr = formulaName + "(" + args.join(',') + ")";
+            
+            window.chrome.webview.postMessage(JSON.stringify({ 
+                type: 'calculateFormula', 
+                expression: expr 
+            }));
+        }
+        
+        window.showResult = function(result) {
+            document.getElementById('resultVal').innerText = result;
+            document.getElementById('resultBox').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

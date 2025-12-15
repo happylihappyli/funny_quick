@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #1a73e8;
+            border-bottom: 2px solid #e8f0fe;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #1a73e8;
+            outline: none;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .emoji-select-container {
+            position: relative;
+        }
+        .emoji-trigger {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            min-height: 42px;
+            box-sizing: border-box;
+        }
+        .emoji-trigger:hover {
+            border-color: #1a73e8;
+        }
+        .current-emoji {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        .emoji-picker {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .emoji-picker.show {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+            gap: 4px;
+        }
+        .emoji-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            height: 36px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .emoji-item:hover {
+            background-color: #f0f2f5;
+        }
+        .emoji-category {
+            grid-column: 1 / -1;
+            font-size: 12px;
+            color: #666;
+            background: #f8f9fa;
+            padding: 4px 8px;
+            margin: 8px 0 4px 0;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .emoji-category:first-child {
+            margin-top: 0;
+        }
+        .btn-group {
+            margin-top: 30px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .btn-save {
+            background-color: #1a73e8;
+            color: white;
+        }
+        .btn-save:hover {
+            background-color: #1557b0;
+        }
+        .btn-cancel {
+            background-color: #f1f3f4;
+            color: #333;
+        }
+        .btn-cancel:hover {
+            background-color: #e8eaed;
+        }
+        .hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 id="page-title">{{TITLE}}</h2>
+        <form id="shortcut-form">
+            <input type="hidden" id="shortcut-index" value="{{INDEX}}">
+            <input type="hidden" id="is-add-mode" value="{{IS_ADD_MODE}}">
+            
+            <div class="form-group">
+                <label for="name">名称</label>
+                <input type="text" id="name" value="{{NAME}}" placeholder="给快捷方式起个名字" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="path">目标路径 / URL</label>
+                <input type="text" id="path" value="{{PATH}}" placeholder="例如: C:\Windows\System32\notepad.exe 或 https://www.google.com" required>
+            </div>
+            
+            <div class="form-group">
+                <label>图标 (表情符号)</label>
+                <div class="emoji-select-container">
+                    <div class="emoji-trigger" id="emoji-trigger">
+                        <span id="current-emoji-display">选择表情...</span>
+                        <span style="font-size: 12px; color: #888;">▼</span>
+                    </div>
+                    <div class="emoji-picker" id="emoji-picker">
+                        <!-- Emojis will be populated by JS -->
+                    </div>
+                </div>
+                <input type="hidden" id="selected-emoji" value="">
+            </div>
+
+            <div class="form-group">
+                <label for="icon-path">自定义图标路径 (可选)</label>
+                <input type="text" id="icon-path" value="{{ICON_PATH}}" placeholder="留空则使用默认图标或上方选择的表情">
+                <div class="hint">如果选择了表情，此项将自动设置为 "emoji:表情符号"</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="comment">备注</label>
+                <textarea id="comment" placeholder="添加一些描述...">{{COMMENT}}</textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="btn-cancel" onclick="onCancel()">取消</button>
+                <button type="button" class="btn-save" onclick="onSave()">保存</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Emoji Data
+        const emojiData = {
+            "常用": ["📁", "🌐", "📱", "💻", "🏠", "🏢", "🔍", "📅", "📧", "📝", "🎮", "🎵", "🎬", "🖼️", "⚙️", "❤️", "⭐", "🔥", "🚀", "💡", "⚠️", "✅", "❌", "❓"],
+            "表情": ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥲", "☺️", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👹", "👺", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖"],
+            "手势": ["👋", "🤚", "🖐", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁", "👅", "👄", "💋"],
+            "人物": ["👶", "👧", "🧒", "👦", "👩", "🧑", "👨", "👱‍♀️", "👱", "👱‍♂️", "🧔", "👵", "🧓", "👴", "👲", "👳‍♀️", "👳", "👳‍♂️", "🧕", "👮‍♀️", "👮", "👮‍♂️", "👷‍♀️", "👷", "👷‍♂️", "💂‍♀️", "💂", "💂‍♂️", "🕵️‍♀️", "🕵️", "🕵️‍♂️", "👩‍⚕️", "🧑‍⚕️", "👨‍⚕️", "👩‍🌾", "🧑‍🌾", "👨‍🌾", "👩‍🍳", "🧑‍🍳", "👨‍🍳", "👩‍🎓", "🧑‍🎓", "👨‍🎓", "👩‍🎤", "🧑‍🎤", "👨‍🎤", "👩‍🏫", "🧑‍🏫", "👨‍🏫", "👩‍🏭", "🧑‍🏭", "👨‍🏭", "👩‍💻", "🧑‍💻", "👨‍💻", "👩‍💼", "🧑‍💼", "👨‍💼", "👩‍🔧", "🧑‍🔧", "👨‍🔧", "👩‍🔬", "🧑‍🔬", "👨‍🔬", "👩‍🎨", "🧑‍🎨", "👨‍🎨", "👩‍🚒", "🧑‍🚒", "👨‍🚒", "👩‍✈️", "🧑‍✈️", "👨‍✈️", "👩‍🚀", "🧑‍🚀", "👨‍🚀", "👩‍⚖️", "🧑‍⚖️", "👨‍⚖️", "👰‍♀️", "👰", "👰‍♂️", "🤵‍♀️", "🤵", "🤵‍♂️", "👸", "🤴", "🥷", "🦸‍♀️", "🦸", "🦸‍♂️", "🦹‍♀️", "🦹", "🦹‍♂️", "🤶", "🧑‍🎄", "🎅", "🧙‍♀️", "🧙", "🧙‍♂️", "🧝‍♀️", "🧝", "🧝‍♂️", "🧛‍♀️", "🧛", "🧛‍♂️", "🧟‍♀️", "🧟", "🧟‍♂️", "🧞‍♀️", "🧞", "🧞‍♂️", "🧜‍♀️", "🧜", "🧜‍♂️", "🧚‍♀️", "🧚", "🧚‍♂️"],
+            "自然": ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜", "🕷", "🕸", "🦂", "🐢", "🐍", "🦎", "🐙", "🦑", "🦐", "🦞", "🦀", "🐡", "🐠", "🐟", "🐬", "🐳", "🐋", "🦈", "🐊", "🐅", "🐆", "🦓", "🦍", "🐘", "🦛", "🦏", "🐪", "🐫", "🦒", "🦘", "🐃", "🐂", "🐄", "🐎", "🐖", "🐏", "🐑", "🐐", "🦌", "🐕", "🐩", "🐈", "🐓", "🦃", "🦚", "🦜", "🦢", "🦩", "🕊", "🐇", "🦝", "🦨", "🦡", "🦦", "🦥", "🐁", "🐀", "🐿", "🦔", "🐾", "🐉", "🐲", "🌵", "🎄", "🌲", "🌳", "🌴", "🌱", "🌿", "☘️", "🍀", "🎍", "🎋", "🍃", "🍂", "🍁", "🍄", "🐚", "🪨", "🌾", "💐", "🌷", "🌹", "🥀", "🌺", "🌸", "🌼", "🌻", "🌞", "🌝", "🌛", "🌜", "🌚", "🌕", "🌙", "🌎", "🌍", "🌏", "🪐", "💫", "⭐️", "🌟", "✨", "⚡️", "🔥", "🌈", "☀️", "🌤", "⛅️", "🌥", "☁️", "🌦", "🌧", "⛈", "🌩", "🌨", "❄️", "☃️", "⛄️", "🌬", "💨", "💧", "💦", "☔️", "☂️", "🌊"],
+            "食物": ["🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥬", "🥒", "🌶", "🫑", "🌽", "🥕", "🫒", "🧄", "🧅", "🥔", "🍠", "🥐", "🥯", "🍞", "🥖", "🥨", "🧀", "🥚", "🍳", "🧈", "🥞", "🧇", "🥓", "🥩", "🍗", "🍖", "🌭", "🍔", "🍟", "🍕", "🥪", "🥙", "🌮", "🌯", "🥗", "🥘", "🍝", "🍜", "🍲", "🍛", "🍣", "🍱", "🥟", "🍤", "🍙", "🍚", "🍘", "🍢", "🍡", "🍧", "🍨", "🍦", "🥧", "🧁", "🍰", "🎂", "🍮", "🍭", "🍬", "🍫", "🍿", "🍩", "🍪", "🌰", "🥜", "🍯", "🥛", "🍼", "🫖", "☕️", "🍵", "🧃", "🥤", "🧋", "🍶", "🍺", "🍻", "🥂", "🍷", "🥃", "🍸", "🍹", "🍾"],
+            "物品": ["🚗", "🚕", "🚙", "🚌", "🚎", "🏎", "🚓", "🚑", "🚒", "🚐", "🛻", "🚚", "🚛", "🚜", "🚲", "🛵", "🏍", "🚨", "🚔", "🚍", "🚘", "🚖", "🚃", "🚋", "🚞", "🚄", "🚅", "🚈", "🚂", "🚆", "🚇", "🚊", "🚉", "✈️", "🛫", "🛬", "🛩", "🚀", "🚁", "⛵️", "🚤", "🛥", "🛳", "⛴", "🚢", "⚓️", "🚧", "🚦", "🚥", "🛑", "🗺", "⌚️", "📱", "📲", "💻", "⌨️", "🖥", "🖨", "🖱", "🕹", "💽", "💾", "💿", "📀", "📷", "📸", "📹", "🎥", "📽", "🎞", "📞", "☎️", "📺", "📻", "🎙", "🧭", "⏱", "⏲", "⏰", "🕰", "⌛️", "⏳", "📡", "🔋", "🔌", "💡", "🔦", "🕯", "💸", "💵", "💴", "💶", "💷", "💰", "💳", "💎", "⚖️", "🧰", "🔧", "🔨", "🛠", "⛏", "⚙️", "🔫", "💣", "🧨", "🔪", "🗡", "⚔️", "🛡", "🚬", "⚰️", "🔮", "⚗️", "🔭", "🔬", "💊", "💉", "🧬", "🦠", "🧪", "🌡", "🧹", "🧺", "🧻", "🚽", "🚰", "🚿", "🛁", "🛀", "🧼", "🪥", "🔑", "🗝", "🚪", "🛏", "🛌", "🧸", "🎁", "🎈", "🎀", "🎉", "✉️", "📩", "📨", "📧", "💌", "📥", "📤", "📦", "🏷", "📫", "📬", "📮", "📜", "📃", "📄", "📑", "🧾", "📊", "📈", "📉", "🗒", "🗓", "📆", "📅", "🗑", "📋", "📁", "📂", "🗂", "🗞", "📰", "📓", "📔", "📒", "📕", "📗", "📘", "📙", "📚", "📖", "🔖", "📎", "🖇", "📌", "📍", "✂️", "🖊", "🖋", "✒️", "🖌", "🖍", "📝", "✏️", "🔍", "🔎", "🔒", "🔓"],
+            "符号": ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "☮️", "✝️", "☪️", "🕉", "☸️", "✡️", "🔯", "🕎", "☯️", "☦️", "🛐", "⛎", "♈️", "♉️", "♊️", "♋️", "♌️", "♍️", "♎️", "♏️", "♐️", "♑️", "♒️", "♓️", "🆔", "⚛️", "🉑", "☢️", "☣️", "📴", "📳", "🈶", "🈚️", "🈸", "🈺", "🈷️", "✴️", "🆚", "💮", "🉐", "㊙️", "㊗️", "🈴", "🈵", "🈹", "🈲", "🅰️", "🅱️", "🆎", "🆑", "🅾️", "🆘", "❌", "⭕️", "🛑", "⛔️", "📛", "🚫", "💯", "💢", "♨️", "❗️", "❕", "❓", "❔", "‼️", "⁉️", "⚠️", "♻️", "✅", "❇️", "✳️", "❎", "🌐", "💠", "Ⓜ️", "🌀", "💤", "🏧", "♿️", "🅿️", "🛗", "🈁", "🈂️", "🛂", "🛃", "🛄", "🛅", "🚹", "🚺", "🚼", "🚻", "🚮", "🎦", "📶", "🈁", "🔣", "ℹ️", "🔤", "🔡", "🔠", "🆖", "🆗", "🆙", "🆒", "🆕", "🆓", "0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟", "🔢", "#️⃣", "▶️", "⏸", "⏯", "⏹", "⏺", "⏭", "⏮", "⏩", "⏪", "⏫", "⏬", "◀️", "🔼", "🔽", "➡️", "⬅️", "⬆️", "⬇️", "↗️", "↘️", "↙️", "↖️", "↕️", "↔️", "↪️", "↩️", "⤴️", "⤵️", "🔀", "🔁", "🔂", "🔄", "🔃", "🎵", "🎶", "➕", "➖", "➗", "✖️", "♾", "💲", "💱", "™️", "©️", "®️", "👁‍🗨", "🔚", "🔙", "🔛", "🔝", "🔜", "〰️", "➰", "➿", "✔️", "☑️", "🔘", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫️", "⚪️", "🟤", "🔺", "🔻", "🔸", "🔹", "🔶", "🔷", "🔳", "🔲", "▪️", "▫️", "◾️", "◽️", "◼️", "◻️", "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "⬛️ ⬜️ 🟫"]
+        };
+
+        // 初始化表情选择
+        const iconPathInput = document.getElementById('icon-path');
+        const emojiTrigger = document.getElementById('emoji-trigger');
+        const emojiPicker = document.getElementById('emoji-picker');
+        const currentEmojiDisplay = document.getElementById('current-emoji-display');
+        const selectedEmojiInput = document.getElementById('selected-emoji');
+        
+        // 填充表情选择器
+        let pickerHtml = '';
+        for (const [category, emojis] of Object.entries(emojiData)) {
+            pickerHtml += `<div class="emoji-category">${category}</div>`;
+            emojis.forEach(emoji => {
+                pickerHtml += `<div class="emoji-item" data-emoji="${emoji}">${emoji}</div>`;
+            });
+        }
+        emojiPicker.innerHTML = pickerHtml;
+
+        // 切换显示
+        emojiTrigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            emojiPicker.classList.toggle('show');
+        });
+
+        // 点击其他地方关闭
+        document.addEventListener('click', function() {
+            emojiPicker.classList.remove('show');
+        });
+
+        // 阻止点击picker内部时关闭
+        emojiPicker.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        // 选择表情
+        emojiPicker.querySelectorAll('.emoji-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const emoji = this.getAttribute('data-emoji');
+                selectEmoji(emoji);
+                emojiPicker.classList.remove('show');
+            });
+        });
+
+        function selectEmoji(emoji) {
+            if (emoji === 'custom') {
+                selectedEmojiInput.value = 'custom';
+                currentEmojiDisplay.innerHTML = '<span style="color:#666">自定义图标</span>';
+                // 如果切换回自定义，且当前是emoji路径，则清空
+                if (iconPathInput.value.startsWith('emoji:')) {
+                    iconPathInput.value = '';
+                }
+            } else {
+                selectedEmojiInput.value = emoji;
+                currentEmojiDisplay.innerHTML = `<span class="current-emoji">${emoji}</span> ${emoji}`;
+                iconPathInput.value = 'emoji:' + emoji;
+            }
+        }
+
+        // 初始值处理
+        const initialIconPath = iconPathInput.value;
+        if (initialIconPath.startsWith('emoji:')) {
+            const emoji = initialIconPath.substring(6);
+            selectEmoji(emoji);
+        } else {
+            selectEmoji('custom');
+        }
+
+        // 图标路径输入变更事件
+        iconPathInput.addEventListener('input', function() {
+            if (!this.value.startsWith('emoji:')) {
+                selectedEmojiInput.value = 'custom';
+                currentEmojiDisplay.innerHTML = '<span style="color:#666">自定义图标</span>';
+            } else {
+                // 如果用户手动输入emoji:开头的路径
+                const emoji = this.value.substring(6);
+                if (emoji) {
+                     selectedEmojiInput.value = emoji;
+                     currentEmojiDisplay.innerHTML = `<span class="current-emoji">${emoji}</span> ${emoji}`;
+                }
+            }
+        });
+
+        function onSave() {
+            const name = document.getElementById('name').value;
+            const path = document.getElementById('path').value;
+            const comment = document.getElementById('comment').value;
+            const iconPath = document.getElementById('icon-path').value;
+            const index = document.getElementById('shortcut-index').value;
+            const isAddMode = document.getElementById('is-add-mode').value === '1';
+            
+            if (!name || !path) {
+                alert('名称和目标路径不能为空！');
+                return;
+            }
+            
+            const data = {
+                type: 'saveShortcut',
+                index: parseInt(index),
+                isAddMode: isAddMode,
+                name: name,
+                path: path,
+                comment: comment,
+                iconPath: iconPath
+            };
+            
+            // Send to WebView2
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify(data));
+            } else {
+                console.log("WebView2 not detected, data:", data);
+            }
+        }
+
+        function onCancel() {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({
+                    type: 'cancelShortcutEdit'
+                }));
+            }
+        }
+    </script>
+</body>
+</html>

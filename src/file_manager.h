@@ -19,6 +19,9 @@ struct FileSearchResult
     int matchScore;           // 匹配度分数（0-100）
 };
 
+// 全局变量声明
+extern std::vector<FileSearchResult> g_fileSearchResults;
+
 // 外部函数声明（在gui_main.cpp中定义）
 extern void UpdateListViewColumns();
 extern void ClearListView();

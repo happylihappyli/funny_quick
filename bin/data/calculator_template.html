@@ -45,8 +45,45 @@ function hideDropdown() {
   let menu = document.getElementById('actionMenu');
   menu.classList.remove('show');
 }
+function deleteHistory(index, e) {
+  if (e) e.stopPropagation();
+  
+  // 获取记录内容
+  let rows = document.querySelectorAll('tr.history-row');
+  let row = rows[index];
+  let expr = row.querySelector('td:nth-child(1)').textContent;
+  let result = row.querySelector('td:nth-child(2)').textContent;
+  
+  if (confirm('确定要删除这条记录吗？\n\n表达式: ' + expr + '\n结果: ' + result)) {
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.postMessage(JSON.stringify({type:'calcAction', action:'delete', index:index}));
+    }
+  }
+}
+function openFormulaManager() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'calcAction', action:'openFormulaManager'}));
+  }
+}
 function handleAction(action) {
   hideDropdown();
+  if (action === 'delete') {
+    if (selectedHistoryIndex === -1) {
+      alert('请先选择一条记录');
+      return;
+    }
+    
+    // 获取记录内容
+    let rows = document.querySelectorAll('tr.history-row');
+    let row = rows[selectedHistoryIndex];
+    let expr = row.querySelector('td:nth-child(1)').textContent;
+    let result = row.querySelector('td:nth-child(2)').textContent;
+    
+    if (!confirm('确定要删除选中的记录吗？\n\n表达式: ' + expr + '\n结果: ' + result)) return;
+  }
+  if (action === 'clearAll') {
+    if (!confirm('确定要清空所有历史记录吗？')) return;
+  }
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({type:'calcAction', action:action, index:selectedHistoryIndex}));
   }
@@ -60,8 +97,9 @@ document.addEventListener('click', function(e) {
 </head>
 <body>
 <div class='mode-banner'>
-<span>🧮 计算模式 (js) · 输入表达式并按回车即可计算</span>
+<span>🧮 科学计算器</span>
 <div class='action-button-container' style='position: relative;'>
+<button class='action-button' onclick='openFormulaManager()' style='margin-right: 8px;'>管理公式</button>
 <button class='action-button' onclick='toggleDropdown()'>操作 ▼</button>
 <div class='dropdown-menu' id='actionMenu'>
 <div class='dropdown-menu-item' onclick='handleAction("copy")'>复制选中项</div>

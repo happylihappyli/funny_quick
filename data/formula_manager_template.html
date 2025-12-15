@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>公式管理</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            user-select: none;
+        }
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #555;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .action-cell {
+            white-space: nowrap;
+            width: 120px;
+        }
+        .edit-btn, .delete-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .edit-btn {
+            background-color: #f39c12;
+            color: white;
+        }
+        .edit-btn:hover {
+            background-color: #d68910;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 560px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .modal-footer {
+            text-align: right;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>
+        公式管理
+        <div class="header-buttons">
+            <button class="btn btn-primary" onclick="showAddModal()">添加公式</button>
+            <button class="btn btn-secondary" onclick="closeManager()">返回计算器</button>
+        </div>
+    </h2>
+
+    <!-- FORMULA_TABLE_PLACEHOLDER -->
+
+    <!-- Add/Edit Modal -->
+    <div id="formulaModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">添加公式</h3>
+            <div class="form-group">
+                <label for="formulaName">名称</label>
+                <input type="text" id="formulaName" placeholder="例如: 平方">
+            </div>
+            <div class="form-group">
+                <label for="formulaExpression">表达式（建议使用函数形式）</label>
+                <textarea id="formulaExpression" rows="8" placeholder="例如: function(x, y) { return x * y; } 或 (x, y) => x * y" style="font-family: Consolas, 'Courier New', monospace;"></textarea>
+            </div>
+            <div class="form-group" style="display:flex; gap:8px; align-items:center;">
+                <label style="min-width:60px;">示例</label>
+                <select id="exampleSelect" style="flex:1;">
+                    <option value="">请选择示例模板</option>
+                    <option value="square">平方函数</option>
+                    <option value="rect">矩形面积</option>
+                    <option value="pow">幂函数</option>
+                    <option value="fib">斐波那契</option>
+                </select>
+                <button class="btn btn-secondary" onclick="applyExample()">应用示例</button>
+            </div>
+            <div class="form-group">
+                <label for="formulaDescription">描述</label>
+                <textarea id="formulaDescription" rows="4" placeholder="公式用途描述..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveFormula()">保存</button>
+            </div>
+            </div>
+        </div>
+
+        <script>
+        let isEditing = false;
+        let originalName = "";
+        let editingIndex = -1;
+
+        function closeManager() {
+            window.chrome.webview.postMessage(JSON.stringify({
+                type: 'formulaManagerAction',
+                action: 'closeFormulaManager'
+            }));
+        }
+
+        function showAddModal() {
+            isEditing = false;
+            editingIndex = -1;
+            document.getElementById('modalTitle').innerText = '添加公式';
+            document.getElementById('formulaName').value = '';
+            document.getElementById('formulaName').disabled = false;
+            document.getElementById('formulaExpression').value = '';
+            document.getElementById('formulaDescription').value = '';
+            document.getElementById('formulaModal').style.display = 'flex';
+        }
+
+        function editFormula(index) {
+            if (!window.g_formulaData || !window.g_formulaData[index]) return;
+            const f = window.g_formulaData[index];
+            
+            isEditing = true;
+            editingIndex = index;
+            originalName = f.name;
+            document.getElementById('modalTitle').innerText = '编辑公式';
+            document.getElementById('formulaName').value = f.name;
+            document.getElementById('formulaExpression').value = f.expression;
+            document.getElementById('formulaDescription').value = f.description;
+            document.getElementById('formulaModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('formulaModal').style.display = 'none';
+        }
+
+        const examples = {
+            '': { name: '', expr: '', desc: '' },
+            'square': { name: 'square', expr: 'function(x) { return x * x; }', desc: '平方函数：返回 x 的平方' },
+            'rect': { name: 'rect', expr: 'function(w, h) { return w * h; }', desc: '矩形面积：w×h' },
+            'pow': { name: 'pow', expr: '(x, y) => Math.pow(x, y)', desc: '幂函数：x 的 y 次幂' },
+            'fib': { name: 'fib', expr: 'function(n){ let a=0,b=1; for(let i=0;i<n;i++){ [a,b]=[b,a+b]; } return a; }', desc: '斐波那契数列第 n 项' }
+        };
+
+        function applyExample() {
+            const key = document.getElementById('exampleSelect').value;
+            const ex = examples[key];
+            if (!ex) return;
+            if (!document.getElementById('formulaName').value.trim()) {
+                document.getElementById('formulaName').value = ex.name;
+            }
+            document.getElementById('formulaExpression').value = ex.expr;
+            document.getElementById('formulaDescription').value = ex.desc;
+        }
+
+        function saveFormula() {
+            const name = document.getElementById('formulaName').value.trim();
+            const expression = document.getElementById('formulaExpression').value.trim();
+            const description = document.getElementById('formulaDescription').value.trim();
+
+            if (!name || !expression) {
+                alert('名称和表达式不能为空');
+                return;
+            }
+
+            // Simple validation, allow any expression that might be valid JS
+            // const funcLike = expression.startsWith('function') || expression.includes('=>');
+            
+            const action = isEditing ? 'editFormula' : 'addFormula';
+            const data = {
+                type: 'formulaManagerAction',
+                action: action,
+                name: name,
+                expression: expression,
+                description: description
+            };
+
+            if (isEditing) {
+                data.index = editingIndex;
+            }
+
+            window.chrome.webview.postMessage(JSON.stringify(data));
+            closeModal();
+        }
+
+        function deleteFormula(index) {
+            window.chrome.webview.postMessage(JSON.stringify({
+                type: 'formulaManagerAction',
+                action: 'deleteFormula',
+                index: index
+            }));
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('formulaModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

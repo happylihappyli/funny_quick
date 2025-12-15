@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>编辑快捷方式</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.dialog-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 600px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.dialog-header {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    padding: 20px 30px;
+    text-align: center;
+    position: relative;
+}
+.dialog-header h2 { font-size: 22px; font-weight: 600; margin-bottom: 5px; }
+.dialog-header p { opacity: 0.9; font-size: 13px; }
+.close-btn {
+    position: absolute; top: 15px; right: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none; color: white;
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s ease;
+}
+.close-btn:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.1); }
+.dialog-body { padding: 25px 30px; }
+.form-group { margin-bottom: 20px; position: relative; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #2d3748; font-size: 13px; }
+.form-input {
+    width: 100%; padding: 10px 14px;
+    border: 2px solid #e2e8f0; border-radius: 8px;
+    font-size: 14px; transition: all 0.3s ease;
+    background: #f8fafc;
+}
+.form-input:focus { border-color: #667eea; background: white; outline: none; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+.input-group { display: flex; gap: 8px; }
+.browse-btn {
+    padding: 0 15px; white-space: nowrap;
+    background: #edf2f7; color: #4a5568;
+    border: none; border-radius: 8px;
+    font-weight: 600; cursor: pointer;
+    font-size: 13px; transition: all 0.2s;
+    display: flex; align-items: center;
+}
+.browse-btn:hover { background: #e2e8f0; color: #2d3748; }
+.btn-group { display: flex; justify-content: flex-end; gap: 15px; margin-top: 30px; }
+.btn {
+    padding: 10px 24px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all 0.3s ease;
+}
+.btn-cancel { background: #e2e8f0; color: #4a5568; }
+.btn-cancel:hover { background: #cbd5e0; transform: translateY(-1px); }
+.btn-save {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; box-shadow: 0 4px 12px rgba(118, 75, 162, 0.3);
+}
+.btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(118, 75, 162, 0.4); }
+</style>
+<script>
+let mode = 'add'; // 'add' or 'edit'
+let currentIndex = -1;
+
+function init(action, index, name, path, comment, iconPath) {
+    mode = action;
+    currentIndex = index;
+    
+    document.getElementById('dialogTitle').textContent = (mode === 'add' ? '添加' : '编辑') + '快捷方式';
+    document.getElementById('dialogDesc').textContent = mode === 'add' ? '创建一个新的快捷方式' : '修改现有的快捷方式信息';
+    document.getElementById('saveBtn').textContent = mode === 'add' ? '添加' : '保存';
+    
+    if (name) document.getElementById('name').value = name;
+    if (path) document.getElementById('path').value = path;
+    if (comment) document.getElementById('comment').value = comment;
+    if (iconPath) document.getElementById('iconPath').value = iconPath;
+    
+    document.getElementById('name').focus();
+}
+
+function closeDialog() {
+    window.chrome.webview.postMessage(JSON.stringify({type:'shortcutDialogAction', action:'cancel'}));
+}
+
+function browseFile() {
+    window.chrome.webview.postMessage(JSON.stringify({type:'shortcutDialogAction', action:'browseFile'}));
+}
+
+function browseFolder() {
+    window.chrome.webview.postMessage(JSON.stringify({type:'shortcutDialogAction', action:'browseFolder'}));
+}
+
+function browseIcon() {
+    window.chrome.webview.postMessage(JSON.stringify({type:'shortcutDialogAction', action:'browseIcon'}));
+}
+
+function save() {
+    const name = document.getElementById('name').value.trim();
+    const path = document.getElementById('path').value.trim();
+    const comment = document.getElementById('comment').value.trim();
+    const iconPath = document.getElementById('iconPath').value.trim();
+    
+    if (!name) {
+        alert('请输入名称');
+        document.getElementById('name').focus();
+        return;
+    }
+    
+    if (!path) {
+        alert('请输入路径或网址');
+        document.getElementById('path').focus();
+        return;
+    }
+    
+    const data = {
+        type: 'shortcutDialogAction',
+        action: 'save',
+        mode: mode,
+        index: currentIndex,
+        name: name,
+        path: path,
+        comment: comment,
+        iconPath: iconPath
+    };
+    
+    window.chrome.webview.postMessage(JSON.stringify(data));
+}
+
+// 接收来自C++的消息
+window.chrome.webview.addEventListener('message', event => {
+    const msg = event.data;
+    if (msg.type === 'updatePath') {
+        document.getElementById('path').value = msg.path;
+    } else if (msg.type === 'updateIconPath') {
+        document.getElementById('iconPath').value = msg.path;
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDialog();
+    if (e.key === 'Enter' && !e.shiftKey) save();
+});
+</script>
+</head>
+<body>
+<div class='dialog-container'>
+    <div class='dialog-header'>
+        <button class='close-btn' onclick='closeDialog()'>×</button>
+        <h2 id='dialogTitle'>编辑快捷方式</h2>
+        <p id='dialogDesc'>修改快捷方式信息</p>
+    </div>
+    <div class='dialog-body'>
+        <div class='form-group'>
+            <label for='name'>名称</label>
+            <input type='text' id='name' class='form-input' placeholder='快捷方式显示的名称' autocomplete='off'>
+        </div>
+        <div class='form-group'>
+            <label for='path'>路径 / 网址</label>
+            <div class='input-group'>
+                <input type='text' id='path' class='form-input' placeholder='文件路径、文件夹路径或网址(http://...)' autocomplete='off'>
+                <button class='browse-btn' onclick='browseFile()'>选文件</button>
+                <button class='browse-btn' onclick='browseFolder()'>选目录</button>
+            </div>
+        </div>
+        <div class='form-group'>
+            <label for='comment'>备注 (可选)</label>
+            <input type='text' id='comment' class='form-input' placeholder='搜索时的关键词或描述' autocomplete='off'>
+        </div>
+        <div class='form-group'>
+            <label for='iconPath'>图标路径 (可选)</label>
+            <div class='input-group'>
+                <input type='text' id='iconPath' class='form-input' placeholder='exe/dll/ico文件路径，支持 emoji:🔥 格式' autocomplete='off'>
+                <button class='browse-btn' onclick='browseIcon()'>选图标</button>
+            </div>
+        </div>
+        <div class='btn-group'>
+            <button class='btn btn-cancel' onclick='closeDialog()'>取消</button>
+            <button class='btn btn-save' id='saveBtn' onclick='save()'>保存</button>
+        </div>
+    </div>
+</div>
+</body>
+</html>

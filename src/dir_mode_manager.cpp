@@ -447,20 +447,33 @@ std::wstring GenerateQuickShortcutsHtml()
  */
 void UpdateDirModeWebView()
 {
+    g_currentViewMode = ViewMode::DIR_MODE;
     if (!g_webView)
     {
         LogToFile("UpdateDirModeWebView: WebView2 未初始化，无法显示目录浏览");
         return;
     }
     
-    // 读取HTML模板文件
-    std::wstring htmlTemplate = ReadHtmlTemplate(L"data/dir_mode_template.html");
-    if (htmlTemplate.empty())
+    // 使用缓存
+    if (!g_dirModeHtmlCached)
     {
-        LogToFile("UpdateDirModeWebView: 无法读取HTML模板，使用默认HTML");
-        // 如果读取失败，使用默认的HTML内容
-        htmlTemplate = L"<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body { font-family: 'Microsoft YaHei UI', sans-serif; margin: 0; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #f5f8ff; }</style></head><body><div>无法加载目录浏览界面</div></body></html>";
+        // 读取HTML模板文件
+        g_cachedDirModeHtml = ReadHtmlTemplate(L"data/dir_mode_template.html");
+        
+        if (g_cachedDirModeHtml.empty())
+        {
+            LogToFile("UpdateDirModeWebView: 模板文件读取失败 (data/dir_mode_template.html)");
+            std::wstring errorHtml = L"<html><body><h3 style='color:red;'>错误：无法加载目录模式模板文件 (data/dir_mode_template.html)</h3><p>请检查 data 目录下的模板文件是否存在。</p></body></html>";
+            UpdateWebView2Content(errorHtml.c_str());
+            return;
+        }
+        
+        g_dirModeHtmlCached = true;
+        LogToFile("UpdateDirModeWebView: 模板文件已缓存");
     }
+    
+    // 使用缓存的模板
+    std::wstring htmlTemplate = g_cachedDirModeHtml;
     
     // 生成动态内容
     std::wstring drivesHtml = GenerateDrivesHtml();

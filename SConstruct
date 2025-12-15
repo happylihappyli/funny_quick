@@ -36,7 +36,7 @@ def show_compilation_time(message="编译开始"):
         print(f"编译耗时: {duration.total_seconds():.2f}秒")
         
         # 播放编译完成的TTS提示
-        play_compilation_tts("编译已完成，任务运行完毕，过来看看！")
+        play_compilation_tts("编译已完成，任务运行完毕，可以测试 快捷方式管理器！")
     elif message == "编译开始":
         # 播放编译开始的TTS提示
         play_compilation_tts("开始编译项目")
@@ -78,25 +78,43 @@ def ensure_obj_directory():
 # Windows环境特殊设置
 if os.name == 'nt':
     # WebView2 路径配置
-    webview2_sdk_path = r'C:\Users\happyli\.nuget\packages\microsoft.web.webview2\1.0.3405.78'
+    webview2_sdk_path = os.path.abspath(r'packages\microsoft.web.webview2\1.0.3405.78')
     webview2_include = os.path.join(webview2_sdk_path, 'build', 'native', 'include')
     webview2_lib_x64 = os.path.join(webview2_sdk_path, 'build', 'native', 'x64')
 
     # Clang 环境特殊设置
-    env.Append(CXXFLAGS=['-std=c++17', '-Wall', '-Wextra', '-g', '-D_CRT_SECURE_NO_WARNINGS', '-DIDI_APP_ICON=1001'])
+    env.Append(CXXFLAGS=['-std=c++2b', '-Wall', '-Wextra', '-g', '-D_CRT_SECURE_NO_WARNINGS', '-DIDI_APP_ICON=1001'])
     env.Append(LINKFLAGS=['-mwindows'])
     env.Append(CPPPATH=['src', '.', webview2_include])
     env.Append(LIBPATH=[webview2_lib_x64])
-    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32', 'WebView2LoaderStatic'])
+    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32', 'comdlg32', 'WebView2LoaderStatic'])
     print("Clang 编译器配置成功")
 
 # 源文件
-sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp', 'src/file_manager.cpp', 'src/file_search_manager.cpp']
+sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp', 'src/file_manager.cpp', 'src/file_search_manager.cpp', 'src/ui_helpers.cpp', 'src/tray_icon_manager.cpp', 'src/command_processor.cpp']
 
 # 资源文件
 if os.name == 'nt':
-    resource_files = []
-    print("警告: 资源编译器不可用，跳过资源文件构建")
+    # 尝试查找资源编译器
+    try:
+        # 优先使用 llvm-rc
+        env['RC'] = 'llvm-rc'
+        # 尝试添加代码页参数 /c 65001
+        env['RCFLAGS'] = ['/c', '65001'] 
+        
+        # 定义资源文件构建规则
+        # 注意: /FO 参数必须紧跟输出文件名，所以在 action 中显式指定
+        rc_builder = Builder(action='$RC $RCFLAGS /FO $TARGET $SOURCE',
+                             suffix='.res',
+                             src_suffix='.rc')
+        env.Append(BUILDERS={'Resource': rc_builder})
+        
+        # 这里只添加文件名，后续循环会处理构建
+        resource_files = ['resource.rc']
+        print("已添加资源文件构建 (使用 llvm-rc)")
+    except Exception as e:
+        print(f"资源构建配置出错: {e}")
+        resource_files = []
 else:
     resource_files = []
 
@@ -160,16 +178,18 @@ def copy_html_templates():
         print(f"已创建data目录: {os.path.abspath(data_dir)}")
     
     # 复制dir_mode_template.html
-    html_source = 'data/dir_mode_template.html'
-    if os.path.exists(html_source):
-        html_target = os.path.join(data_dir, 'dir_mode_template.html')
-        # 使用env.Command创建复制任务
-        html_copy = env.Command(html_target, html_source, Copy('$TARGET', '$SOURCE'))
-        # 确保HTML复制在构建时执行
-        env.Depends(executable, html_copy)
-        print("将复制HTML模板文件到bin/data目录")
-    else:
-        print(f"警告：未找到HTML模板文件: {html_source}")
+    html_files = ['dir_mode_template.html', 'webview_template.html', 'shortcut_edit_template.html', 'calculator_template.html']
+    for html_file in html_files:
+        html_source = os.path.join('data', html_file)
+        if os.path.exists(html_source):
+            html_target = os.path.join(data_dir, html_file)
+            # 使用env.Command创建复制任务
+            html_copy = env.Command(html_target, html_source, Copy('$TARGET', '$SOURCE'))
+            # 确保HTML复制在构建时执行
+            env.Depends(executable, html_copy)
+            print(f"将复制 {html_file} 到bin/data目录")
+        else:
+            print(f"警告：未找到HTML模板文件: {html_source}")
 
 # 执行HTML模板复制
 copy_html_templates()

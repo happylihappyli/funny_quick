@@ -31,12 +31,19 @@ function onAddClick() {
   }
 }
 let selectedIndex = -1;
+let isEditing = false; // Flag to prevent row click when clicking edit button
+
 function selectRow(index) {
   let rows = document.querySelectorAll('tr.item-row');
   rows.forEach((r, i) => r.classList.toggle('selected', i === index));
   selectedIndex = index;
 }
 function onRowClick(index, event) {
+  // Defensive check using the flag
+  if (isEditing) {
+    return;
+  }
+
   // Prevent row click if triggered by edit button (defensive check)
   var evt = event || window.event;
   if (evt) {
@@ -64,6 +71,10 @@ function onRowDblClick(index) {
   }
 }
 function onEditClick(index, event) {
+  isEditing = true;
+  // Reset the flag after a short delay
+  setTimeout(function() { isEditing = false; }, 300);
+
   var evt = event || window.event;
   if (evt) {
     evt.stopPropagation(); // 阻止事件冒泡，避免触发行点击
@@ -75,6 +86,26 @@ function onEditClick(index, event) {
   }
   return false;
 }
+
+// Global click handler for row delegation
+document.addEventListener('click', function(event) {
+  if (isEditing) return;
+
+  var target = event.target;
+  var row = target.closest('tr.item-row');
+  
+  // If clicked on a row and NOT on a button inside it
+  if (row && !target.closest('.edit-button') && !target.closest('button')) {
+    var index = parseInt(row.getAttribute('data-index'));
+    if (!isNaN(index)) {
+      selectRow(index);
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({type:'itemClick', index:index}));
+      }
+    }
+  }
+});
+
 </script>
 </head>
 <body>

@@ -14,15 +14,52 @@ td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
 tr:hover { background: #f0f7ff; cursor: pointer; }
 tr.selected { background: #e3f2fd; }
 tr.empty-row td { text-align: center; color: #777; font-style: italic; }
+.item-icon { width: 24px; height: 24px; margin-right: 8px; vertical-align: middle; object-fit: contain; border-radius: 4px; }
+.item-icon[data-type="system"] { width: 24px; height: 24px; background: linear-gradient(135deg, #4a90e2, #357abd); border-radius: 4px; text-align: center; line-height: 24px; font-size: 14px; color: white; }
+.item-name { display: flex; align-items: center; }
+.edit-button { background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 8px; }
+.edit-button:hover { background: #1976D2; }
+.add-button { background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s; }
+.add-button:hover { background: #45a049; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+.add-button:active { transform: translateY(0); box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+.banner-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 </style>
 <script>
+function onAddClick() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'addShortcut'}));
+  }
+}
 let selectedIndex = -1;
+let isEditing = false; // Flag to prevent row click when clicking edit button
+
 function selectRow(index) {
   let rows = document.querySelectorAll('tr.item-row');
   rows.forEach((r, i) => r.classList.toggle('selected', i === index));
   selectedIndex = index;
 }
-function onRowClick(index) {
+function onRowClick(index, event) {
+  // Defensive check using the flag
+  if (isEditing) {
+    return;
+  }
+
+  // Prevent row click if triggered by edit button (defensive check)
+  var evt = event || window.event;
+  if (evt) {
+    var target = evt.target || evt.srcElement;
+    // Check if target is the edit button or inside it
+    // Handle text nodes by getting parent element
+    if (target.nodeType === 3) target = target.parentNode;
+    
+    if (target && target.closest && target.closest('.edit-button')) {
+      return;
+    }
+    if (target && target.classList && target.classList.contains('edit-button')) {
+      return;
+    }
+  }
+
   selectRow(index);
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({type:'itemClick', index:index}));
@@ -33,13 +70,49 @@ function onRowDblClick(index) {
     window.chrome.webview.postMessage(JSON.stringify({type:'itemDblClick', index:index}));
   }
 }
+function onEditClick(index, event) {
+  isEditing = true;
+  // Reset the flag after a short delay
+  setTimeout(function() { isEditing = false; }, 300);
+
+  var evt = event || window.event;
+  if (evt) {
+    evt.stopPropagation(); // 阻止事件冒泡，避免触发行点击
+    evt.cancelBubble = true;
+    evt.preventDefault();
+  }
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'editItem', index:index}));
+  }
+  return false;
+}
+
+// Global click handler for row delegation
+document.addEventListener('click', function(event) {
+  if (isEditing) return;
+
+  var target = event.target;
+  var row = target.closest('tr.item-row');
+  
+  // If clicked on a row and NOT on a button inside it
+  if (row && !target.closest('.edit-button') && !target.closest('button')) {
+    var index = parseInt(row.getAttribute('data-index'));
+    if (!isNaN(index)) {
+      selectRow(index);
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({type:'itemClick', index:index}));
+      }
+    }
+  }
+});
+
 </script>
 </head>
 <body>
 <!-- HINTS_PLACEHOLDER -->
 <table>
 <thead>
-<tr><th>名称</th><th>路径</th></tr>
+<tr><th>名称</th><th>备注</th><th>操作</th></tr>
 </thead>
 <tbody>
 <!-- ITEMS_PLACEHOLDER -->

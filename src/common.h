@@ -41,6 +41,27 @@ extern std::wstring g_cachedHelpHtml;  // 缓存的帮助信息HTML
 extern std::wstring g_cachedSettingsHtml;  // 缓存的设置菜单HTML
 extern bool g_helpHtmlCached;  // 帮助信息是否已缓存
 extern bool g_settingsHtmlCached;  // 设置菜单是否已缓存
+extern std::wstring g_cachedWebViewHtml;  // 缓存的快捷方式列表模板HTML
+extern bool g_webViewHtmlCached;  // 快捷方式列表模板是否已缓存
+extern std::wstring g_cachedCalculatorHtml;  // 缓存的计算器模板HTML
+extern bool g_calculatorHtmlCached;  // 计算器模板是否已缓存
+extern std::wstring g_cachedBasicUsageHtml;  // 缓存的基本用法模板HTML
+extern bool g_basicUsageHtmlCached;  // 基本用法模板是否已缓存
+extern std::wstring g_cachedFileModeHtml;  // 缓存的文件模式模板HTML
+extern bool g_fileModeHtmlCached;  // 文件模式模板是否已缓存
+extern std::wstring g_cachedDirModeHtml;  // 缓存的目录模式模板HTML
+extern bool g_dirModeHtmlCached;  // 目录模式模板是否已缓存
+extern std::wstring g_cachedAddBookmarkHtml;  // 缓存的添加书签对话框模板HTML
+extern bool g_addBookmarkHtmlCached;  // 添加书签对话框模板是否已缓存
+extern std::wstring g_cachedEditBookmarkHtml;  // 缓存的编辑书签对话框模板HTML
+extern bool g_editBookmarkHtmlCached;  // 编辑书签对话框模板是否已缓存
+extern std::wstring g_cachedBookmarkHtml;  // 缓存的书签模式模板HTML
+extern bool g_bookmarkHtmlCached;  // 书签模式模板是否已缓存
+extern std::wstring g_cachedShortcutEditHtml;  // 缓存的快捷方式编辑/添加模板HTML
+extern bool g_shortcutEditHtmlCached;  // 快捷方式编辑/添加模板是否已缓存
+extern std::wstring g_cachedFormulaManagerHtml;  // 缓存的公式管理模板HTML
+extern bool g_formulaManagerHtmlCached;  // 公式管理模板是否已缓存
+extern bool g_formulaManagerMode; // 公式管理模式标志
 
 // 书签管理相关全局变量声明
 extern std::vector<std::pair<std::wstring, std::wstring>> g_bookmarks;  // 网址收藏列表
@@ -77,6 +98,12 @@ extern WCHAR g_pendingFileSearchQuery[1024];  // 待处理的文件搜索查询
 #define ID_CALC_MENU_COPY_RESULT 1020
 #define ID_CALC_MENU_EXIT 1021
 #define IDC_CALC_MENU_BUTTON 1016  // 计算模式操作菜单按钮ID
+
+// 自定义消息通知码 (避免与系统定义的EN_SETFOCUS=0x0100冲突)
+#ifdef EN_RETURN
+#undef EN_RETURN
+#endif
+#define EN_RETURN 0x7000
 
 #ifndef EN_RETURN
 #define EN_RETURN 0x0100

@@ -70,6 +70,21 @@ namespace Microsoft {
 // 使用Microsoft命名空间
 using namespace Microsoft::WRL;
 
+// View Mode Enum
+enum class ViewMode {
+    NONE,
+    SHORTCUT_LIST,
+    SEARCH,
+    DIR_MODE,
+    FILE_SEARCH,
+    BOOKMARK,
+    CALCULATOR,
+    FORMULA_MANAGER,
+    FORMULA_WIZARD,
+    SETTINGS,
+    HELP
+};
+
 // WebView2相关全局变量声明（在webview_manager.cpp中定义）
 extern ComPtr<ICoreWebView2Environment> g_webViewEnvironment;
 extern ComPtr<ICoreWebView2Controller> g_webViewController;
@@ -78,9 +93,23 @@ extern HWND g_hWebView2;
 extern bool g_settingsMenuMode;
 extern std::set<std::wstring> g_expandedPaths;
 extern std::wstring g_currentDirPath;
+extern ViewMode g_currentViewMode;
+extern std::wstring g_lastSearchQuery;
 
 // WebView2初始化函数声明
 void InitializeWebView2(HWND hwnd);
+
+// 更新书签模式WebView显示
+void UpdateBookmarkModeWebView();
+
+// 更新公式管理模式WebView显示
+void UpdateFormulaManagerWebView();
+void EnterFormulaManagerMode();
+void ExitFormulaManagerMode();
+void EnterFormulaWizardMode(const std::wstring& formulaName);
+void ExitFormulaWizardMode();
+void InjectCustomFormulasToWebView();
+void EvaluateJSExpression(const std::wstring& expression);
 
 // 添加网址对话框函数声明
 void ShowSimpleAddBookmarkDialog();
@@ -95,9 +124,6 @@ void UpdateBookmarkModeWebView();
 // 简单输入框函数声明
 BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWSTR lpResult, int nResultSize);
 
-// 多行输入对话框函数声明
-BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, int nNameSize, int nPathSize, int nCommentSize);
-BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, LPWSTR lpIconPath, int shortcutType);
 
 // 编辑和删除书签函数声明
 void ShowEditBookmarkDialog(int index);
@@ -106,6 +132,7 @@ void ShowHtmlEditBookmarkDialog(int index);
 
 // 快捷方式编辑函数声明
 void ShowEditShortcutDialog(int index);
+void ShowHtmlShortcutDialog(int index = -1);
 // 快捷方式添加函数声明
 void ShowAddShortcutDialog();
 

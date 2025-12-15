@@ -15,11 +15,69 @@ struct CalculationRecord
     std::wstring comment;     // 备注
 };
 
+/**
+ * @brief 自定义公式结构体
+ */
+struct CustomFormula
+{
+    std::wstring name;        // 公式名称
+    std::wstring expression;  // 公式表达式
+    std::wstring description; // 公式描述
+};
+
 // 外部函数声明（在gui_main.cpp中定义）
 void UpdateListViewColumns();
 void ClearListView();
 void AddHintRowToListView(const WCHAR* hintText);
 void UpdateCalculatorModeWebView();
+
+// 自定义公式全局变量
+extern std::vector<CustomFormula> g_customFormulas;
+
+/**
+ * @brief 加载自定义公式
+ */
+void LoadCustomFormulas();
+
+/**
+ * @brief 保存自定义公式
+ */
+void SaveCustomFormulas();
+
+/**
+ * @brief 添加自定义公式
+ * @param name 名称
+ * @param expression 表达式
+ * @param description 描述
+ */
+void AddCustomFormula(const std::wstring& name, const std::wstring& expression, const std::wstring& description);
+
+/**
+ * @brief 删除自定义公式
+ * @param index 索引
+ */
+void DeleteCustomFormula(int index);
+
+/**
+ * @brief 删除自定义公式 (按名称)
+ * @param name 公式名称
+ */
+void DeleteCustomFormulaByName(const std::wstring& name);
+
+/**
+ * @brief 删除计算历史记录
+ * @param index 索引
+ */
+void DeleteCalculationHistory(int index);
+
+/**
+ * @brief 编辑自定义公式
+ * @param oldName 旧名称
+ * @param newName 新名称
+ * @param newExpression 新表达式
+ * @param newDescription 新描述
+ */
+void EditCustomFormula(const std::wstring& oldName, const std::wstring& newName, const std::wstring& newExpression, const std::wstring& newDescription);
 
 /**
  * @brief 表达式解析辅助函数 - 解析数字
@@ -65,6 +123,8 @@ std::wstring CalculateExpression(const std::wstring& expression);
  * @param expression 要评估的表达式
  */
 void EvaluateExpression(const WCHAR* expression);
+
+void OnCalculationResult(const std::wstring& expression, const std::wstring& result);
 
 /**
  * @brief 进入计算模式

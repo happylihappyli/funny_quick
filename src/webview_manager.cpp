@@ -9,7 +9,7 @@
 #include <shlobj.h>
 #include <fstream>
 #include <sstream>
-#include <codecvt>
+// #include <codecvt> // Removed deprecated header
 #include <commctrl.h>
 #include <imm.h> // 输入法支持
 
@@ -19,6 +19,251 @@
 
 // HTML模板读取函数声明
 std::wstring ReadHtmlTemplate(const std::wstring& filePath);
+
+void EnterFormulaWizardMode(const std::wstring& formulaName)
+{
+    if (!g_webView) return;
+
+    // Find formula
+    const CustomFormula* targetFormula = nullptr;
+    for (const auto& f : g_customFormulas) {
+        if (f.name == formulaName) {
+            targetFormula = &f;
+            break;
+        }
+    }
+
+    if (!targetFormula) {
+        MessageBoxW(g_hMainWindow, L"未找到该公式", L"错误", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    g_currentViewMode = ViewMode::FORMULA_WIZARD;
+
+    // Try to read custom template first
+    bool isCustom = false;
+    std::wstring htmlContent = ReadHtmlTemplate(L"bin\\data\\formulas\\" + formulaName + L".html");
+    if (!htmlContent.empty()) {
+        isCustom = true;
+    } else {
+        htmlContent = ReadHtmlTemplate(L"bin\\data\\formula_wizard_template.html");
+        if (htmlContent.empty()) {
+            htmlContent = L"<html><body><h1>Error: Could not load template</h1></body></html>";
+        }
+    }
+
+    // Replace placeholders
+    auto replaceAll = [](std::wstring& str, const std::wstring& from, const std::wstring& to) {
+        size_t start_pos = 0;
+        while((start_pos = str.find(from, start_pos)) != std::wstring::npos) {
+            str.replace(start_pos, from.length(), to);
+            start_pos += to.length();
+        }
+    };
+
+    replaceAll(htmlContent, L"{{FORMULA_NAME}}", targetFormula->name);
+    replaceAll(htmlContent, L"{{FORMULA_DESC}}", targetFormula->description);
+
+    // Generate inputs based on expression
+    // Simple heuristic: extract identifiers that are not math keywords
+    std::wstring inputsHtml;
+    if (!isCustom) {
+    std::wstring expr = targetFormula->expression;
+    
+    // Check if it's a JS function definition
+    bool isFunction = (expr.find(L"function") == 0 || expr.find(L"=>") != std::wstring::npos);
+    std::vector<std::wstring> params;
+
+    if (isFunction) {
+        // Try to parse function arguments: function(a,b) or (a,b)=>... or a=>...
+        size_t openParen = expr.find(L'(');
+        size_t closeParen = expr.find(L')');
+        if (openParen != std::wstring::npos && closeParen != std::wstring::npos && closeParen > openParen) {
+            std::wstring args = expr.substr(openParen + 1, closeParen - openParen - 1);
+            std::wstringstream ss(args);
+            std::wstring segment;
+            while(std::getline(ss, segment, L',')) {
+                // Trim whitespace
+                size_t first = segment.find_first_not_of(L" \t\n\r");
+                size_t last = segment.find_last_not_of(L" \t\n\r");
+                if (first != std::wstring::npos && last != std::wstring::npos) {
+                    params.push_back(segment.substr(first, (last - first + 1)));
+                }
+            }
+        }
+    } else {
+        // Scan for variables in simple expression
+        // Allow a-z, A-Z, _, then a-z, A-Z, 0-9, _
+        // Exclude common Math functions and constants
+        static const std::set<std::wstring> reserved = {
+            L"Math", L"sin", L"cos", L"tan", L"asin", L"acos", L"atan", L"sqrt", L"pow", L"abs", 
+            L"ceil", L"floor", L"round", L"max", L"min", L"random", L"PI", L"E", L"exp", L"log",
+            L"function", L"return", L"var", L"let", L"const", L"if", L"else"
+        };
+        
+        std::wstring currentToken;
+        for (size_t i = 0; i < expr.length(); ++i) {
+            wchar_t c = expr[i];
+            if (isalnum(c) || c == L'_') {
+                currentToken += c;
+            } else {
+                if (!currentToken.empty()) {
+                    if (!isdigit(currentToken[0]) && reserved.find(currentToken) == reserved.end()) {
+                        bool exists = false;
+                        for(const auto& p : params) if(p == currentToken) exists = true;
+                        if (!exists) params.push_back(currentToken);
+                    }
+                    currentToken.clear();
+                }
+            }
+        }
+        if (!currentToken.empty()) {
+            if (!isdigit(currentToken[0]) && reserved.find(currentToken) == reserved.end()) {
+                 bool exists = false;
+                 for(const auto& p : params) if(p == currentToken) exists = true;
+                 if (!exists) params.push_back(currentToken);
+            }
+        }
+    }
+
+    for (const auto& param : params) {
+        inputsHtml += L"<div class=\"input-group\">";
+        inputsHtml += L"<label>" + param + L"</label>";
+        inputsHtml += L"<input type=\"text\" placeholder=\"请输入 " + param + L"\" data-param=\"" + param + L"\">";
+        inputsHtml += L"</div>";
+    }
+
+    if (params.empty()) {
+        inputsHtml = L"<div class='desc'>此公式无需输入参数，请直接点击计算。</div>";
+    }
+
+    replaceAll(htmlContent, L"{{FORMULA_INPUTS}}", inputsHtml);
+    }
+    
+    // Add JS to map inputs back to expression args if needed
+    // The template uses generic input collection. 
+    // We need to inject the formula name so the template knows what to call.
+    // NOTE: formulaName is already replaced in the template via {{FORMULA_NAME}}
+    // So we don't need to inject it again, which causes variable redeclaration error.
+    // std::wstring script = L"<script>var formulaName = \"" + formulaName + L"\";</script>";
+    
+    // Inject custom formulas definitions so window.calculate works
+    std::wstring formulasJs = L"<script>window.g_formulas = {";
+    for (const auto& formula : g_customFormulas)
+    {
+        std::wstring name = formula.name;
+        std::wstring expr = formula.expression;
+        std::wstring desc = formula.description;
+        
+        auto escape = [](std::wstring s) {
+            std::wstring res;
+            for (wchar_t c : s) {
+                if (c == L'\\') res += L"\\\\";
+                else if (c == L'"') res += L"\\\"";
+                else if (c == L'\n') res += L"\\n";
+                else res += c;
+            }
+            return res;
+        };
+
+        formulasJs += L"\"" + escape(name) + L"\": { expr: \"" + escape(expr) + L"\", desc: \"" + escape(desc) + L"\" },";
+    }
+    formulasJs += L"};";
+    
+    formulasJs += L"window.calculate = function(expr) { "
+          L"  try { "
+          L"    let context = {}; \n"
+          L"    for (let key in window.g_formulas) { \n"
+          L"       let f = window.g_formulas[key]; \n"
+          L"       if (f.expr.trim().startsWith('function') || f.expr.includes('=>')) { \n"
+          L"           try { context[key] = eval('(' + f.expr + ')'); } catch(e){} \n"
+          L"       } \n"
+          L"    } \n"
+          L"    let run = function(code, ctx) { \n"
+          L"       with(Math) { with(ctx) { return eval(code); } } \n"
+          L"    }; \n"
+          L"    return run(expr, context); "
+          L"  } catch (e) { return 'Error: ' + e.message; } "
+          L"};</script>";
+          
+    // htmlContent += script;
+    htmlContent += formulasJs;
+
+    g_webView->NavigateToString(htmlContent.c_str());
+}
+
+void ExitFormulaWizardMode()
+{
+    g_currentViewMode = ViewMode::CALCULATOR;
+    UpdateCalculatorModeWebView();
+}
+
+void InjectCustomFormulasToWebView()
+{
+    if (!g_webView) return;
+
+    std::wstring js = L"window.g_formulas = {";
+    for (const auto& formula : g_customFormulas)
+    {
+        std::wstring name = formula.name;
+        std::wstring expr = formula.expression;
+        std::wstring desc = formula.description;
+        
+        auto escape = [](std::wstring s) {
+            std::wstring res;
+            for (wchar_t c : s) {
+                if (c == L'\\') res += L"\\\\";
+                else if (c == L'"') res += L"\\\"";
+                else if (c == L'\n') res += L"\\n";
+                else res += c;
+            }
+            return res;
+        };
+
+        js += L"\"" + escape(name) + L"\": { expr: \"" + escape(expr) + L"\", desc: \"" + escape(desc) + L"\" },";
+    }
+    js += L"};";
+    
+    js += L"window.calculate = function(expr) { "
+          L"  try { "
+          L"    let context = {}; \n"
+          L"    for (let key in window.g_formulas) { \n"
+          L"       let f = window.g_formulas[key]; \n"
+          L"       if (f.expr.trim().startsWith('function') || f.expr.includes('=>')) { \n"
+          L"           try { context[key] = eval('(' + f.expr + ')'); } catch(e){} \n"
+          L"       } \n"
+          L"    } \n"
+          L"    let run = function(code, ctx) { \n"
+          L"       with(Math) { with(ctx) { return eval(code); } } \n"
+          L"    }; \n"
+          L"    return run(expr, context); "
+          L"  } catch (e) { return 'Error: ' + e.message; } "
+          L"};";
+
+    g_webView->ExecuteScript(js.c_str(), nullptr);
+}
+
+void EvaluateJSExpression(const std::wstring& expression)
+{
+    if (!g_webView) return;
+
+    std::wstring escapedExpr;
+    for (wchar_t c : expression) {
+        if (c == L'\\') escapedExpr += L"\\\\";
+        else if (c == L'"') escapedExpr += L"\\\"";
+        else escapedExpr += c;
+    }
+
+    std::wstring script = L"try { "
+                          L"  let res = window.calculate ? window.calculate(\"" + escapedExpr + L"\") : eval(\"" + escapedExpr + L"\"); "
+                          L"  window.chrome.webview.postMessage(JSON.stringify({type: 'calcResult', expr: \"" + escapedExpr + L"\", result: '' + res})); "
+                          L"} catch (e) { "
+                          L"  window.chrome.webview.postMessage(JSON.stringify({type: 'calcResult', expr: \"" + escapedExpr + L"\", result: 'Error: ' + e.message})); "
+                          L"}";
+    
+    g_webView->ExecuteScript(script.c_str(), nullptr);
+}
+
 static void ProcessWebViewMessage(const std::wstring& msgStr);
 static void UpdateControllerBounds();
 static void UpdateInitialWebViewContent();
@@ -30,6 +275,7 @@ static void HandleDirMessage(const std::wstring& msgStr);
 static void HandleShortcutMessage(const std::wstring& msgStr);
 static int FindShortcutOriginalIndex(const ShortcutItem& item);
 static int FindBookmarkOriginalIndex(const std::pair<std::wstring, std::wstring>& b);
+static void HandleFormulaManagerMessage(const std::wstring& msgStr);
 
 // WebView2相关全局变量定义
 ComPtr<ICoreWebView2Environment> g_webViewEnvironment;
@@ -39,6 +285,8 @@ HWND g_hWebView2 = nullptr;
 bool g_settingsMenuMode = false;
 std::set<std::wstring> g_expandedPaths;
 std::wstring g_currentDirPath;
+ViewMode g_currentViewMode = ViewMode::NONE;
+std::wstring g_lastSearchQuery;
 
 /**
  * 初始化WebView2环境
@@ -161,6 +409,30 @@ static void ProcessWebViewMessage(const std::wstring& msgStr)
         HandleCalculatorMessage(msgStr);
         return;
     }
+    if (msgStr.find(L"\"type\":\"calcResult\"") != std::wstring::npos)
+    {
+        auto extract = [&](const std::wstring& key) -> std::wstring {
+            size_t pos = msgStr.find(L"\"" + key + L"\":\"");
+            if (pos != std::wstring::npos) {
+                pos += key.length() + 4;
+                size_t end = msgStr.find(L"\"", pos);
+                if (end != std::wstring::npos) {
+                    std::wstring val = msgStr.substr(pos, end - pos);
+                    size_t replacePos = 0;
+                    while ((replacePos = val.find(L"\\\\", replacePos)) != std::wstring::npos) {
+                        val.replace(replacePos, 2, L"\\");
+                        replacePos += 1;
+                    }
+                    return val;
+                }
+            }
+            return L"";
+        };
+        std::wstring expr = extract(L"expr");
+        std::wstring result = extract(L"result");
+        OnCalculationResult(expr, result);
+        return;
+    }
     if (msgStr.find(L"\"type\":\"settingsAction\"") != std::wstring::npos)
     {
         HandleSettingsMessage(msgStr);
@@ -194,6 +466,39 @@ static void ProcessWebViewMessage(const std::wstring& msgStr)
     if (msgStr.find(L"\"type\":\"openShortcut\"") != std::wstring::npos)
     {
         HandleShortcutMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"formulaManagerAction\"") != std::wstring::npos)
+    {
+        HandleFormulaManagerMessage(msgStr);
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"calculateFormula\"") != std::wstring::npos)
+    {
+        // Extract expression from message
+        size_t exprPos = msgStr.find(L"\"expression\":\"");
+        if (exprPos != std::wstring::npos)
+        {
+            size_t start = exprPos + 14;
+            size_t end = msgStr.find(L"\"", start);
+            if (end != std::wstring::npos)
+            {
+                std::wstring expr = msgStr.substr(start, end - start);
+                // Unescape
+                size_t replacePos = 0;
+                while ((replacePos = expr.find(L"\\\\", replacePos)) != std::wstring::npos) {
+                    expr.replace(replacePos, 2, L"\\");
+                    replacePos += 1;
+                }
+                
+                EvaluateJSExpression(expr);
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"closeWizard\"") != std::wstring::npos)
+    {
+        ExitFormulaWizardMode();
         return;
     }
 }
@@ -342,6 +647,10 @@ static void HandleCalculatorMessage(const std::wstring& msgStr)
             DisplayCalculationHistory();
             UpdateCalculatorModeWebView();
         }
+    }
+    else if (action == L"openFormulaManager")
+    {
+        EnterFormulaManagerMode();
     }
 }
 
@@ -816,6 +1125,10 @@ static void UpdateInitialWebViewContent()
     if (g_settingsMenuMode)
     {
         UpdateSettingsMenuWebView();
+    }
+    else if (g_currentViewMode == ViewMode::FORMULA_MANAGER)
+    {
+        UpdateFormulaManagerWebView();
     }
     else if (g_calculatorMode)
     {
@@ -2244,4 +2557,295 @@ void UpdateBookmarkModeWebView()
     char logMsg[200] = {0};
     sprintf(logMsg, "UpdateBookmarkModeWebView: 模板缺失，显示 %zu 条书签", displayBookmarks.size());
     LogToFile(logMsg);
+}
+
+// HTML转义函数
+static std::wstring EscapeHtmlAttribute(const std::wstring& str)
+{
+    std::wstring result;
+    for (wchar_t c : str)
+    {
+        switch (c)
+        {
+        case L'&': result += L"&amp;"; break;
+        case L'<': result += L"&lt;"; break;
+        case L'>': result += L"&gt;"; break;
+        case L'"': result += L"&quot;"; break;
+        case L'\'': result += L"&#39;"; break;
+        default: result += c;
+        }
+    }
+    return result;
+}
+
+// 显示HTML快捷方式编辑对话框
+void ShowHtmlShortcutDialog(int index)
+{
+    LogToFile("ShowHtmlShortcutDialog: 显示HTML快捷方式对话框");
+    
+    // 如果index为-1，表示添加模式；否则为编辑模式
+    bool isEdit = (index >= 0);
+    
+    // 读取HTML对话框模板
+    // 注意：这里我们复用edit_shortcut_dialog.html，如果需要区分可以创建add_shortcut_dialog.html
+    // 或者在同一个HTML中根据传入的数据动态调整标题
+    std::wstring dialogHtml = ReadHtmlTemplate(L"data/edit_shortcut_dialog.html");
+    if (dialogHtml.empty())
+    {
+        LogToFile("ShowHtmlShortcutDialog: 无法读取HTML对话框模板，使用原生对话框");
+        if (isEdit) ShowEditShortcutDialog(index);
+        else ShowAddShortcutDialog();
+        return;
+    }
+    
+    // 准备初始化数据
+    std::wstring name, path, comment, iconPath;
+    int type = 2; // 默认应用程序
+    int usageCount = 0;
+    
+    if (isEdit && index < (int)g_shortcuts.size())
+    {
+        const auto& item = g_shortcuts[index];
+        name = item.name;
+        path = item.path;
+        comment = item.comment;
+        iconPath = item.iconPath;
+        type = item.type;
+        usageCount = item.usageCount;
+    }
+    
+    // 注入数据到HTML
+    // 这里我们使用简单的字符串替换或JS注入
+    // 为了更稳健，我们使用JS注入
+    
+    size_t bodyPos = dialogHtml.find(L"<body>");
+    if (bodyPos != std::wstring::npos)
+    {
+        // 转义特殊字符
+        auto escapeJS = [](const std::wstring& s) {
+            std::wstring res = s;
+            size_t pos = 0;
+            while ((pos = res.find(L"\\", pos)) != std::wstring::npos) { res.replace(pos, 1, L"\\\\"); pos += 2; }
+            pos = 0;
+            while ((pos = res.find(L"'", pos)) != std::wstring::npos) { res.replace(pos, 1, L"\\'"); pos += 2; }
+            pos = 0;
+            while ((pos = res.find(L"\"", pos)) != std::wstring::npos) { res.replace(pos, 1, L"\\\""); pos += 2; }
+            return res;
+        };
+        
+        std::wstring script = L"<script>\n";
+        script += L"window.onload = function() {\n";
+        script += L"    if (window.initializeDialog) {\n";
+        script += L"        window.initializeDialog(" + 
+                  std::to_wstring(index) + L", '" + 
+                  escapeJS(name) + L"', '" + 
+                  escapeJS(path) + L"', '" + 
+                  escapeJS(comment) + L"', '" + 
+                  escapeJS(iconPath) + L"', " + 
+                  std::to_wstring(type) + L");\n";
+        script += L"    }\n";
+        script += L"};\n";
+        script += L"</script>\n";
+        
+        dialogHtml.insert(bodyPos + 6, script);
+    }
+    
+    UpdateWebView2Content(dialogHtml.c_str());
+}
+
+// 更新公式管理WebView
+void UpdateFormulaManagerWebView()
+{
+    LogToFile("UpdateFormulaManagerWebView: 更新公式管理界面");
+    
+    std::wstring tpl = ReadHtmlTemplate(L"data/formula_manager_template.html");
+    if (tpl.empty())
+    {
+        LogToFile("UpdateFormulaManagerWebView: 模板缺失");
+        UpdateWebView2Content(L"<!DOCTYPE html><html><body><h1>模板缺失: formula_manager_template.html</h1></body></html>");
+        return;
+    }
+    
+    // 生成 JSON 数据
+    auto escapeJson = [](const std::wstring& s) {
+        std::wstring res;
+        for (wchar_t c : s) {
+            if (c == L'\\') res += L"\\\\";
+            else if (c == L'"') res += L"\\\"";
+            else if (c == L'\n') res += L"\\n";
+            else if (c == L'\r') res += L"\\r";
+            else if (c == L'\t') res += L"\\t";
+            else res += c;
+        }
+        return res;
+    };
+
+    std::wstring jsonData = L"<script>window.g_formulaData = [";
+    for (const auto& f : g_customFormulas)
+    {
+        jsonData += L"{name: \"" + escapeJson(f.name) + L"\", expression: \"" + escapeJson(f.expression) + L"\", description: \"" + escapeJson(f.description) + L"\"},";
+    }
+    jsonData += L"];</script>";
+
+    // 生成公式表格
+    std::wstring table = L"<table id='formulaTable'><thead><tr><th>名称</th><th>表达式</th><th>描述</th><th>操作</th></tr></thead><tbody>";
+    
+    for (int i = 0; i < (int)g_customFormulas.size(); ++i)
+    {
+        const auto& f = g_customFormulas[i];
+        table += L"<tr>";
+        table += L"<td>" + EscapeHtmlAttribute(f.name) + L"</td>";
+        table += L"<td>" + EscapeHtmlAttribute(f.expression) + L"</td>";
+        table += L"<td>" + EscapeHtmlAttribute(f.description) + L"</td>";
+        table += L"<td>";
+        table += L"<button class='edit-btn' onclick=\"editFormula(" + std::to_wstring(i) + L")\">编辑</button>";
+        table += L"<button class='delete-btn' onclick=\"deleteFormula(" + std::to_wstring(i) + L")\">删除</button>";
+        table += L"</td>";
+        table += L"</tr>";
+    }
+    table += L"</tbody></table>";
+    
+    // 追加 JSON 数据到表格 HTML 后面
+    table += jsonData;
+    
+    // 替换占位符
+    const std::wstring placeholder = L"<!-- FORMULA_TABLE_PLACEHOLDER -->";
+    size_t p = tpl.find(placeholder);
+    if (p != std::wstring::npos)
+    {
+        tpl.replace(p, placeholder.size(), table);
+    }
+    else
+    {
+        // 如果找不到占位符，尝试插入到body中
+        size_t bodyEnd = tpl.find(L"</body>");
+        if (bodyEnd != std::wstring::npos)
+        {
+            tpl.insert(bodyEnd, table);
+        }
+    }
+    
+    UpdateWebView2Content(tpl.c_str());
+}
+
+// 进入公式管理模式
+void EnterFormulaManagerMode()
+{
+    LogToFile("EnterFormulaManagerMode: 进入公式管理模式");
+    g_currentViewMode = ViewMode::FORMULA_MANAGER;
+    UpdateFormulaManagerWebView();
+}
+
+// 退出公式管理模式
+void ExitFormulaManagerMode()
+{
+    LogToFile("ExitFormulaManagerMode: 退出公式管理模式");
+    // 返回到计算器模式
+    g_currentViewMode = ViewMode::CALCULATOR;
+    g_calculatorMode = true; // 确保布尔标志也更新
+    UpdateCalculatorModeWebView();
+}
+
+// 处理公式管理消息
+static void HandleFormulaManagerMessage(const std::wstring& msgStr)
+{
+    // 简单的JSON字段提取辅助lambda
+    auto extractField = [&](const std::wstring& json, const std::wstring& field) -> std::wstring {
+        size_t pos = json.find(L"\"" + field + L"\":\"");
+        if (pos == std::wstring::npos) return L"";
+        pos += field.length() + 4;
+        
+        size_t end = pos;
+        while (true) {
+            end = json.find(L"\"", end);
+            if (end == std::wstring::npos) return L"";
+            
+            // 检查是否转义
+            size_t backslashCount = 0;
+            size_t p = end;
+            while (p > pos && json[p - 1] == L'\\') {
+                backslashCount++;
+                p--;
+            }
+            
+            if (backslashCount % 2 == 0) break; // 偶数个反斜杠，说明引号未被转义
+            end++;
+        }
+        
+        std::wstring value = json.substr(pos, end - pos);
+        
+        // 处理转义字符
+        // 先处理 \" -> "
+        size_t replacePos = 0;
+        while ((replacePos = value.find(L"\\\"", replacePos)) != std::wstring::npos) {
+            value.replace(replacePos, 2, L"\"");
+            replacePos += 1;
+        }
+        // 再处理 \\ -> \ (注意顺序，其实应该一起处理或者用状态机，这里简化处理)
+        // 实际上标准的JSON反转义更复杂，这里暂且满足基本需求
+        replacePos = 0;
+        while ((replacePos = value.find(L"\\\\", replacePos)) != std::wstring::npos) {
+            value.replace(replacePos, 2, L"\\");
+            replacePos += 1;
+        }
+        
+        return value;
+    };
+    
+    auto extractInt = [&](const std::wstring& json, const std::wstring& field) -> int {
+        size_t pos = json.find(L"\"" + field + L"\":");
+        if (pos == std::wstring::npos) return -1;
+        pos += field.length() + 3;
+        size_t end = json.find(L",", pos);
+        if (end == std::wstring::npos) end = json.find(L"}", pos);
+        return _wtoi(json.substr(pos, end - pos).c_str());
+    };
+    
+    std::wstring action = extractField(msgStr, L"action");
+    
+    if (action == L"addFormula")
+    {
+        std::wstring name = extractField(msgStr, L"name");
+        std::wstring expr = extractField(msgStr, L"expression");
+        std::wstring desc = extractField(msgStr, L"description");
+        
+        if (!name.empty() && !expr.empty())
+        {
+            AddCustomFormula(name, expr, desc);
+            SaveCustomFormulas();
+            UpdateFormulaManagerWebView();
+        }
+    }
+    else if (action == L"editFormula")
+    {
+        int index = extractInt(msgStr, L"index");
+        std::wstring newName = extractField(msgStr, L"name");
+        std::wstring newExpr = extractField(msgStr, L"expression");
+        std::wstring newDesc = extractField(msgStr, L"description");
+        
+        if (index >= 0 && index < (int)g_customFormulas.size() && !newName.empty() && !newExpr.empty())
+        {
+            const auto& oldFormula = g_customFormulas[index];
+            EditCustomFormula(oldFormula.name, newName, newExpr, newDesc);
+            SaveCustomFormulas();
+            UpdateFormulaManagerWebView();
+        }
+    }
+    else if (action == L"deleteFormula")
+    {
+        int index = extractInt(msgStr, L"index");
+        if (index >= 0 && index < (int)g_customFormulas.size())
+        {
+            if (MessageBoxW(g_hMainWindow, L"确定要删除这个公式吗？", L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
+            {
+                DeleteCustomFormula(index);
+                SaveCustomFormulas();
+                UpdateFormulaManagerWebView();
+            }
+        }
+    }
+    else if (action == L"closeFormulaManager")
+    {
+        ExitFormulaManagerMode();
+    }
 }

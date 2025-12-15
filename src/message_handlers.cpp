@@ -90,6 +90,20 @@ void HandleCalculatorMenuButton(HWND hwnd)
                 MessageBoxW(hwnd, L"索引转换错误，无法删除", L"错误", MB_OK | MB_ICONERROR);
                 return;
             }
+
+            // 获取要删除的记录详情
+            const auto& record = g_calculationHistory[actualIndex];
+            std::wstring confirmMsg = L"确定要删除这条计算记录吗？\n\n表达式: " + record.expression + L"\n结果: " + record.result;
+            if (!record.comment.empty()) {
+                confirmMsg += L"\n备注: " + record.comment;
+            }
+
+            // 添加确认提示
+            if (MessageBoxW(hwnd, confirmMsg.c_str(), 
+                L"确认删除", MB_YESNO | MB_ICONQUESTION) != IDYES)
+            {
+                return;
+            }
             
             // 从历史记录中删除
             g_calculationHistory.erase(g_calculationHistory.begin() + actualIndex);
@@ -181,6 +195,7 @@ void HandleEditControlChange(HWND hwnd)
     if (g_calculatorMode)
     {
         // 在计算模式下，不进行搜索，也不实时计算，只记录输入变化
+        // 注意：计算逻辑移至 HandleEditControlReturn 中处理
         LogToFile("  EN_CHANGE: 计算模式下，输入内容已变化，但不计算");
     }
     else if (g_fileMode)

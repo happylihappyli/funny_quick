@@ -1,11 +1,11 @@
-﻿﻿﻿﻿百度搜索|https://www.baidu.com
+﻿﻿﻿﻿﻿百度搜索|https://www.baidu.com
 谷歌|https://www.google.com
 GitHub|https://github.com
 哔哩哔哩|https://www.bilibili.com
 知乎|https://www.zhihu.com
 CSDN|https://www.csdn.net
 掘金|https://juejin.cn
-Stack Overflow|https://stackoverflow.com
+编程社区Stack Overflow|https://stackoverflow.com
 funnyai|https://www.funnyai.com
 蜂视科技BV|http://www.beevision.xyz/
 deepseek|https://chat.deepseek.com/
