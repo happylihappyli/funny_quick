@@ -51,6 +51,12 @@ HWND g_hSettingsButton = NULL;   // 设置按钮
 
 HWND g_hCalcMenuButton = NULL;  // 计算模式操作菜单按钮
 
+// 工具栏按钮句柄
+HWND g_hHomeBtn = NULL;
+HWND g_hBookmarkBtn = NULL;
+HWND g_hCalculatorBtn = NULL;
+HWND g_hDirBtn = NULL;
+
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
 // WebView2 HTML内容缓存
@@ -358,11 +364,67 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
           L"STATIC",
           L"",
           WS_CHILD | WS_VISIBLE | WS_BORDER,
-          10, 45, 360, 200,  // 调整位置，利用提示信息空间
+          10, 300, 360, 200,  // 向下移动225像素，进一步增加间距避免遮挡工具栏
           hwnd, NULL,
           g_hInstance, NULL);
     
     LogToFile("WebView2 占位窗口已创建");
+    
+    // 创建工具栏（确保在 WebView2 之后创建，这样工具栏会显示在顶部）
+    HWND hToolBar = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"",
+        WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        10, 40, 360, 30,
+        hwnd, NULL,
+        g_hInstance, NULL);
+    
+    // 创建首页按钮
+    g_hHomeBtn = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"🏠 首页",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        15, 45, 70, 23,
+        hwnd, (HMENU)IDC_HOME_BTN,
+        g_hInstance, NULL);
+    
+    // 创建收藏按钮
+    g_hBookmarkBtn = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"⭐ 收藏",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        90, 45, 70, 23,
+        hwnd, (HMENU)IDC_BOOKMARK_BTN,
+        g_hInstance, NULL);
+    
+    // 创建计算器按钮
+    g_hCalculatorBtn = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"🧮 计算",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        165, 45, 70, 23,
+        hwnd, (HMENU)IDC_CALCULATOR_BTN,
+        g_hInstance, NULL);
+    
+    // 创建目录按钮
+    g_hDirBtn = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"📁 目录",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        240, 45, 70, 23,
+        hwnd, (HMENU)IDC_DIR_BTN,
+        g_hInstance, NULL);
+    
+    // 确保工具栏按钮始终显示在所有控件之上（Z 顺序的顶部）
+    SetWindowPos(g_hHomeBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(g_hBookmarkBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(g_hCalculatorBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(g_hDirBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
     
     // 初始化 WebView2（异步创建，需要时间）
     InitializeWebView2(hwnd);
@@ -1338,25 +1400,37 @@ void ShowHelpInfo()
     lvi.pszText = (WCHAR*)L"";
     ListView_InsertItem(g_hListView, &lvi);
     
-    // 使用技巧
+    // 常用快捷方式
     lvi.iItem = 12;
-    lvi.pszText = (WCHAR*)L"使用技巧：";
+    lvi.pszText = (WCHAR*)L"常用快捷方式：";
     ListView_InsertItem(g_hListView, &lvi);
     
     lvi.iItem = 13;
-    lvi.pszText = (WCHAR*)L"双击列表项可执行对应操作";
+    lvi.pszText = (WCHAR*)L"Ctrl+Alt+Q - 快速显示/隐藏窗口";
     ListView_InsertItem(g_hListView, &lvi);
     
     lvi.iItem = 14;
-    lvi.pszText = (WCHAR*)L"使用 Ctrl+Alt+Q 快速显示/隐藏窗口";
+    lvi.pszText = (WCHAR*)L"Ctrl+F1 - 将窗口定位到桌面中央";
     ListView_InsertItem(g_hListView, &lvi);
     
     lvi.iItem = 15;
-    lvi.pszText = (WCHAR*)L"使用 Ctrl+F1 将窗口定位到桌面中央";
+    lvi.pszText = (WCHAR*)L"Ctrl+F2 - 快速显示窗口";
     ListView_InsertItem(g_hListView, &lvi);
     
     lvi.iItem = 16;
-    lvi.pszText = (WCHAR*)L"最小化窗口时会自动隐藏到系统托盘";
+    lvi.pszText = (WCHAR*)L"ESC - 隐藏窗口";
+    ListView_InsertItem(g_hListView, &lvi);
+    
+    lvi.iItem = 17;
+    lvi.pszText = (WCHAR*)L"Tab - 在编辑框和列表框之间切换焦点";
+    ListView_InsertItem(g_hListView, &lvi);
+    
+    lvi.iItem = 18;
+    lvi.pszText = (WCHAR*)L"F3 - 编辑当前选中的快捷方式";
+    ListView_InsertItem(g_hListView, &lvi);
+    
+    lvi.iItem = 19;
+    lvi.pszText = (WCHAR*)L"Delete - 删除当前选中的快捷方式";
     ListView_InsertItem(g_hListView, &lvi);
     
     LogToFile("ShowHelpInfo: 使用帮助信息显示完成");
@@ -1702,6 +1776,7 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
         hintsHtml = L"<div class='hint-banner'>";
         hintsHtml += L"<div class='banner-header'>";
         hintsHtml += L"<div class='banner-title'>💡 操作提示</div>";
+        hintsHtml += L"<button class='home-button' onclick='onHomeClick()'>🏠 首页</button>";
         hintsHtml += L"<button class='add-button' onclick='onAddClick()'>➕ 添加快捷方式</button>";
         hintsHtml += L"</div>";
         hintsHtml += L"<ul>";
@@ -1717,11 +1792,12 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
     {
         // 即使没有提示，也显示添加按钮
             hintsHtml = L"<div class='hint-banner'>";
-            hintsHtml += L"<div class='banner-header'>";
-            hintsHtml += L"<div class='banner-title'>💡 操作提示</div>";
-            hintsHtml += L"<button class='add-button' onclick='onAddClick()'>➕ 添加快捷方式</button>";
-            hintsHtml += L"</div>";
-            hintsHtml += L"</div>";
+        hintsHtml += L"<div class='banner-header'>";
+        hintsHtml += L"<div class='banner-title'>💡 操作提示</div>";
+        hintsHtml += L"<button class='home-button' onclick='onHomeClick()'>🏠 首页</button>";
+        hintsHtml += L"<button class='add-button' onclick='onAddClick()'>➕ 添加快捷方式</button>";
+        hintsHtml += L"</div>";
+        hintsHtml += L"</div>";
     }
     
     std::wstring itemsHtml;

@@ -8,6 +8,7 @@
 #include "ui_manager.h"
 #include "resource.h"
 #include "file_manager.h"  // 文件管理功能定义
+#include "bookmark_manager.h"  // 书签管理功能定义
 #include "webview_manager.h"  // WebView2管理功能，包含ShowEditShortcutDialog和SaveShortcuts声明
 #include <string>
 #include <commctrl.h>  // 包含列表视图控件相关定义
@@ -514,6 +515,31 @@ LRESULT HandleWMCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
     else if (LOWORD(wParam) == IDC_CALC_MENU_BUTTON)
     {
         HandleCalculatorMenuButton(hwnd);
+        return 0;
+    }
+    // 处理工具栏按钮点击
+    else if (LOWORD(wParam) == IDC_HOME_BTN)
+    {
+        LogToFile("WM_COMMAND: 用户点击首页按钮");
+        UpdateInitialWebViewContent();
+        return 0;
+    }
+    else if (LOWORD(wParam) == IDC_BOOKMARK_BTN)
+    {
+        LogToFile("WM_COMMAND: 用户点击收藏按钮");
+        EnterBookmarkMode();
+        return 0;
+    }
+    else if (LOWORD(wParam) == IDC_CALCULATOR_BTN)
+    {
+        LogToFile("WM_COMMAND: 用户点击计算器按钮");
+        EnterCalculatorMode();
+        return 0;
+    }
+    else if (LOWORD(wParam) == IDC_DIR_BTN)
+    {
+        LogToFile("WM_COMMAND: 用户点击目录按钮");
+        EnterFileMode();
         return 0;
     }
     // 处理设置菜单命令

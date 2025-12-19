@@ -24,6 +24,10 @@ extern HWND g_hExitFileButton;
 extern HWND g_hSettingsButton;
 extern HWND g_hCalcMenuButton;
 extern HWND g_hInputHintLabel;
+extern HWND g_hHomeBtn;
+extern HWND g_hBookmarkBtn;
+extern HWND g_hCalculatorBtn;
+extern HWND g_hDirBtn;
 extern HFONT g_hFont;
 
 extern bool g_ignoreNextReturn;
@@ -77,6 +81,10 @@ extern WCHAR g_pendingFileSearchQuery[1024];  // 待处理的文件搜索查询
 #define IDC_EDIT 1001
 #define IDC_LISTVIEW 1002
 #define IDC_EXIT_CALC_BUTTON 1003
+#define IDC_HOME_BTN 1004
+#define IDC_BOOKMARK_BTN 1005
+#define IDC_CALCULATOR_BTN 1006
+#define IDC_DIR_BTN 1007
 #define IDC_SETTINGS_BUTTON 1004
 #define IDC_EXIT_FILE_BUTTON 1017   // 退出文件模式按钮ID
 #define HOTKEY_ID 1
@@ -175,6 +183,7 @@ struct ShortcutItem {
     WCHAR iconPath[512]; // 图标路径
     int type; // 0 = directory, 1 = URL, 2 = application
     int usageCount;
+    bool showOnHome; // 是否在首页显示
 };
 
 #endif // COMMON_H

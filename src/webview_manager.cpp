@@ -266,7 +266,7 @@ void EvaluateJSExpression(const std::wstring& expression)
 
 static void ProcessWebViewMessage(const std::wstring& msgStr);
 static void UpdateControllerBounds();
-static void UpdateInitialWebViewContent();
+void UpdateInitialWebViewContent();
 static void HandleSearchItemMessage(const std::wstring& msgStr);
 static void HandleCalculatorMessage(const std::wstring& msgStr);
 static void HandleSettingsMessage(const std::wstring& msgStr);
@@ -397,6 +397,29 @@ void InitializeWebView2(HWND hwnd)
 
 static void ProcessWebViewMessage(const std::wstring& msgStr)
 {
+    if (msgStr.find(L"\"type\":\"open\"") != std::wstring::npos)
+    {
+        // 处理首页快捷方式点击
+        size_t pathPos = msgStr.find(L"\"path\":\"");
+        if (pathPos != std::wstring::npos)
+        {
+            size_t start = pathPos + 8;
+            size_t end = msgStr.find(L"\"", start);
+            if (end != std::wstring::npos)
+            {
+                std::wstring path = msgStr.substr(start, end - start);
+                // 打开快捷方式
+                ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            }
+        }
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"goHome\"") != std::wstring::npos)
+    {
+        // 回到首页
+        UpdateInitialWebViewContent();
+        return;
+    }
     if (msgStr.find(L"\"type\":\"itemClick\"") != std::wstring::npos
         || msgStr.find(L"\"type\":\"itemDblClick\"") != std::wstring::npos
         || msgStr.find(L"\"type\":\"editItem\"") != std::wstring::npos)
@@ -1148,7 +1171,54 @@ static void UpdateInitialWebViewContent()
     }
     else
     {
-        SearchAndDisplayResults(g_currentSearch);
+        // 检查是否有快捷方式标记为显示在首页
+        bool hasHomeShortcuts = false;
+        for (const auto& shortcut : g_shortcuts) {
+            if (shortcut.showOnHome) {
+                hasHomeShortcuts = true;
+                break;
+            }
+        }
+        
+        if (hasHomeShortcuts) {
+            // 显示首页快捷方式
+            std::wstring html = L"<html><head><meta charset='utf-8'><title>首页快捷方式</title>";
+            html += L"<style>";
+            html += L"body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }";
+            html += L".shortcut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }";
+            html += L".shortcut-item { background-color: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s; }";
+            html += L".shortcut-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }";
+            html += L".shortcut-icon { width: 64px; height: 64px; margin: 0 auto 10px; background-size: contain; background-repeat: no-repeat; background-position: center; }";
+            html += L".shortcut-name { font-size: 14px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }";
+            html += L"</style></head><body>";
+            html += L"<h1>常用快捷方式</h1>";
+            html += L"<div class='shortcut-grid'>";
+            
+            for (const auto& shortcut : g_shortcuts) {
+                if (shortcut.showOnHome) {
+                    html += L"<div class='shortcut-item' data-path='" + std::wstring(shortcut.path) + L"'>";
+                    html += L"<div class='shortcut-icon' style='background-image: url(" + std::wstring(shortcut.iconPath) + L");'></div>";
+                    html += L"<div class='shortcut-name'>" + std::wstring(shortcut.name) + L"</div>";
+                    html += L"</div>";
+                }
+            }
+            
+            html += L"</div>";
+            html += L"<script>";
+            html += L"document.querySelectorAll('.shortcut-item').forEach(item => {";
+            html += L"  item.addEventListener('click', () => {";
+            html += L"    const path = item.getAttribute('data-path');";
+            html += L"    window.chrome.webview.postMessage({ type: 'open', path: path });";
+            html += L"  });";
+            html += L"});";
+            html += L"</script>";
+            html += L"</body></html>";
+            
+            UpdateWebView2Content(html.c_str());
+        } else {
+            // 没有首页快捷方式，显示搜索结果
+            SearchAndDisplayResults(g_currentSearch);
+        }
     }
 }
 
@@ -1736,10 +1806,12 @@ struct PropertiesDialogState {
     HWND hIconEdit; // 新增：图标路径编辑框
     HWND hEmojiCombo; // 新增：表情选择下拉框
     HWND hCommentEdit;
+    HWND hShowOnHomeCheck; // 新增：显示在首页复选框
     LPWSTR lpName;
     LPWSTR lpPath;
     LPWSTR lpIconPath; // 新增：图标路径指针
     LPWSTR lpComment;
+    bool* pShowOnHome; // 新增：显示在首页标志
     WNDPROC oldProc;
 };
 
@@ -1771,6 +1843,12 @@ LRESULT CALLBACK PropertiesDlgSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, L
             GetWindowTextW(pState->hTargetEdit, pState->lpPath, 1024);
             GetWindowTextW(pState->hIconEdit, pState->lpIconPath, 512); // 获取图标路径
             GetWindowTextW(pState->hCommentEdit, pState->lpComment, 512);
+            
+            // 获取显示在首页复选框状态
+            if (pState->pShowOnHome && pState->hShowOnHomeCheck) {
+                *pState->pShowOnHome = (SendMessageW(pState->hShowOnHomeCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+            }
+            
             *(pState->pResult) = TRUE;
             *(pState->pRunning) = FALSE;
             return 0;
@@ -1805,13 +1883,13 @@ LRESULT CALLBACK PropertiesDlgSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, L
  * @param shortcutType 快捷方式类型
  * @return BOOL 如果用户点击确定返回TRUE，点击取消返回FALSE
  */
-BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, LPWSTR lpIconPath, int shortcutType)
+BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, LPWSTR lpIconPath, int shortcutType, bool* pShowOnHome = nullptr)
 {
     // 计算对话框在屏幕中心的位置
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
     int dialogWidth = 450;
-    int dialogHeight = 410; // 增加高度以容纳表情选择
+    int dialogHeight = 440; // 增加高度以容纳
     int dialogX = (screenWidth - dialogWidth) / 2;
     int dialogY = (screenHeight - dialogHeight) / 2;
     
@@ -1982,22 +2060,39 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
                                             120, 285, 60, 20,
                                             hDlg, NULL, GetModuleHandle(NULL), NULL);
     
+    // 创建显示在首页复选框
+    HWND hShowOnHomeLabel = CreateWindowExW(0, L"STATIC", L"显示在首页:",
+                                           WS_VISIBLE | WS_CHILD,
+                                           60, 290, 80, 20,
+                                           hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    HWND hShowOnHomeCheck = CreateWindowExW(0, L"BUTTON", L"",
+                                           WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+                                           140, 290, 20, 20,
+                                           hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 初始化复选框状态
+    if (pShowOnHome && *pShowOnHome)
+    {
+        SendMessageW(hShowOnHomeCheck, BM_SETCHECK, BST_CHECKED, 0);
+    }
+    
     // 创建按钮组框架 (位置下移)
     HWND hButtonGroup = CreateWindowExW(0, L"BUTTON", NULL,
                                        WS_VISIBLE | WS_CHILD | BS_GROUPBOX,
-                                       15, 310, 415, 60,
+                                       15, 320, 415, 60,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
     
     // 创建确定按钮 (位置下移)
     HWND hOkBtn = CreateWindowExW(0, L"BUTTON", L"确定", 
                                  WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                                 250, 330, 80, 30, 
+                                 250, 340, 80, 30, 
                                  hDlg, (HMENU)IDOK, GetModuleHandle(NULL), NULL);
     
     // 创建取消按钮 (位置下移)
     HWND hCancelBtn = CreateWindowExW(0, L"BUTTON", L"取消", 
                                      WS_VISIBLE | WS_CHILD,
-                                     340, 330, 80, 30, 
+                                     340, 340, 80, 30, 
                                      hDlg, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
     
     // 显示窗口
@@ -2029,10 +2124,12 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     state.hIconEdit = hIconEdit; // 新增
     state.hEmojiCombo = hEmojiCombo; // 新增
     state.hCommentEdit = hCommentEdit;
+    state.hShowOnHomeCheck = hShowOnHomeCheck; // 新增
     state.lpName = lpName;
     state.lpPath = lpPath;
     state.lpIconPath = lpIconPath; // 新增
     state.lpComment = lpComment;
+    state.pShowOnHome = pShowOnHome; // 新增
     
     SetWindowLongPtrW(hDlg, GWLP_USERDATA, (LONG_PTR)&state);
     state.oldProc = (WNDPROC)SetWindowLongPtrW(hDlg, GWLP_WNDPROC, (LONG_PTR)PropertiesDlgSubclassProc);
@@ -2107,7 +2204,8 @@ void ShowEditShortcutDialog(int index)
     wcscpy_s(iconPath, 511, shortcut.iconPath);
     
     // 显示类似Windows属性对话框的编辑界面
-    if (!GetPropertiesStyleInput(L"属性", name, path, comment, iconPath, shortcut.type))
+    bool showOnHome = shortcut.showOnHome;
+    if (!GetPropertiesStyleInput(L"属性", name, path, comment, iconPath, shortcut.type, &showOnHome))
     {
         LogToFile("ShowEditShortcutDialog: 用户取消编辑");
         return;
@@ -2134,6 +2232,7 @@ void ShowEditShortcutDialog(int index)
     wcscpy_s(shortcut.path, 1023, path);
     wcscpy_s(shortcut.comment, 511, comment);
     wcscpy_s(shortcut.iconPath, 511, iconPath);
+    shortcut.showOnHome = showOnHome;
     
     // 更新使用次数
     shortcut.usageCount++;
@@ -2163,7 +2262,8 @@ void ShowAddShortcutDialog()
     
     // 显示类似Windows属性对话框的编辑界面
     // 默认为URL类型(1)
-    if (!GetPropertiesStyleInput(L"添加快捷方式", name, path, comment, iconPath, 1))
+    bool showOnHome = false; // 默认不显示在首页
+    if (!GetPropertiesStyleInput(L"添加快捷方式", name, path, comment, iconPath, 1, &showOnHome))
     {
         LogToFile("ShowAddShortcutDialog: 用户取消添加");
         return;
@@ -2203,6 +2303,7 @@ void ShowAddShortcutDialog()
     }
         
     shortcut.usageCount = 0;
+    shortcut.showOnHome = showOnHome;
     
     g_shortcuts.push_back(shortcut);
     
@@ -2258,14 +2359,15 @@ void SaveShortcuts()
     // 写入快捷方式
     for (const auto& shortcut : g_shortcuts)
     {
-        // 格式：名称|路径|类型|备注|图标路径|使用次数
-        fwprintf(file, L"%s|%s|%d|%s|%s|%d\n", 
+        // 格式：名称|路径|类型|备注|图标路径|使用次数|显示在首页
+        fwprintf(file, L"%s|%s|%d|%s|%s|%d|%d\n", 
                  shortcut.name, 
                  shortcut.path, 
                  shortcut.type, 
                  shortcut.comment, 
                  shortcut.iconPath, 
-                 shortcut.usageCount);
+                 shortcut.usageCount,
+                 shortcut.showOnHome ? 1 : 0);
     }
     
     fclose(file);
@@ -2379,6 +2481,7 @@ bool LoadShortcuts()
         wcscpy_s(item.comment, 511, (parts.size() >= 4) ? parts[3].c_str() : L"");
         wcscpy_s(item.iconPath, 511, (parts.size() >= 5) ? parts[4].c_str() : L"" );
         item.usageCount = (parts.size() >= 6) ? _wtoi(parts[5].c_str()) : 0;
+        item.showOnHome = (parts.size() >= 7) ? (_wtoi(parts[6].c_str()) != 0) : false;
 
         g_shortcuts.push_back(item);
     }

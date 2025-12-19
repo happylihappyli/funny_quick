@@ -30,6 +30,11 @@ function onAddClick() {
     window.chrome.webview.postMessage(JSON.stringify({type:'addShortcut'}));
   }
 }
+function onHomeClick() {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({type:'goHome'}));
+  }
+}
 let selectedIndex = -1;
 let isEditing = false; // Flag to prevent row click when clicking edit button
 

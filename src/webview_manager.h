@@ -121,6 +121,9 @@ void SaveBookmarks();
 // 书签模式WebView更新函数声明
 void UpdateBookmarkModeWebView();
 
+// 首页内容更新函数声明
+void UpdateInitialWebViewContent();
+
 // 简单输入框函数声明
 BOOL GetSimpleInput(LPCWSTR lpCaption, LPCWSTR lpPrompt, LPCWSTR lpDefault, LPWSTR lpResult, int nResultSize);
 
