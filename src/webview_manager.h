@@ -146,5 +146,6 @@ bool LoadShortcuts();
 
 // 图标提取函数声明
 BOOL ExtractShortcutIcon(const ShortcutItem& shortcut, WCHAR* iconPath, int iconPathSize);
+std::wstring GetShortcutIconDataUri(const ShortcutItem& shortcut, int size);
 
 #endif // WEBVIEW_MANAGER_H

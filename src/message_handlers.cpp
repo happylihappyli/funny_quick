@@ -10,6 +10,9 @@
 #include "file_manager.h"  // 文件管理功能定义
 #include "bookmark_manager.h"  // 书签管理功能定义
 #include "webview_manager.h"  // WebView2管理功能，包含ShowEditShortcutDialog和SaveShortcuts声明
+#include "dir_mode_manager.h"  // 目录管理模式功能定义
+#include "gui_main.h"  // GUI主界面相关功能定义
+#include "command_processor.h" // 命令处理功能定义
 #include <string>
 #include <commctrl.h>  // 包含列表视图控件相关定义
 
@@ -392,7 +395,8 @@ void HandleEditControlReturn(HWND hwnd)
                         // Check if the first item is "No matching items found"
                         if (wcscmp(firstItemText, L"No matching items found") == 0)
                         {
-                            LogToFile("  EN_RETURN: 第一个项目是'未找到匹配项'消息，不执行");
+                            LogToFile("  EN_RETURN: 第一个项目是'未找到匹配项'消息，尝试作为命令处理");
+                            ProcessCommand(currentText);
                         }
                         else
                         {
@@ -521,6 +525,22 @@ LRESULT HandleWMCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
     else if (LOWORD(wParam) == IDC_HOME_BTN)
     {
         LogToFile("WM_COMMAND: 用户点击首页按钮");
+        
+        // 先退出所有其他模式
+        if (g_calculatorMode) {
+            ExitCalculatorMode();
+        }
+        if (g_dirMode) {
+            ExitDirMode();
+        }
+        if (g_bookmarkMode) {
+            ExitBookmarkMode();
+        }
+        if (g_fileMode) {
+            ExitFileMode();
+        }
+        
+        // 然后更新首页内容
         UpdateInitialWebViewContent();
         return 0;
     }
@@ -539,7 +559,36 @@ LRESULT HandleWMCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
     else if (LOWORD(wParam) == IDC_DIR_BTN)
     {
         LogToFile("WM_COMMAND: 用户点击目录按钮");
+        EnterDirMode();
+        return 0;
+    }
+    else if (LOWORD(wParam) == IDC_FILE_BTN)
+    {
+        LogToFile("WM_COMMAND: 用户点击文件按钮 - 进入文件搜索模式");
+        // 进入文件搜索模式（Everything API）
         EnterFileMode();
+        return 0;
+    }
+    else if (LOWORD(wParam) == IDC_SHORTCUT_BTN)
+    {
+        LogToFile("WM_COMMAND: 用户点击快捷按钮");
+        
+        // 先退出所有其他模式
+        if (g_calculatorMode) {
+            ExitCalculatorMode();
+        }
+        if (g_dirMode) {
+            ExitDirMode();
+        }
+        if (g_bookmarkMode) {
+            ExitBookmarkMode();
+        }
+        if (g_fileMode) {
+            ExitFileMode();
+        }
+
+        // 显示默认的快捷方式搜索（列出所有快捷方式）
+        SearchAndDisplayResults(L"");
         return 0;
     }
     // 处理设置菜单命令

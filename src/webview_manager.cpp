@@ -2,11 +2,18 @@
 #include "bookmark_manager.h"
 #include "common.h"
 #include "calculator.h"  // 计算器功能定义
+#include "command_processor.h"
 #include "logger.h"
+#include <algorithm>
 #include <vector>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <cstdint>
 #include <shlobj.h>
+#include <shellapi.h>
+#include <wincodec.h>
+#include <mutex>
 #include <fstream>
 #include <sstream>
 // #include <codecvt> // Removed deprecated header
@@ -19,6 +26,9 @@
 
 // HTML模板读取函数声明
 std::wstring ReadHtmlTemplate(const std::wstring& filePath);
+static std::wstring EscapeHtmlAttribute(const std::wstring& str);
+static int FindShortcutIndexByPath(const std::wstring& path);
+static void HandleStartPageShortcutManageMessage(const std::wstring& msgStr);
 
 void EnterFormulaWizardMode(const std::wstring& formulaName)
 {
@@ -287,6 +297,10 @@ std::set<std::wstring> g_expandedPaths;
 std::wstring g_currentDirPath;
 ViewMode g_currentViewMode = ViewMode::NONE;
 std::wstring g_lastSearchQuery;
+bool g_webViewInitFailed = false;
+bool g_webViewInitInProgress = false;
+HRESULT g_webViewInitHr = S_OK;
+bool g_webViewInitErrorNotified = false;
 
 /**
  * 初始化WebView2环境
@@ -295,6 +309,9 @@ std::wstring g_lastSearchQuery;
 void InitializeWebView2(HWND hwnd)
 {
     LogToFile("InitializeWebView2: 开始初始化 WebView2");
+    g_webViewInitInProgress = true;
+    g_webViewInitFailed = false;
+    g_webViewInitHr = S_OK;
     
     // 使用 CreateCoreWebView2Environment 创建环境（简化版本，不使用选项）
     HRESULT hr = CreateCoreWebView2Environment(
@@ -302,6 +319,9 @@ void InitializeWebView2(HWND hwnd)
             [hwnd](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
                 if (FAILED(result))
                 {
+                    g_webViewInitInProgress = false;
+                    g_webViewInitFailed = true;
+                    g_webViewInitHr = result;
                     char errorMsg[256] = {0};
                     sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08lX", result);
                     LogToFile(errorMsg);
@@ -320,6 +340,9 @@ void InitializeWebView2(HWND hwnd)
                     [](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
                         if (FAILED(result))
                         {
+                            g_webViewInitInProgress = false;
+                            g_webViewInitFailed = true;
+                            g_webViewInitHr = result;
                             char errorMsg[256] = {0};
                             sprintf(errorMsg, "InitializeWebView2: 创建控制器失败，错误代码: 0x%08lX", result);
                             LogToFile(errorMsg);
@@ -343,6 +366,9 @@ void InitializeWebView2(HWND hwnd)
                         g_webViewController->get_CoreWebView2(&g_webView);
                         if (g_webView)
                         {
+                            g_webViewInitInProgress = false;
+                            g_webViewInitFailed = false;
+                            g_webViewInitHr = S_OK;
                             // 通知主窗口 WebView2 已准备就绪
                             PostMessage(g_hMainWindow, WM_APP_WEBVIEW_READY, 0, 0);
                             
@@ -376,6 +402,14 @@ void InitializeWebView2(HWND hwnd)
                             
                             UpdateInitialWebViewContent();
                         }
+                        else
+                        {
+                            g_webViewInitInProgress = false;
+                            g_webViewInitFailed = true;
+                            g_webViewInitHr = E_FAIL;
+                            LogToFile("InitializeWebView2: get_CoreWebView2 返回空指针");
+                            ShowBasicUsage();
+                        }
                         
                         return S_OK;
                     }).Get());
@@ -385,6 +419,9 @@ void InitializeWebView2(HWND hwnd)
     
     if (FAILED(hr))
     {
+        g_webViewInitInProgress = false;
+        g_webViewInitFailed = true;
+        g_webViewInitHr = hr;
         char errorMsg[256] = {0};
         sprintf(errorMsg, "InitializeWebView2: 创建环境失败，错误代码: 0x%08lX", hr);
         LogToFile(errorMsg);
@@ -395,10 +432,35 @@ void InitializeWebView2(HWND hwnd)
     }
 }
 
+// 解码HTML实体
+static std::wstring DecodeHtmlEntities(const std::wstring& input) {
+    std::wstring result = input;
+    
+    // 解码 &#39; 到单引号
+    size_t pos = 0;
+    while ((pos = result.find(L"&#39;", pos)) != std::wstring::npos) {
+        result.replace(pos, 5, L"'");
+    }
+    
+    // 解码 &quot; 到双引号
+    pos = 0;
+    while ((pos = result.find(L"&quot;", pos)) != std::wstring::npos) {
+        result.replace(pos, 6, L"\"");
+    }
+    
+    return result;
+}
+
 static void ProcessWebViewMessage(const std::wstring& msgStr)
 {
+    // 添加调试日志
+    std::string logMsg = "ProcessWebViewMessage收到消息: " + std::string(msgStr.begin(), msgStr.end());
+    LogToFile(logMsg.c_str());
+    
     if (msgStr.find(L"\"type\":\"open\"") != std::wstring::npos)
     {
+        LogToFile("ProcessWebViewMessage: 处理首页快捷方式点击");
+        
         // 处理首页快捷方式点击
         size_t pathPos = msgStr.find(L"\"path\":\"");
         if (pathPos != std::wstring::npos)
@@ -408,15 +470,145 @@ static void ProcessWebViewMessage(const std::wstring& msgStr)
             if (end != std::wstring::npos)
             {
                 std::wstring path = msgStr.substr(start, end - start);
+                
+                // 解码HTML实体
+                path = DecodeHtmlEntities(path);
+                
+                // 添加详细的调试日志
+                std::string rawPathLog = "ProcessWebViewMessage: 原始路径: " + std::string(msgStr.substr(start, end - start).begin(), msgStr.substr(start, end - start).end());
+                LogToFile(rawPathLog.c_str());
+                
+                std::string decodedPathLog = "ProcessWebViewMessage: 解码后的路径: " + std::string(path.begin(), path.end());
+                LogToFile(decodedPathLog.c_str());
+                
+                // 添加路径长度和字符编码信息
+                char pathInfo[512] = {0};
+                sprintf(pathInfo, "ProcessWebViewMessage: 路径长度=%zu字符, 字节数=%zu字节", path.length(), path.size() * sizeof(wchar_t));
+                LogToFile(pathInfo);
+                
+                // 输出路径中的每个字符的编码
+                std::string charCodes = "ProcessWebViewMessage: 路径字符编码: ";
+                size_t maxChars = (path.length() < 50) ? path.length() : 50;
+                for (size_t i = 0; i < maxChars; i++) {
+                    char code[32];
+                    sprintf(code, "%04X ", (unsigned int)path[i]);
+                    charCodes += code;
+                }
+                if (path.length() > 50) {
+                    charCodes += "...";
+                }
+                LogToFile(charCodes.c_str());
+                
+                // 确保路径是有效的
+                if (path.empty()) {
+                    LogToFile("ProcessWebViewMessage: 路径为空，忽略执行");
+                    return;
+                }
+                
+                // 检查路径是否存在
+                LogToFile("ProcessWebViewMessage: 检查路径是否存在");
+                DWORD fileAttributes = GetFileAttributesW(path.c_str());
+                if (fileAttributes == INVALID_FILE_ATTRIBUTES) {
+                    DWORD error = GetLastError();
+                    char errorLog[256];
+                    sprintf(errorLog, "ProcessWebViewMessage: 路径不存在，错误代码: %lu", error);
+                    LogToFile(errorLog);
+                    
+                    // 尝试从快捷方式文件获取实际路径
+                    if (path.find(L".lnk") != std::wstring::npos) {
+                        LogToFile("ProcessWebViewMessage: 检测到lnk文件，尝试解析快捷方式");
+                        
+                        // 尝试解析快捷方式
+                        HANDLE hLink = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+                        if (hLink != INVALID_HANDLE_VALUE) {
+                            CloseHandle(hLink);
+                            LogToFile("ProcessWebViewMessage: 成功访问lnk文件");
+                        } else {
+                            char createFileError[256];
+                            sprintf(createFileError, "ProcessWebViewMessage: 无法访问lnk文件，错误代码: %lu", GetLastError());
+                            LogToFile(createFileError);
+                        }
+                    }
+                } else {
+                    LogToFile("ProcessWebViewMessage: 路径存在，继续执行");
+                }
+                
+                // 添加要传递给ShellExecuteW的完整路径信息
+                std::string shellExecPathLog = "ProcessWebViewMessage: 将传递给ShellExecuteW的路径: " + std::string(path.begin(), path.end());
+                LogToFile(shellExecPathLog.c_str());
+                
+                LogToFile("ProcessWebViewMessage: 执行ShellExecuteW");
+                
                 // 打开快捷方式
-                ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                HINSTANCE result = ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                
+                // 添加结果日志
+                char resultLog[256];
+                sprintf(resultLog, "ProcessWebViewMessage: ShellExecuteW返回值: %Id", (INT_PTR)result);
+                LogToFile(resultLog);
+                
+                if ((INT_PTR)result <= 32) {
+                    // 错误代码
+                    char errorLog[256];
+                    sprintf(errorLog, "ProcessWebViewMessage: ShellExecuteW错误代码: %Id", (INT_PTR)result);
+                    LogToFile(errorLog);
+                    
+                    // 尝试获取错误详细信息
+                    LPVOID lpMsgBuf;
+                    DWORD errorCode = (DWORD)(INT_PTR)result;
+                    
+                    // 如果错误代码小于32，可能是标准的Windows错误代码
+                    if (errorCode < 32) {
+                        FormatMessageW(
+                            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                            NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                            (LPWSTR)&lpMsgBuf, 0, NULL);
+                        
+                        if (lpMsgBuf) {
+                            char errorMsg[512];
+                            WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)lpMsgBuf, -1, errorMsg, sizeof(errorMsg), NULL, NULL);
+                            sprintf(errorLog, "ProcessWebViewMessage: 错误详细信息: %s", errorMsg);
+                            LogToFile(errorLog);
+                            LocalFree(lpMsgBuf);
+                        }
+                    } else {
+                        // 如果错误代码大于等于32，但ShellExecuteW认为这是错误，可能是SE_ERR_DLLNOTFOUND等特殊情况
+                        char specialError[256];
+                        sprintf(specialError, "ProcessWebViewMessage: 特殊错误代码: %lu", errorCode);
+                        LogToFile(specialError);
+                    }
+                } else {
+                    LogToFile("ProcessWebViewMessage: ShellExecuteW成功执行");
+                }
             }
+            else
+            {
+                LogToFile("ProcessWebViewMessage: 未找到路径结束标记");
+            }
+        }
+        else
+        {
+            LogToFile("ProcessWebViewMessage: 未找到路径标记");
         }
         return;
     }
     if (msgStr.find(L"\"type\":\"goHome\"") != std::wstring::npos)
     {
         // 回到首页
+        UpdateInitialWebViewContent();
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"openSystemSettings\"") != std::wstring::npos)
+    {
+        ShowSystemSettingsDialog();
+        return;
+    }
+    if (msgStr.find(L"\"type\":\"syncStartMenuShortcuts\"") != std::wstring::npos)
+    {
+        int addedCount = ImportStartMenuShortcuts(true);
+        WCHAR msg[256] = {0};
+        wsprintfW(msg, L"成功同步 %d 个开始菜单快捷方式。", addedCount);
+        MessageBoxW(g_hMainWindow, msg, L"同步完成", MB_OK | MB_ICONINFORMATION);
         UpdateInitialWebViewContent();
         return;
     }
@@ -491,6 +683,12 @@ static void ProcessWebViewMessage(const std::wstring& msgStr)
         HandleShortcutMessage(msgStr);
         return;
     }
+    if (msgStr.find(L"\"type\":\"editHomeShortcut\"") != std::wstring::npos
+        || msgStr.find(L"\"type\":\"deleteHomeShortcut\"") != std::wstring::npos)
+    {
+        HandleStartPageShortcutManageMessage(msgStr);
+        return;
+    }
     if (msgStr.find(L"\"type\":\"formulaManagerAction\"") != std::wstring::npos)
     {
         HandleFormulaManagerMessage(msgStr);
@@ -535,14 +733,45 @@ static void HandleSearchItemMessage(const std::wstring& msgStr)
         if (indexPos != std::wstring::npos)
         {
             size_t start = msgStr.find(L":", indexPos) + 1;
+            // 跳过空格和引号
+            while (start < msgStr.length() && (msgStr[start] == L' ' || msgStr[start] == L'\t')) start++;
+            if (start < msgStr.length() && msgStr[start] == L'"') start++;
+            
             size_t end = msgStr.find(L",", start);
             if (end == std::wstring::npos) end = msgStr.find(L"}", start);
-            std::wstring indexStr = msgStr.substr(start, end - start);
-            int index = _wtoi(indexStr.c_str());
-            if (index >= 0 && index < (int)g_searchResults.size())
+            if (end == std::wstring::npos) end = msgStr.find(L"]", start);
+            
+            if (end != std::wstring::npos)
             {
-                ExecuteSelectedItem(index);
+                // 去除末尾的引号和空格
+                while (end > start && (msgStr[end - 1] == L'"' || msgStr[end - 1] == L' ' || msgStr[end - 1] == L'\t')) end--;
+                
+                std::wstring indexStr = msgStr.substr(start, end - start);
+                int index = _wtoi(indexStr.c_str());
+                
+                // 详细日志记录索引值和搜索结果大小
+                char logMsg[512] = {0};
+                sprintf(logMsg, "HandleSearchItemMessage: 解析索引 %d, 搜索结果大小 %zu", index, g_searchResults.size());
+                LogToFile(logMsg);
+                
+                if (index >= 0 && index < (int)g_searchResults.size())
+                {
+                    LogToFile("HandleSearchItemMessage: 索引有效，调用ExecuteSelectedItem");
+                    ExecuteSelectedItem(index);
+                }
+                else
+                {
+                    LogToFile("HandleSearchItemMessage: 索引超出范围，不执行");
+                }
             }
+            else
+            {
+                LogToFile("HandleSearchItemMessage: 无法找到索引值的结束位置");
+            }
+        }
+        else
+        {
+            LogToFile("HandleSearchItemMessage: 消息中未找到index字段");
         }
         return;
     }
@@ -1123,27 +1352,617 @@ static void HandleDirMessage(const std::wstring& msgStr)
 
 static void HandleShortcutMessage(const std::wstring& msgStr)
 {
-    std::wstring command;
-    size_t commandPos = msgStr.find(L"\"command\":\"");
-    if (commandPos != std::wstring::npos)
+    LogToFile("HandleShortcutMessage: 收到消息");
+    
+    std::wstring path;
+    // 优先查找 "path" 字段
+    size_t pathPos = msgStr.find(L"\"path\":\"");
+    if (pathPos != std::wstring::npos)
     {
-        commandPos += 11;
-        size_t commandEnd = msgStr.find(L"\"", commandPos);
-        if (commandEnd != std::wstring::npos)
+        pathPos += 8;
+        size_t pathEnd = msgStr.find(L"\"", pathPos);
+        if (pathEnd != std::wstring::npos)
         {
-            command = msgStr.substr(commandPos, commandEnd - commandPos);
-            size_t pos = 0;
-            while ((pos = command.find(L"\\\\", pos)) != std::wstring::npos)
-            {
-                command.replace(pos, 2, L"\\");
-                pos += 1;
-            }
-            ShellExecuteW(NULL, L"open", command.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            path = msgStr.substr(pathPos, pathEnd - pathPos);
         }
+    }
+    
+    // 如果未找到，尝试查找 "command" 字段（兼容旧代码）
+    if (path.empty())
+    {
+        size_t commandPos = msgStr.find(L"\"command\":\"");
+        if (commandPos != std::wstring::npos)
+        {
+            commandPos += 11;
+            size_t commandEnd = msgStr.find(L"\"", commandPos);
+            if (commandEnd != std::wstring::npos)
+            {
+                path = msgStr.substr(commandPos, commandEnd - commandPos);
+            }
+        }
+    }
+
+    if (!path.empty())
+    {
+        // 处理转义字符
+        size_t pos = 0;
+        while ((pos = path.find(L"\\\\", pos)) != std::wstring::npos)
+        {
+            path.replace(pos, 2, L"\\");
+            pos += 1;
+        }
+        
+        // 记录日志
+        int pathSize = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, NULL, 0, NULL, NULL);
+        std::string pathUtf8(pathSize > 0 ? pathSize : 1, 0);
+        if (pathSize > 0) WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &pathUtf8[0], pathSize, NULL, NULL);
+        
+        char logMsg[1024] = {0};
+        sprintf(logMsg, "HandleShortcutMessage: 准备执行路径: %s", pathUtf8.c_str());
+        LogToFile(logMsg);
+        
+        HINSTANCE result = ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        
+        if ((INT_PTR)result <= 32) {
+             char errorLog[256];
+             sprintf(errorLog, "HandleShortcutMessage: ShellExecuteW 失败，错误代码: %Id", (INT_PTR)result);
+             LogToFile(errorLog);
+        } else {
+             LogToFile("HandleShortcutMessage: ShellExecuteW 执行成功");
+        }
+    }
+    else
+    {
+        LogToFile("HandleShortcutMessage: 错误 - 未找到 path 或 command 字段");
     }
 }
 
-static void UpdateInitialWebViewContent()
+/**
+ * @brief 处理首页快捷方式管理消息
+ * @param msgStr WebView2 消息内容
+ */
+static void HandleStartPageShortcutManageMessage(const std::wstring& msgStr)
+{
+    size_t pathPos = msgStr.find(L"\"path\":\"");
+    if (pathPos == std::wstring::npos)
+    {
+        LogToFile("HandleStartPageShortcutManageMessage: 消息中未找到 path 字段");
+        return;
+    }
+
+    pathPos += 8;
+    size_t pathEnd = msgStr.find(L"\"", pathPos);
+    if (pathEnd == std::wstring::npos)
+    {
+        LogToFile("HandleStartPageShortcutManageMessage: path 字段格式无效");
+        return;
+    }
+
+    std::wstring path = msgStr.substr(pathPos, pathEnd - pathPos);
+    size_t replacePos = 0;
+    while ((replacePos = path.find(L"\\\\", replacePos)) != std::wstring::npos)
+    {
+        path.replace(replacePos, 2, L"\\");
+        replacePos += 1;
+    }
+
+    int shortcutIndex = FindShortcutIndexByPath(path);
+    if (shortcutIndex < 0)
+    {
+        MessageBoxW(g_hMainWindow, L"该项目不在快捷方式库中，暂不支持编辑或删除。", L"提示", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+
+    if (msgStr.find(L"\"type\":\"editHomeShortcut\"") != std::wstring::npos)
+    {
+        ShowEditShortcutDialog(shortcutIndex);
+        UpdateInitialWebViewContent();
+        return;
+    }
+
+    if (msgStr.find(L"\"type\":\"deleteHomeShortcut\"") != std::wstring::npos)
+    {
+        WCHAR message[512] = {0};
+        wsprintfW(message, L"确定要删除快捷方式 '%s' 吗？", g_shortcuts[shortcutIndex].name);
+        if (MessageBoxW(g_hMainWindow, message, L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
+        {
+            g_shortcuts.erase(g_shortcuts.begin() + shortcutIndex);
+            SaveShortcuts();
+            UpdateInitialWebViewContent();
+            LogToFile("HandleStartPageShortcutManageMessage: 首页快捷方式删除成功");
+        }
+        return;
+    }
+}
+
+/**
+ * @brief 判断快捷方式是否来自开始菜单
+ * @param shortcut 快捷方式对象
+ * @return true 来自开始菜单
+ * @return false 不是开始菜单来源
+ */
+static bool IsStartMenuShortcut(const ShortcutItem& shortcut)
+{
+    std::wstring comment = shortcut.comment;
+    if (comment.find(L"开始菜单") != std::wstring::npos)
+    {
+        return true;
+    }
+    std::wstring path = shortcut.path;
+    if (path.rfind(L"shell:AppsFolder\\", 0) == 0 || path.rfind(L"shell:appsfolder\\", 0) == 0)
+    {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief 生成开始页卡片使用的图标
+ * @param shortcut 快捷方式对象
+ * @return std::wstring 图标字符串
+ */
+static std::wstring GetShortcutEmoji(const ShortcutItem& shortcut)
+{
+    if (wcsncmp(shortcut.iconPath, L"emoji:", 6) == 0)
+    {
+        return shortcut.iconPath + 6;
+    }
+    if (shortcut.type == 0)
+    {
+        return L"📁";
+    }
+    if (shortcut.type == 1)
+    {
+        return L"🌐";
+    }
+    return L"🖥️";
+}
+
+/**
+ * @brief 用于生成开始页字母图标的简单哈希
+ * @param input 输入字符串
+ * @return uint32_t 哈希值
+ */
+static uint32_t SimpleHash32(const std::wstring& input)
+{
+    uint32_t hash = 2166136261u;
+    for (wchar_t c : input)
+    {
+        hash ^= static_cast<uint32_t>(c);
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+/**
+ * @brief 从名称中提取用于展示的首字符（字母/数字/中文）
+ * @param name 显示名称
+ * @return wchar_t 首字符
+ */
+static wchar_t GetMonogramChar(const std::wstring& name)
+{
+    for (wchar_t c : name)
+    {
+        if (iswspace(c))
+        {
+            continue;
+        }
+        if (iswalnum(c) || (c >= 0x4E00 && c <= 0x9FFF))
+        {
+            return towupper(c);
+        }
+    }
+    return L'•';
+}
+
+/**
+ * @brief 根据 key 生成稳定的背景色
+ * @param key 用于生成颜色的 key
+ * @return std::wstring CSS 颜色字符串
+ */
+static std::wstring GetMonogramBgColor(const std::wstring& key)
+{
+    static const wchar_t* palette[] = {
+        L"#4DA3FF", L"#7C5CFF", L"#22C55E", L"#F97316", L"#EF4444",
+        L"#06B6D4", L"#F59E0B", L"#A855F7", L"#10B981", L"#3B82F6"
+    };
+    const size_t paletteSize = sizeof(palette) / sizeof(palette[0]);
+    uint32_t h = SimpleHash32(key);
+    return palette[h % paletteSize];
+}
+
+/**
+ * @brief Base64 编码
+ * @param data 二进制数据
+ * @return std::string Base64 字符串
+ */
+static std::string Base64Encode(const std::vector<uint8_t>& data)
+{
+    static const char* table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve(((data.size() + 2) / 3) * 4);
+
+    size_t i = 0;
+    while (i + 3 <= data.size())
+    {
+        uint32_t n = (uint32_t(data[i]) << 16) | (uint32_t(data[i + 1]) << 8) | uint32_t(data[i + 2]);
+        out.push_back(table[(n >> 18) & 63]);
+        out.push_back(table[(n >> 12) & 63]);
+        out.push_back(table[(n >> 6) & 63]);
+        out.push_back(table[n & 63]);
+        i += 3;
+    }
+
+    size_t remain = data.size() - i;
+    if (remain == 1)
+    {
+        uint32_t n = (uint32_t(data[i]) << 16);
+        out.push_back(table[(n >> 18) & 63]);
+        out.push_back(table[(n >> 12) & 63]);
+        out.push_back('=');
+        out.push_back('=');
+    }
+    else if (remain == 2)
+    {
+        uint32_t n = (uint32_t(data[i]) << 16) | (uint32_t(data[i + 1]) << 8);
+        out.push_back(table[(n >> 18) & 63]);
+        out.push_back(table[(n >> 12) & 63]);
+        out.push_back(table[(n >> 6) & 63]);
+        out.push_back('=');
+    }
+
+    return out;
+}
+
+/**
+ * @brief 确保当前线程已初始化 COM（只做一次）
+ */
+static void EnsureComInitialized()
+{
+    static std::once_flag once;
+    std::call_once(once, []() {
+        CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    });
+}
+
+/**
+ * @brief 获取全局 WIC 工厂（懒加载）
+ * @return Microsoft::WRL::ComPtr<IWICImagingFactory> 工厂对象
+ */
+static Microsoft::WRL::ComPtr<IWICImagingFactory> GetWicFactory()
+{
+    EnsureComInitialized();
+    static std::once_flag once;
+    static Microsoft::WRL::ComPtr<IWICImagingFactory> factory;
+    std::call_once(once, []() {
+        CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
+    });
+    return factory;
+}
+
+/**
+ * @brief 将 HICON 编码为 PNG DataURI（用于 WebView 显示，保留透明通道）
+ * @param hIcon 图标句柄
+ * @param size 图标尺寸（像素）
+ * @return std::wstring DataURI，失败返回空串
+ */
+static std::wstring IconToPngDataUri(HICON hIcon, int size)
+{
+    if (!hIcon || size <= 0)
+    {
+        return L"";
+    }
+
+    Microsoft::WRL::ComPtr<IWICImagingFactory> factory = GetWicFactory();
+    if (!factory)
+    {
+        return L"";
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmap> wicBitmap;
+    HRESULT hr = factory->CreateBitmapFromHICON(hIcon, &wicBitmap);
+    if (FAILED(hr) || !wicBitmap)
+    {
+        return L"";
+    }
+
+    Microsoft::WRL::ComPtr<IStream> stream;
+    hr = CreateStreamOnHGlobal(NULL, TRUE, &stream);
+    if (FAILED(hr) || !stream)
+    {
+        return L"";
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapEncoder> encoder;
+    hr = factory->CreateEncoder(GUID_ContainerFormatPng, NULL, &encoder);
+    if (FAILED(hr) || !encoder)
+    {
+        return L"";
+    }
+
+    hr = encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache);
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frame;
+    Microsoft::WRL::ComPtr<IPropertyBag2> props;
+    hr = encoder->CreateNewFrame(&frame, &props);
+    if (FAILED(hr) || !frame)
+    {
+        return L"";
+    }
+
+    hr = frame->Initialize(props.Get());
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+
+    hr = frame->SetSize(static_cast<UINT>(size), static_cast<UINT>(size));
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+
+    WICPixelFormatGUID format = GUID_WICPixelFormat32bppPBGRA;
+    hr = frame->SetPixelFormat(&format);
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+
+    hr = frame->WriteSource(wicBitmap.Get(), NULL);
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+
+    hr = frame->Commit();
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+    hr = encoder->Commit();
+    if (FAILED(hr))
+    {
+        return L"";
+    }
+
+    HGLOBAL hGlobal = NULL;
+    hr = GetHGlobalFromStream(stream.Get(), &hGlobal);
+    if (FAILED(hr) || !hGlobal)
+    {
+        return L"";
+    }
+
+    SIZE_T sizeBytes = GlobalSize(hGlobal);
+    if (sizeBytes == 0)
+    {
+        return L"";
+    }
+
+    void* mem = GlobalLock(hGlobal);
+    if (!mem)
+    {
+        return L"";
+    }
+
+    std::vector<uint8_t> png(sizeBytes);
+    memcpy(png.data(), mem, sizeBytes);
+    GlobalUnlock(hGlobal);
+
+    std::string b64 = Base64Encode(png);
+    std::wstring dataUri = L"data:image/png;base64,";
+    dataUri.append(b64.begin(), b64.end());
+    return dataUri;
+}
+
+/**
+ * @brief 尝试从路径提取图标（支持普通文件路径与 shell: 命名空间）
+ * @param path 路径或 shell:AppsFolder\\...
+ * @param size 图标大小
+ * @return std::wstring DataURI，失败返回空串
+ */
+static std::wstring TryGetIconDataUriByPath(const std::wstring& path, int size)
+{
+    if (path.empty())
+    {
+        return L"";
+    }
+
+    static std::unordered_map<std::wstring, std::wstring> cache;
+    std::wstring cacheKey = path + L"#" + std::to_wstring(size);
+    auto it = cache.find(cacheKey);
+    if (it != cache.end())
+    {
+        return it->second;
+    }
+
+    std::wstring result;
+    HICON hIcon = NULL;
+
+    size_t commaPos = path.find(L',');
+    if (commaPos != std::wstring::npos && path.rfind(L"shell:", 0) != 0)
+    {
+        std::wstring iconFile = path.substr(0, commaPos);
+        std::wstring iconIndexStr = path.substr(commaPos + 1);
+        while (!iconIndexStr.empty() && (iconIndexStr.front() == L' ' || iconIndexStr.front() == L'\t'))
+        {
+            iconIndexStr.erase(iconIndexStr.begin());
+        }
+
+        int iconIndex = _wtoi(iconIndexStr.c_str());
+
+        std::wstring resolved = iconFile;
+        if (resolved.find(L"\\") == std::wstring::npos && resolved.find(L"/") == std::wstring::npos)
+        {
+            WCHAR found[MAX_PATH] = {0};
+            if (SearchPathW(NULL, resolved.c_str(), NULL, MAX_PATH, found, NULL) > 0)
+            {
+                resolved = found;
+            }
+        }
+
+        HICON hLarge = NULL;
+        HICON hSmall = NULL;
+        if (ExtractIconExW(resolved.c_str(), iconIndex, &hLarge, &hSmall, 1) > 0)
+        {
+            hIcon = hLarge ? hLarge : hSmall;
+            if (hLarge && hIcon != hLarge) DestroyIcon(hLarge);
+            if (hSmall && hIcon != hSmall) DestroyIcon(hSmall);
+        }
+    }
+    else if (path.rfind(L"shell:", 0) == 0)
+    {
+        PIDLIST_ABSOLUTE pidl = nullptr;
+        HRESULT hr = SHParseDisplayName(path.c_str(), NULL, &pidl, 0, NULL);
+        if (SUCCEEDED(hr) && pidl)
+        {
+            SHFILEINFOW sfi = {0};
+            if (SHGetFileInfoW(reinterpret_cast<LPCWSTR>(pidl), 0, &sfi, sizeof(sfi), SHGFI_PIDL | SHGFI_ICON | SHGFI_LARGEICON))
+            {
+                hIcon = sfi.hIcon;
+            }
+            CoTaskMemFree(pidl);
+        }
+    }
+    else
+    {
+        SHFILEINFOW sfi = {0};
+        if (SHGetFileInfoW(path.c_str(), 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_LARGEICON))
+        {
+            hIcon = sfi.hIcon;
+        }
+    }
+
+    if (hIcon)
+    {
+        result = IconToPngDataUri(hIcon, size);
+        DestroyIcon(hIcon);
+    }
+
+    cache[cacheKey] = result;
+    return result;
+}
+
+std::wstring GetShortcutIconDataUri(const ShortcutItem& shortcut, int size)
+{
+    if (size <= 0)
+    {
+        return L"";
+    }
+
+    if (wcsncmp(shortcut.iconPath, L"emoji:", 6) == 0)
+    {
+        return L"";
+    }
+
+    if (shortcut.type == 1)
+    {
+        return L"";
+    }
+
+    std::wstring iconDataUri;
+
+    if (wcslen(shortcut.iconPath) > 0)
+    {
+        iconDataUri = TryGetIconDataUriByPath(shortcut.iconPath, size);
+    }
+
+    if (iconDataUri.empty())
+    {
+        iconDataUri = TryGetIconDataUriByPath(shortcut.path, size);
+    }
+
+    if (iconDataUri.empty())
+    {
+        WCHAR iconPath[512] = {0};
+        if (ExtractShortcutIcon(shortcut, iconPath, 512))
+        {
+            iconDataUri = TryGetIconDataUriByPath(iconPath, size);
+        }
+    }
+
+    return iconDataUri;
+}
+
+/**
+ * @brief 生成开始页图标 HTML：开始菜单项用字母图标，其他按 emoji 规则
+ * @param shortcut 快捷方式对象
+ * @return std::wstring 图标 HTML
+ */
+static std::wstring BuildStartPageIconHtml(const ShortcutItem& shortcut)
+{
+    if (wcsncmp(shortcut.iconPath, L"emoji:", 6) == 0)
+    {
+        std::wstring emoji = GetShortcutEmoji(shortcut);
+        return L"<div class='shortcut-icon'>" + EscapeHtmlAttribute(emoji) + L"</div>";
+    }
+    if (shortcut.type != 1)
+    {
+        std::wstring iconDataUri = TryGetIconDataUriByPath(shortcut.path, 32);
+        if (iconDataUri.empty())
+        {
+            WCHAR iconPath[512] = {0};
+            if (ExtractShortcutIcon(shortcut, iconPath, 512))
+            {
+                iconDataUri = TryGetIconDataUriByPath(iconPath, 32);
+            }
+        }
+        if (!iconDataUri.empty())
+        {
+            return L"<div class='shortcut-icon'><img class='icon-img' src='" + EscapeHtmlAttribute(iconDataUri) + L"'/></div>";
+        }
+    }
+    if (IsStartMenuShortcut(shortcut))
+    {
+        std::wstring key = shortcut.path[0] ? shortcut.path : std::wstring(shortcut.name);
+        std::wstring bg = GetMonogramBgColor(key);
+        wchar_t monoChar = GetMonogramChar(shortcut.name);
+        std::wstring html;
+        html += L"<div class='shortcut-icon monogram' style='background:" + bg + L"'>";
+        html += EscapeHtmlAttribute(std::wstring(1, monoChar));
+        html += L"</div>";
+        return html;
+    }
+    std::wstring emoji = GetShortcutEmoji(shortcut);
+    return L"<div class='shortcut-icon'>" + EscapeHtmlAttribute(emoji) + L"</div>";
+}
+
+/**
+ * @brief 生成单个快捷方式卡片 HTML
+ * @param shortcut 快捷方式对象
+ * @param subtitle 卡片副标题
+ * @param compact 是否使用紧凑模式
+ * @param allowManage 是否允许编辑和删除
+ * @return std::wstring 卡片 HTML
+ */
+static std::wstring BuildStartPageShortcutCard(const ShortcutItem& shortcut, const std::wstring& subtitle, bool compact, bool allowManage)
+{
+    const std::wstring cardClass = compact ? L"shortcut-card compact" : L"shortcut-card";
+    std::wstring html;
+    html += L"<div class='" + cardClass + L"' data-path='" + EscapeHtmlAttribute(shortcut.path) + L"'>";
+    html += BuildStartPageIconHtml(shortcut);
+    html += L"<div class='shortcut-title'>" + EscapeHtmlAttribute(shortcut.name) + L"</div>";
+    html += L"<div class='shortcut-subtitle'>" + EscapeHtmlAttribute(subtitle) + L"</div>";
+    html += L"<div class='shortcut-actions'>";
+    html += L"<button class='shortcut-action open' data-action='open'>打开</button>";
+    if (allowManage)
+    {
+        html += L"<button class='shortcut-action secondary' data-action='edit'>修改</button>";
+        html += L"<button class='shortcut-action danger' data-action='delete'>删除</button>";
+    }
+    html += L"</div>";
+    html += L"</div>";
+    return html;
+}
+
+/**
+ * @brief 更新开始页内容，使用接近 Win11 开始菜单的布局展示固定项、推荐和开始菜单程序
+ */
+void UpdateInitialWebViewContent()
 {
     if (g_settingsMenuMode)
     {
@@ -1165,60 +1984,270 @@ static void UpdateInitialWebViewContent()
     {
         UpdateDirModeWebView();
     }
-    else if (g_shortcuts.empty())
-    {
-        UpdateHelpInfoWebView();
-    }
     else
     {
-        // 检查是否有快捷方式标记为显示在首页
-        bool hasHomeShortcuts = false;
-        for (const auto& shortcut : g_shortcuts) {
-            if (shortcut.showOnHome) {
-                hasHomeShortcuts = true;
+        std::vector<ShortcutItem> pinnedShortcuts;
+        std::vector<ShortcutItem> candidateShortcuts = g_shortcuts;
+        std::vector<ShortcutItem> startMenuShortcuts;
+        std::vector<ShortcutItem> syncedStartMenuShortcuts;
+        for (const auto& shortcut : g_shortcuts)
+        {
+            if (IsStartMenuShortcut(shortcut))
+            {
+                syncedStartMenuShortcuts.push_back(shortcut);
+            }
+        }
+        std::sort(syncedStartMenuShortcuts.begin(), syncedStartMenuShortcuts.end(), [](const ShortcutItem& a, const ShortcutItem& b) {
+            return _wcsicmp(a.name, b.name) < 0;
+        });
+        const size_t maxHomeStartMenuCount = 120;
+        if (syncedStartMenuShortcuts.size() > maxHomeStartMenuCount)
+        {
+            syncedStartMenuShortcuts.resize(maxHomeStartMenuCount);
+        }
+        if (!syncedStartMenuShortcuts.empty())
+        {
+            startMenuShortcuts = syncedStartMenuShortcuts;
+        }
+        else
+        {
+            CollectStartMenuShortcuts(startMenuShortcuts, 24);
+        }
+
+        for (const auto& shortcut : g_shortcuts)
+        {
+            if (shortcut.showOnHome)
+            {
+                pinnedShortcuts.push_back(shortcut);
+            }
+        }
+
+        auto shortcutSorter = [](const ShortcutItem& a, const ShortcutItem& b) {
+            if (a.usageCount != b.usageCount)
+            {
+                return a.usageCount > b.usageCount;
+            }
+            return _wcsicmp(a.name, b.name) < 0;
+        };
+        std::sort(candidateShortcuts.begin(), candidateShortcuts.end(), shortcutSorter);
+
+        if (pinnedShortcuts.empty())
+        {
+            for (const auto& shortcut : candidateShortcuts)
+            {
+                pinnedShortcuts.push_back(shortcut);
+                if (pinnedShortcuts.size() >= 8)
+                {
+                    break;
+                }
+            }
+        }
+
+        std::set<std::wstring> pinnedPaths;
+        for (const auto& shortcut : pinnedShortcuts)
+        {
+            pinnedPaths.insert(shortcut.path);
+        }
+
+        std::vector<ShortcutItem> recommendedShortcuts;
+        for (const auto& shortcut : candidateShortcuts)
+        {
+            if (pinnedPaths.find(shortcut.path) != pinnedPaths.end())
+            {
+                continue;
+            }
+            recommendedShortcuts.push_back(shortcut);
+            if (recommendedShortcuts.size() >= 6)
+            {
                 break;
             }
         }
-        
-        if (hasHomeShortcuts) {
-            // 显示首页快捷方式
-            std::wstring html = L"<html><head><meta charset='utf-8'><title>首页快捷方式</title>";
-            html += L"<style>";
-            html += L"body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }";
-            html += L".shortcut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }";
-            html += L".shortcut-item { background-color: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s; }";
-            html += L".shortcut-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }";
-            html += L".shortcut-icon { width: 64px; height: 64px; margin: 0 auto 10px; background-size: contain; background-repeat: no-repeat; background-position: center; }";
-            html += L".shortcut-name { font-size: 14px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }";
-            html += L"</style></head><body>";
-            html += L"<h1>常用快捷方式</h1>";
-            html += L"<div class='shortcut-grid'>";
-            
-            for (const auto& shortcut : g_shortcuts) {
-                if (shortcut.showOnHome) {
-                    html += L"<div class='shortcut-item' data-path='" + std::wstring(shortcut.path) + L"'>";
-                    html += L"<div class='shortcut-icon' style='background-image: url(" + std::wstring(shortcut.iconPath) + L");'></div>";
-                    html += L"<div class='shortcut-name'>" + std::wstring(shortcut.name) + L"</div>";
-                    html += L"</div>";
-                }
-            }
-            
-            html += L"</div>";
-            html += L"<script>";
-            html += L"document.querySelectorAll('.shortcut-item').forEach(item => {";
-            html += L"  item.addEventListener('click', () => {";
-            html += L"    const path = item.getAttribute('data-path');";
-            html += L"    window.chrome.webview.postMessage({ type: 'open', path: path });";
-            html += L"  });";
-            html += L"});";
-            html += L"</script>";
-            html += L"</body></html>";
-            
-            UpdateWebView2Content(html.c_str());
-        } else {
-            // 没有首页快捷方式，显示搜索结果
-            SearchAndDisplayResults(g_currentSearch);
+
+        if (pinnedShortcuts.empty() && recommendedShortcuts.empty() && startMenuShortcuts.empty())
+        {
+            UpdateHelpInfoWebView();
+            return;
         }
+
+        ListView_DeleteAllItems(g_hListView);
+        LVITEMW lvi = {0};
+        lvi.mask = LVIF_TEXT;
+        lvi.iItem = 0;
+        lvi.iSubItem = 0;
+        lvi.pszText = (WCHAR*)L"Win11 风格开始页";
+        ListView_InsertItem(g_hListView, &lvi);
+
+        std::wstring pinnedHtml;
+        for (const auto& shortcut : pinnedShortcuts)
+        {
+            std::wstring subtitle = IsStartMenuShortcut(shortcut) ? L"固定项 · 开始菜单" : L"固定项";
+            pinnedHtml += BuildStartPageShortcutCard(shortcut, subtitle, false, FindShortcutIndexByPath(shortcut.path) >= 0);
+        }
+        if (pinnedHtml.empty())
+        {
+            pinnedHtml = L"<div class='empty-block'>暂无固定项，可以在快捷方式属性里勾选“显示在首页”。</div>";
+        }
+
+        std::wstring recommendedHtml;
+        for (const auto& shortcut : recommendedShortcuts)
+        {
+            std::wstring subtitle = (shortcut.usageCount > 0)
+                ? (L"已使用 " + std::to_wstring(shortcut.usageCount) + L" 次")
+                : L"推荐应用";
+            recommendedHtml += BuildStartPageShortcutCard(shortcut, subtitle, true, FindShortcutIndexByPath(shortcut.path) >= 0);
+        }
+        if (recommendedHtml.empty())
+        {
+            recommendedHtml = L"<div class='empty-block'>暂无推荐项，启动几次常用程序后会出现在这里。</div>";
+        }
+
+        std::wstring startMenuHtml;
+        for (const auto& shortcut : startMenuShortcuts)
+        {
+            std::wstring subtitle = shortcut.comment[0] ? shortcut.comment : L"开始菜单";
+            startMenuHtml += BuildStartPageShortcutCard(shortcut, subtitle, true, FindShortcutIndexByPath(shortcut.path) >= 0);
+        }
+        if (startMenuHtml.empty())
+        {
+            startMenuHtml = L"<div class='empty-block'>未读取到开始菜单快捷方式，可在设置中手动同步。</div>";
+        }
+        std::wstring startMenuCountText;
+        if (!syncedStartMenuShortcuts.empty())
+        {
+            startMenuCountText = L"已同步 " + std::to_wstring(g_shortcuts.size()) + L" 项 · 开始菜单相关显示前 " + std::to_wstring(startMenuShortcuts.size()) + L" 项";
+        }
+        else
+        {
+            startMenuCountText = L"实时读取（建议点击“同步开始菜单”导入更多）";
+        }
+
+        std::wstring html = LR"(
+<html><head><meta charset='utf-8'><title>开始页</title>
+<style>
+body { margin:0; padding:24px; font-family:'Microsoft YaHei UI','Segoe UI',sans-serif; background:radial-gradient(circle at top,#2d4d7a 0,#162033 38%,#0e1117 100%); color:#f4f7fb; }
+.shell { max-width:1080px; margin:0 auto; }
+.hero { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px; }
+.hero-card { flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:22px; padding:22px 24px; box-shadow:0 20px 50px rgba(0,0,0,0.28); backdrop-filter:blur(18px); }
+.hero-title { font-size:30px; font-weight:700; margin-bottom:8px; }
+.hero-subtitle { font-size:14px; color:#d1dbeb; }
+.hero-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+.hero-btn { border:none; border-radius:999px; padding:10px 18px; cursor:pointer; font-size:14px; font-weight:600; }
+.hero-btn.primary { background:#4da3ff; color:#081120; }
+.hero-btn.secondary { background:rgba(255,255,255,0.12); color:#f4f7fb; border:1px solid rgba(255,255,255,0.16); }
+.hero-btn.active { background:rgba(77,163,255,0.22); border:1px solid rgba(77,163,255,0.55); color:#e9f3ff; }
+.layout { display:grid; grid-template-columns: 1.3fr 0.9fr; gap:18px; }
+.panel { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:22px; padding:18px; box-shadow:0 16px 36px rgba(0,0,0,0.24); backdrop-filter:blur(18px); }
+.panel-title { font-size:18px; font-weight:700; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+.panel-desc { font-size:12px; color:#c0cadd; }
+.panel-tools { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.panel-input { border-radius:12px; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.08); color:#f4f7fb; padding:9px 12px; min-width:220px; outline:none; }
+.panel-input::placeholder { color: rgba(255,255,255,0.55); }
+.shortcut-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:14px; }
+.shortcut-list { display:grid; grid-template-columns:1fr; gap:12px; }
+.shortcut-card { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10); border-radius:18px; padding:16px; cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; min-height:116px; display:flex; flex-direction:column; }
+body.edit-mode .shortcut-card { cursor:default; }
+.shortcut-card.compact { min-height:92px; }
+.shortcut-card:hover { transform:translateY(-2px); box-shadow:0 14px 28px rgba(0,0,0,0.28); border-color:rgba(77,163,255,0.55); }
+.shortcut-icon { width:52px; height:52px; border-radius:16px; background:rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:12px; user-select:none; }
+.shortcut-icon.monogram { color:#081120; font-size:20px; font-weight:800; }
+.shortcut-icon .icon-img { width:32px; height:32px; display:block; }
+.shortcut-title { font-size:15px; font-weight:700; color:#ffffff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.shortcut-subtitle { font-size:12px; color:#c3cde0; margin-top:6px; line-height:1.45; max-height:34px; overflow:hidden; }
+.shortcut-actions { margin-top:auto; display:none; gap:8px; flex-wrap:wrap; padding-top:12px; }
+body.edit-mode .shortcut-actions { display:flex; }
+.shortcut-action { border:none; border-radius:10px; padding:7px 12px; cursor:pointer; font-size:12px; font-weight:600; background:#4da3ff; color:#081120; }
+.shortcut-action.secondary { background:rgba(255,255,255,0.12); color:#f4f7fb; border:1px solid rgba(255,255,255,0.14); }
+.shortcut-action.danger { background:rgba(255,107,107,0.18); color:#ffd7d7; border:1px solid rgba(255,107,107,0.30); }
+.empty-block { padding:18px; border-radius:16px; background:rgba(255,255,255,0.06); color:#c8d3e6; font-size:13px; }
+@media (max-width: 920px) { .layout { grid-template-columns:1fr; } }
+</style></head><body><div class='shell'>
+)";
+
+        html += L"<div class='hero'><div class='hero-card'>";
+        html += L"<div class='hero-title'>开始</div>";
+        html += L"<div class='hero-subtitle'>参考 Win11 开始菜单布局，整合固定快捷方式、推荐项目和开始菜单程序。</div>";
+        html += L"<div class='hero-actions'>";
+        html += L"<button class='hero-btn primary' onclick='window.chrome.webview.postMessage(JSON.stringify({type:\"addShortcut\"}))'>添加快捷方式</button>";
+        html += L"<button id='toggleEditMode' class='hero-btn secondary'>编辑模式</button>";
+        html += L"<button class='hero-btn secondary' onclick='window.chrome.webview.postMessage(JSON.stringify({type:\"openSystemSettings\"}))'>系统设置</button>";
+        html += L"<button class='hero-btn secondary' onclick='window.chrome.webview.postMessage(JSON.stringify({type:\"syncStartMenuShortcuts\"}))'>同步开始菜单</button>";
+        html += L"</div></div></div>";
+
+        html += L"<div class='layout'>";
+        html += L"<div class='panel'><div class='panel-title'><span>固定</span><span class='panel-desc'>首页固定项</span></div><div class='shortcut-grid'>";
+        html += pinnedHtml;
+        html += L"</div></div>";
+
+        html += L"<div class='panel'><div class='panel-title'><span>推荐</span><span class='panel-desc'>按使用次数排序</span></div><div class='shortcut-list'>";
+        html += recommendedHtml;
+        html += L"</div></div>";
+
+        html += L"<div class='panel' style='grid-column:1 / -1;'><div class='panel-title'><span>开始菜单程序</span><span class='panel-desc'>" + startMenuCountText + L"</span></div>";
+        html += L"<div class='panel-tools'><input id='startMenuFilter' class='panel-input' placeholder='搜索开始菜单（按名称过滤）' /></div>";
+        html += L"<div id='startMenuGrid' class='shortcut-grid'>";
+        html += startMenuHtml;
+        html += L"</div></div>";
+        html += L"</div>";
+
+        html += LR"(
+<script>
+var editMode = false;
+var toggleBtn = document.getElementById('toggleEditMode');
+function setEditMode(on) {
+  editMode = !!on;
+  document.body.classList.toggle('edit-mode', editMode);
+  if (toggleBtn) {
+    toggleBtn.textContent = editMode ? '退出编辑' : '编辑模式';
+    toggleBtn.classList.toggle('active', editMode);
+  }
+}
+if (toggleBtn) {
+  toggleBtn.addEventListener('click', function() {
+    setEditMode(!editMode);
+  });
+}
+document.querySelectorAll('.shortcut-card').forEach(function(item) {
+  item.addEventListener('click', function() {
+    if (editMode) return;
+    var path = item.getAttribute('data-path');
+    if (path && window.chrome && window.chrome.webview) {
+      window.chrome.webview.postMessage(JSON.stringify({ type: 'openShortcut', path: path }));
+    }
+  });
+  item.querySelectorAll('.shortcut-action').forEach(function(btn) {
+    btn.addEventListener('click', function(event) {
+      event.stopPropagation();
+      var path = item.getAttribute('data-path');
+      var action = btn.getAttribute('data-action');
+      if (!path || !window.chrome || !window.chrome.webview) return;
+      if (action === 'open') {
+        window.chrome.webview.postMessage(JSON.stringify({ type: 'openShortcut', path: path }));
+      } else if (action === 'edit') {
+        window.chrome.webview.postMessage(JSON.stringify({ type: 'editHomeShortcut', path: path }));
+      } else if (action === 'delete') {
+        window.chrome.webview.postMessage(JSON.stringify({ type: 'deleteHomeShortcut', path: path }));
+      }
+    });
+  });
+});
+
+var filterInput = document.getElementById('startMenuFilter');
+var startMenuGrid = document.getElementById('startMenuGrid');
+if (filterInput && startMenuGrid) {
+  filterInput.addEventListener('input', function() {
+    var q = (filterInput.value || '').toLowerCase().trim();
+    startMenuGrid.querySelectorAll('.shortcut-card').forEach(function(card) {
+      var titleEl = card.querySelector('.shortcut-title');
+      var title = titleEl ? (titleEl.textContent || '').toLowerCase() : '';
+      var show = !q || title.indexOf(q) >= 0;
+      card.style.display = show ? '' : 'none';
+    });
+  });
+}
+</script></div></body></html>
+)";
+
+        UpdateWebView2Content(html.c_str());
     }
 }
 
@@ -1677,6 +2706,12 @@ BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR l
         return FALSE;
     }
     
+    // 设置对话框字体为支持中文的字体
+    HFONT hFont = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                             DEFAULT_PITCH | FF_SWISS, L"微软雅黑");
+    SendMessageW(hDlg, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
     // 创建名称标签
     HWND hNameLabel = CreateWindowExW(0, L"STATIC", L"名称:",
                                      WS_VISIBLE | WS_CHILD,
@@ -1788,6 +2823,7 @@ BOOL GetMultiLineInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR l
     SetFocus(g_hMainWindow);
     
     // 清理资源
+    DeleteObject(hFont);  // 删除创建的字体对象
     DestroyWindow(hDlg);
     
     return bResult;
@@ -1885,11 +2921,16 @@ LRESULT CALLBACK PropertiesDlgSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, L
  */
 BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LPWSTR lpComment, LPWSTR lpIconPath, int shortcutType, bool* pShowOnHome = nullptr)
 {
-    // 计算对话框在屏幕中心的位置
+    // 设置对话框字体为支持中文的字体 - 增大字体到26
+    HFONT hFont = CreateFontW(26, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                             DEFAULT_PITCH | FF_SWISS, L"微软雅黑");
+    
+    // 计算对话框在屏幕中心的位置 - 增大窗口尺寸
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int dialogWidth = 450;
-    int dialogHeight = 440; // 增加高度以容纳
+    int dialogWidth = 700;
+    int dialogHeight = 750; // Slightly taller to be safe
     int dialogX = (screenWidth - dialogWidth) / 2;
     int dialogY = (screenHeight - dialogHeight) / 2;
     
@@ -1901,23 +2942,26 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     
     if (!hDlg)
     {
+        DeleteObject(hFont);  // 清理字体资源
         return FALSE;
     }
     
-    // 创建图标显示区域（类似属性对话框的图标显示）
+    SendMessageW(hDlg, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    // 创建图标显示区域
     HWND hIcon = CreateWindowExW(0, L"STATIC", NULL,
                                  WS_VISIBLE | WS_CHILD | SS_ICON,
-                                 15, 15, 32, 32,
+                                 20, 20, 48, 48, // Larger icon
                                  hDlg, NULL, GetModuleHandle(NULL), NULL);
     
     // 根据快捷方式类型设置图标
     HICON hIconToUse;
     if (shortcutType == 0) // 文件夹类型
-        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"shell32.dll", IMAGE_ICON, 32, 32, LR_SHARED);
+        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"shell32.dll", IMAGE_ICON, 48, 48, LR_SHARED);
     else if (shortcutType == 1) // URL类型
-        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"imageres.dll", IMAGE_ICON, 32, 32, LR_SHARED);
+        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"imageres.dll", IMAGE_ICON, 48, 48, LR_SHARED);
     else // 应用程序类型
-        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"shell32.dll", IMAGE_ICON, 32, 32, LR_SHARED);
+        hIconToUse = (HICON)LoadImageW(GetModuleHandle(NULL), L"shell32.dll", IMAGE_ICON, 48, 48, LR_SHARED);
     
     if (hIconToUse)
     {
@@ -1927,81 +2971,92 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     // 创建类型标签
     HWND hTypeLabel = CreateWindowExW(0, L"STATIC", L"类型:",
                                      WS_VISIBLE | WS_CHILD,
-                                     60, 15, 60, 20,
+                                     80, 25, 60, 34,
                                      hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hTypeLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     // 显示快捷方式类型
     WCHAR typeText[100] = {0};
-    if (shortcutType == 0)
-        wcscpy_s(typeText, L"文件夹");
-    else if (shortcutType == 1)
-        wcscpy_s(typeText, L"URL");
-    else
-        wcscpy_s(typeText, L"应用程序");
+    if (shortcutType == 0) wcscpy_s(typeText, L"文件夹");
+    else if (shortcutType == 1) wcscpy_s(typeText, L"URL");
+    else wcscpy_s(typeText, L"应用程序");
     
     HWND hTypeValue = CreateWindowExW(0, L"STATIC", typeText,
                                      WS_VISIBLE | WS_CHILD,
-                                     120, 15, 150, 20,
+                                     150, 25, 200, 34,
                                      hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hTypeValue, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     // 创建位置标签
     HWND hLocationLabel = CreateWindowExW(0, L"STATIC", L"位置:",
                                          WS_VISIBLE | WS_CHILD,
-                                         60, 35, 60, 20,
+                                         80, 65, 60, 34,
                                          hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hLocationLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     HWND hLocationValue = CreateWindowExW(0, L"STATIC", L"快速启动器",
                                          WS_VISIBLE | WS_CHILD,
-                                         120, 35, 150, 20,
+                                         150, 65, 200, 34,
                                          hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hLocationValue, WM_SETFONT, (WPARAM)hFont, TRUE);
     
+    // --- 输入区域 ---
+    // 增加垂直间距，每行间隔 60 (原50)
+    int startY = 110;
+    int stepY = 60;
+
     // 创建名称标签
     HWND hNameLabel = CreateWindowExW(0, L"STATIC", L"名称:",
                                      WS_VISIBLE | WS_CHILD,
-                                     60, 60, 60, 20,
+                                     40, startY + 3, 60, 34,
                                      hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hNameLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     // 创建名称编辑框
     HWND hNameEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpName, 
                                     WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-                                    120, 58, 300, 25, 
+                                    110, startY, 520, 40, 
                                     hDlg, NULL, GetModuleHandle(NULL), NULL);
     
     // 创建目标标签
     HWND hTargetLabel = CreateWindowExW(0, L"STATIC", L"目标:",
                                        WS_VISIBLE | WS_CHILD,
-                                       60, 85, 60, 20,
+                                       40, startY + stepY + 3, 60, 34,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hTargetLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     // 创建目标编辑框
     HWND hTargetEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpPath, 
                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-                                      120, 83, 300, 25, 
+                                      110, startY + stepY, 520, 40, 
                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
 
-    // 创建图标路径标签 (新增)
+    // 创建图标路径标签
     HWND hIconLabel = CreateWindowExW(0, L"STATIC", L"图标:",
                                        WS_VISIBLE | WS_CHILD,
-                                       60, 110, 60, 20,
+                                       40, startY + stepY*2 + 3, 60, 34,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hIconLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
-    // 创建图标路径编辑框 (新增)
+    // 创建图标路径编辑框
     HWND hIconEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpIconPath, 
                                       WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-                                      120, 108, 300, 25, 
+                                      110, startY + stepY*2, 520, 40, 
                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
 
     // 创建表情选择标签
     HWND hEmojiLabel = CreateWindowExW(0, L"STATIC", L"表情:",
                                        WS_VISIBLE | WS_CHILD,
-                                       60, 137, 60, 20,
+                                       40, startY + stepY*3 + 3, 60, 34,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hEmojiLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
 
     // 创建表情选择下拉框
     HWND hEmojiCombo = CreateWindowExW(WS_EX_CLIENTEDGE, L"COMBOBOX", L"",
                                        WS_VISIBLE | WS_CHILD | WS_BORDER | CBS_DROPDOWNLIST | WS_VSCROLL,
-                                       120, 135, 300, 200,
+                                       110, startY + stepY*3, 520, 300,
                                        hDlg, (HMENU)IDC_EMOJI_COMBO, GetModuleHandle(NULL), NULL);
+    SendMessageW(hEmojiCombo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
     // 添加表情选项
     SendMessageW(hEmojiCombo, CB_ADDSTRING, 0, (LPARAM)L"自定义图标");
@@ -2016,84 +3071,92 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     {
         const WCHAR* emoji = lpIconPath + 6;
         int idx = (int)SendMessageW(hEmojiCombo, CB_FINDSTRINGEXACT, -1, (LPARAM)emoji);
-        if (idx != CB_ERR)
-        {
-            SendMessageW(hEmojiCombo, CB_SETCURSEL, idx, 0);
-        }
+        if (idx != CB_ERR) SendMessageW(hEmojiCombo, CB_SETCURSEL, idx, 0);
     }
     else
     {
         SendMessageW(hEmojiCombo, CB_SETCURSEL, 0, 0); // 选中"自定义图标"
     }
     
-    // 创建备注标签 (位置下移)
+    // 创建备注标签
     HWND hCommentLabel = CreateWindowExW(0, L"STATIC", L"备注:",
                                         WS_VISIBLE | WS_CHILD,
-                                        60, 165, 60, 20,
+                                        40, startY + stepY*4 + 3, 60, 34,
                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hCommentLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
-    // 创建备注编辑框（多行，位置下移）
+    // 创建备注编辑框（多行）
     HWND hCommentEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", lpComment, 
                                        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL,
-                                       120, 165, 300, 80, 
+                                       110, startY + stepY*4, 520, 120, 
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
     
-    // 创建起始位置标签 (位置下移)
+    // --- 底部信息 ---
+    int bottomY = startY + stepY*4 + 130;
+
+    // 创建起始位置标签
     HWND hStartInLabel = CreateWindowExW(0, L"STATIC", L"起始位置:",
                                         WS_VISIBLE | WS_CHILD,
-                                        60, 260, 60, 20,
+                                        40, bottomY, 100, 34,
                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hStartInLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     HWND hStartInValue = CreateWindowExW(0, L"STATIC", L".",
                                         WS_VISIBLE | WS_CHILD,
-                                        120, 260, 150, 20,
+                                        150, bottomY, 400, 34,
                                         hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hStartInValue, WM_SETFONT, (WPARAM)hFont, TRUE);
     
-    // 创建快捷键标签 (位置下移)
+    // 创建快捷键标签
     HWND hShortcutKeyLabel = CreateWindowExW(0, L"STATIC", L"快捷键:",
                                             WS_VISIBLE | WS_CHILD,
-                                            60, 285, 60, 20,
+                                            40, bottomY + 40, 100, 34,
                                             hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hShortcutKeyLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     HWND hShortcutKeyValue = CreateWindowExW(0, L"STATIC", L"无",
                                             WS_VISIBLE | WS_CHILD,
-                                            120, 285, 60, 20,
+                                            150, bottomY + 40, 100, 34,
                                             hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hShortcutKeyValue, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     // 创建显示在首页复选框
     HWND hShowOnHomeLabel = CreateWindowExW(0, L"STATIC", L"显示在首页:",
                                            WS_VISIBLE | WS_CHILD,
-                                           60, 290, 80, 20,
+                                           40, 500, 120, 30,
                                            hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hShowOnHomeLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     HWND hShowOnHomeCheck = CreateWindowExW(0, L"BUTTON", L"",
                                            WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-                                           140, 290, 20, 20,
+                                           160, 500, 24, 24,
                                            hDlg, NULL, GetModuleHandle(NULL), NULL);
     
-    // 初始化复选框状态
     if (pShowOnHome && *pShowOnHome)
     {
         SendMessageW(hShowOnHomeCheck, BM_SETCHECK, BST_CHECKED, 0);
     }
     
-    // 创建按钮组框架 (位置下移)
+    // 创建按钮组框架
     HWND hButtonGroup = CreateWindowExW(0, L"BUTTON", NULL,
                                        WS_VISIBLE | WS_CHILD | BS_GROUPBOX,
-                                       15, 320, 415, 60,
+                                       20, 560, 640, 80,
                                        hDlg, NULL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hButtonGroup, WM_SETFONT, (WPARAM)hFont, TRUE);
     
-    // 创建确定按钮 (位置下移)
+    // 创建确定按钮
     HWND hOkBtn = CreateWindowExW(0, L"BUTTON", L"确定", 
                                  WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                                 250, 340, 80, 30, 
+                                 450, 585, 100, 40, 
                                  hDlg, (HMENU)IDOK, GetModuleHandle(NULL), NULL);
+    SendMessageW(hOkBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
     
-    // 创建取消按钮 (位置下移)
+    // 创建取消按钮
     HWND hCancelBtn = CreateWindowExW(0, L"BUTTON", L"取消", 
                                      WS_VISIBLE | WS_CHILD,
-                                     340, 340, 80, 30, 
+                                     560, 585, 100, 40, 
                                      hDlg, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
+    SendMessageW(hCancelBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
     
     // 显示窗口
     ShowWindow(hDlg, SW_SHOW);
@@ -2121,15 +3184,15 @@ BOOL GetPropertiesStyleInput(LPCWSTR lpCaption, LPWSTR lpName, LPWSTR lpPath, LP
     state.pResult = &bResult;
     state.hNameEdit = hNameEdit;
     state.hTargetEdit = hTargetEdit;
-    state.hIconEdit = hIconEdit; // 新增
-    state.hEmojiCombo = hEmojiCombo; // 新增
+    state.hIconEdit = hIconEdit;
+    state.hEmojiCombo = hEmojiCombo;
     state.hCommentEdit = hCommentEdit;
-    state.hShowOnHomeCheck = hShowOnHomeCheck; // 新增
+    state.hShowOnHomeCheck = hShowOnHomeCheck;
     state.lpName = lpName;
     state.lpPath = lpPath;
-    state.lpIconPath = lpIconPath; // 新增
+    state.lpIconPath = lpIconPath;
     state.lpComment = lpComment;
-    state.pShowOnHome = pShowOnHome; // 新增
+    state.pShowOnHome = pShowOnHome;
     
     SetWindowLongPtrW(hDlg, GWLP_USERDATA, (LONG_PTR)&state);
     state.oldProc = (WNDPROC)SetWindowLongPtrW(hDlg, GWLP_WNDPROC, (LONG_PTR)PropertiesDlgSubclassProc);
@@ -2679,6 +3742,23 @@ static std::wstring EscapeHtmlAttribute(const std::wstring& str)
         }
     }
     return result;
+}
+
+/**
+ * @brief 根据路径查找快捷方式在快捷方式库中的索引
+ * @param path 快捷方式路径
+ * @return int 找到返回索引，未找到返回 -1
+ */
+static int FindShortcutIndexByPath(const std::wstring& path)
+{
+    for (int i = 0; i < static_cast<int>(g_shortcuts.size()); ++i)
+    {
+        if (_wcsicmp(g_shortcuts[i].path, path.c_str()) == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 // 显示HTML快捷方式编辑对话框

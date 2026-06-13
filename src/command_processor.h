@@ -10,7 +10,9 @@ void ExecuteSelectedItem(INT_PTR index);
 void ExecuteFileModeItem(INT_PTR index);
 
 // Shortcut management
-int ImportDesktopShortcuts();
+int ImportDesktopShortcuts(bool saveChanges = true);
+int ImportStartMenuShortcuts(bool saveChanges = true);
+void CollectStartMenuShortcuts(std::vector<ShortcutItem>& shortcuts, size_t maxCount = 0);
 void AddDesktopShortcuts();
 void InitializeCommonShortcuts();
 

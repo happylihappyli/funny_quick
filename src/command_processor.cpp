@@ -10,10 +10,308 @@
 #include "file_manager.h"
 #include "tray_icon_manager.h"
 #include <shlobj.h>
+#include <knownfolders.h>
+#include <shobjidl.h>
+#include <wrl/client.h>
 #include <strsafe.h>
 #include <commctrl.h>
 #include <algorithm>
+#include <set>
 #include <shellapi.h>
+#include <functional>
+
+// HTML实体解码函数
+static std::wstring DecodeHtmlEntities(const std::wstring& input) {
+    std::wstring result = input;
+    
+    // 解码 &#39; 到单引号
+    size_t pos = 0;
+    while ((pos = result.find(L"&#39;", pos)) != std::wstring::npos) {
+        result.replace(pos, 5, L"'");
+    }
+    
+    // 解码 &quot; 到双引号
+    pos = 0;
+    while ((pos = result.find(L"&quot;", pos)) != std::wstring::npos) {
+        result.replace(pos, 6, L"\"");
+    }
+    
+    return result;
+}
+
+/**
+ * @brief 从完整路径中提取不带扩展名的显示名称
+ * @param fullPath 快捷方式完整路径
+ * @return std::wstring 可显示的快捷方式名称
+ */
+static std::wstring GetShortcutDisplayName(const std::wstring& fullPath)
+{
+    size_t lastSlash = fullPath.find_last_of(L"\\/");
+    std::wstring fileName = (lastSlash == std::wstring::npos) ? fullPath : fullPath.substr(lastSlash + 1);
+    size_t dotPos = fileName.find_last_of(L'.');
+    if (dotPos != std::wstring::npos)
+    {
+        fileName = fileName.substr(0, dotPos);
+    }
+    return fileName;
+}
+
+/**
+ * @brief 检查快捷方式是否已在库中存在
+ * @param path 快捷方式路径
+ * @return true 已存在
+ * @return false 不存在
+ */
+static bool ShortcutExistsByPath(const std::wstring& path)
+{
+    for (const auto& existing : g_shortcuts)
+    {
+        if (_wcsicmp(existing.path, path.c_str()) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief 将快捷方式信息写入结构体
+ * @param item 目标结构体
+ * @param name 显示名称
+ * @param path 快捷方式路径
+ * @param comment 备注
+ */
+static void FillShortcutItem(ShortcutItem& item, const std::wstring& name, const std::wstring& path, const std::wstring& comment)
+{
+    wcsncpy_s(item.name, name.c_str(), _TRUNCATE);
+    wcsncpy_s(item.path, path.c_str(), _TRUNCATE);
+    wcsncpy_s(item.comment, comment.c_str(), _TRUNCATE);
+    wcsncpy_s(item.iconPath, path.c_str(), _TRUNCATE);
+    item.type = 2;
+    item.usageCount = 0;
+    item.showOnHome = false;
+}
+
+/**
+ * @brief 获取已知文件夹路径（返回空表示失败）
+ * @param folderId 已知文件夹 ID
+ * @return std::wstring 目录路径
+ */
+static std::wstring GetKnownFolderPath(REFKNOWNFOLDERID folderId)
+{
+    PWSTR path = nullptr;
+    HRESULT hr = SHGetKnownFolderPath(folderId, KF_FLAG_DEFAULT, NULL, &path);
+    if (FAILED(hr) || !path)
+    {
+        return L"";
+    }
+    std::wstring result = path;
+    CoTaskMemFree(path);
+    return result;
+}
+
+/**
+ * @brief 从 AppsFolder 枚举应用（覆盖 Win11 开始菜单里大量 UWP/商店应用）
+ * @param shortcuts 输出的快捷方式列表（追加）
+ * @param maxCount 最大收集数量，0 表示不限制
+ * @param seenPaths 用于去重的集合（小写）
+ */
+static void CollectAppsFolderShortcuts(std::vector<ShortcutItem>& shortcuts, size_t maxCount, std::set<std::wstring>& seenPaths)
+{
+    HRESULT hrCo = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    bool needUninit = (hrCo == S_OK || hrCo == S_FALSE);
+
+    Microsoft::WRL::ComPtr<IShellItem> appsFolder;
+    HRESULT hr = SHCreateItemFromParsingName(L"shell:AppsFolder", NULL, IID_PPV_ARGS(&appsFolder));
+    if (SUCCEEDED(hr) && appsFolder)
+    {
+        Microsoft::WRL::ComPtr<IEnumShellItems> enumItems;
+        hr = appsFolder->BindToHandler(NULL, BHID_EnumItems, IID_PPV_ARGS(&enumItems));
+        if (SUCCEEDED(hr) && enumItems)
+        {
+            while (maxCount == 0 || shortcuts.size() < maxCount)
+            {
+                Microsoft::WRL::ComPtr<IShellItem> child;
+                ULONG fetched = 0;
+                HRESULT hrNext = enumItems->Next(1, child.GetAddressOf(), &fetched);
+                if (hrNext != S_OK || fetched == 0 || !child)
+                {
+                    break;
+                }
+
+                PWSTR displayName = nullptr;
+                if (FAILED(child->GetDisplayName(SIGDN_NORMALDISPLAY, &displayName)) || !displayName)
+                {
+                    continue;
+                }
+
+                PWSTR parsingName = nullptr;
+                std::wstring launchTarget;
+                if (SUCCEEDED(child->GetDisplayName(SIGDN_PARENTRELATIVEPARSING, &parsingName)) && parsingName && wcslen(parsingName) > 0)
+                {
+                    launchTarget = L"shell:AppsFolder\\";
+                    launchTarget += parsingName;
+                }
+                else
+                {
+                    PWSTR absParsing = nullptr;
+                    if (SUCCEEDED(child->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &absParsing)) && absParsing && wcslen(absParsing) > 0)
+                    {
+                        launchTarget = absParsing;
+                    }
+                    if (absParsing) CoTaskMemFree(absParsing);
+                }
+
+                if (!launchTarget.empty())
+                {
+                    std::wstring lowered = launchTarget;
+                    std::transform(lowered.begin(), lowered.end(), lowered.begin(), towlower);
+                    if (seenPaths.insert(lowered).second)
+                    {
+                        ShortcutItem item = {0};
+                        FillShortcutItem(item, displayName, launchTarget, L"开始菜单应用列表 (AppsFolder)");
+                        item.type = 2;
+                        shortcuts.push_back(item);
+                    }
+                }
+
+                if (parsingName) CoTaskMemFree(parsingName);
+                CoTaskMemFree(displayName);
+            }
+        }
+    }
+
+    if (needUninit)
+    {
+        CoUninitialize();
+    }
+}
+
+/**
+ * @brief 递归收集开始菜单中的快捷方式（含 AppsFolder 应用列表）
+ * @param shortcuts 输出的快捷方式列表
+ * @param maxCount 最大收集数量，0 表示不限制
+ */
+void CollectStartMenuShortcuts(std::vector<ShortcutItem>& shortcuts, size_t maxCount)
+{
+    shortcuts.clear();
+    std::set<std::wstring> seenPaths;
+
+    std::vector<std::wstring> roots;
+    {
+        std::wstring p1 = GetKnownFolderPath(FOLDERID_Programs);
+        std::wstring p2 = GetKnownFolderPath(FOLDERID_CommonPrograms);
+        std::wstring p3 = GetKnownFolderPath(FOLDERID_StartMenu);
+        std::wstring p4 = GetKnownFolderPath(FOLDERID_CommonStartMenu);
+
+        if (!p1.empty()) roots.push_back(p1);
+        if (!p2.empty()) roots.push_back(p2);
+        if (!p3.empty()) roots.push_back(p3);
+        if (!p4.empty()) roots.push_back(p4);
+
+        if (roots.empty())
+        {
+            WCHAR userPrograms[MAX_PATH] = {0};
+            WCHAR commonPrograms[MAX_PATH] = {0};
+            if (SHGetSpecialFolderPathW(NULL, userPrograms, CSIDL_PROGRAMS, FALSE))
+            {
+                roots.emplace_back(userPrograms);
+            }
+            if (SHGetSpecialFolderPathW(NULL, commonPrograms, CSIDL_COMMON_PROGRAMS, FALSE))
+            {
+                roots.emplace_back(commonPrograms);
+            }
+        }
+    }
+
+    std::function<void(const std::wstring&, const std::wstring&)> walkDirectory;
+    walkDirectory = [&](const std::wstring& directory, const std::wstring& rootDirectory)
+    {
+        if (maxCount > 0 && shortcuts.size() >= maxCount)
+        {
+            return;
+        }
+
+        WIN32_FIND_DATAW findData;
+        std::wstring searchPattern = directory + L"\\*";
+        HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &findData);
+        if (hFind == INVALID_HANDLE_VALUE)
+        {
+            return;
+        }
+
+        do
+        {
+            if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0)
+            {
+                continue;
+            }
+
+            std::wstring fullPath = directory + L"\\" + findData.cFileName;
+            if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            {
+                walkDirectory(fullPath, rootDirectory);
+                if (maxCount > 0 && shortcuts.size() >= maxCount)
+                {
+                    break;
+                }
+                continue;
+            }
+
+            const WCHAR* extension = wcsrchr(findData.cFileName, L'.');
+            if (!extension)
+            {
+                continue;
+            }
+            const bool isLnk = (_wcsicmp(extension, L".lnk") == 0);
+            const bool isUrl = (_wcsicmp(extension, L".url") == 0);
+            const bool isAppref = (_wcsicmp(extension, L".appref-ms") == 0);
+            if (!isLnk && !isUrl && !isAppref)
+            {
+                continue;
+            }
+
+            std::wstring loweredPath = fullPath;
+            std::transform(loweredPath.begin(), loweredPath.end(), loweredPath.begin(), towlower);
+            if (!seenPaths.insert(loweredPath).second)
+            {
+                continue;
+            }
+
+            std::wstring relativeDir;
+            if (directory.size() > rootDirectory.size())
+            {
+                relativeDir = directory.substr(rootDirectory.size() + 1);
+            }
+
+            std::wstring comment = L"开始菜单快捷方式";
+            if (!relativeDir.empty())
+            {
+                comment += L": " + relativeDir;
+            }
+
+            ShortcutItem item = {0};
+            FillShortcutItem(item, GetShortcutDisplayName(fullPath), fullPath, comment);
+            shortcuts.push_back(item);
+        } while (FindNextFileW(hFind, &findData));
+
+        FindClose(hFind);
+    };
+
+    for (const auto& root : roots)
+    {
+        walkDirectory(root, root);
+        if (maxCount > 0 && shortcuts.size() >= maxCount)
+        {
+            break;
+        }
+    }
+
+    if (maxCount == 0 || shortcuts.size() < maxCount)
+    {
+        CollectAppsFolderShortcuts(shortcuts, maxCount, seenPaths);
+    }
+}
 
 // Process command
 void ProcessCommand(const WCHAR* command)
@@ -239,7 +537,7 @@ void ProcessCommand(const WCHAR* command)
 }
 
 // Import desktop shortcuts with duplicate checking
-int ImportDesktopShortcuts()
+int ImportDesktopShortcuts(bool saveChanges)
 {
     int addedCount = 0;
     WCHAR desktopPath[MAX_PATH] = {0};
@@ -264,39 +562,12 @@ int ImportDesktopShortcuts()
                     wsprintfW(fullPath, L"%s\\%s", desktopPath, findData.cFileName);
                     
                     // Check for duplicates
-                    bool exists = false;
-                    for (const auto& existing : g_shortcuts)
-                    {
-                        if (_wcsicmp(existing.path, fullPath) == 0)
-                        {
-                            exists = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!exists)
+                    if (!ShortcutExistsByPath(fullPath))
                     {
                         ShortcutItem shortcut = {0};
-                        
-                        // Copy filename for manipulation
-                        WCHAR fileName[MAX_PATH];
-                        wcscpy(fileName, findData.cFileName);
-                        
-                        // Extract name without extension
-                        WCHAR* dotPos = wcsrchr(fileName, L'.');
-                        if (dotPos) *dotPos = L'\0';
-                        
-                        wcscpy(shortcut.name, fileName);
-                        wcscpy(shortcut.path, fullPath);
-                        
-                        // Set default comment and icon
                         WCHAR defaultComment[512] = {0};
                         wsprintfW(defaultComment, L"桌面快捷方式: %s", findData.cFileName);
-                        wcscpy(shortcut.comment, defaultComment);
-                        wcscpy(shortcut.iconPath, shortcut.path);
-                        
-                        shortcut.type = 2; // Application
-                        shortcut.usageCount = 0;
+                        FillShortcutItem(shortcut, GetShortcutDisplayName(fullPath), fullPath, defaultComment);
                         
                         g_shortcuts.push_back(shortcut);
                         addedCount++;
@@ -308,11 +579,42 @@ int ImportDesktopShortcuts()
         }
     }
     
-    if (addedCount > 0)
+    if (saveChanges && addedCount > 0)
     {
         SaveShortcuts();
     }
     
+    return addedCount;
+}
+
+/**
+ * @brief 将开始菜单快捷方式同步到快捷方式库
+ * @param saveChanges 是否在导入后立即保存
+ * @return int 成功新增的数量
+ */
+int ImportStartMenuShortcuts(bool saveChanges)
+{
+    std::vector<ShortcutItem> startMenuShortcuts;
+    CollectStartMenuShortcuts(startMenuShortcuts, 0);
+
+    int addedCount = 0;
+    for (const auto& item : startMenuShortcuts)
+    {
+        if (!ShortcutExistsByPath(item.path))
+        {
+            g_shortcuts.push_back(item);
+            addedCount++;
+        }
+    }
+
+    if (saveChanges && addedCount > 0)
+    {
+        SaveShortcuts();
+    }
+
+    char logMsg[256] = {0};
+    sprintf(logMsg, "ImportStartMenuShortcuts: 新增 %d 个开始菜单快捷方式", addedCount);
+    LogToFile(logMsg);
     return addedCount;
 }
 
@@ -382,6 +684,7 @@ void InitializeCommonShortcuts()
     
     // Add desktop shortcuts first
     AddDesktopShortcuts();
+    ImportStartMenuShortcuts(false);
     
     // Desktop folder
     ShortcutItem desktop = {0};
@@ -663,63 +966,76 @@ void HandleShortcutSearch(const WCHAR* query)
     LogToFile(logMsg);
     
     // Search for matching items using case-insensitive comparison
+    // Separate vectors for different priority levels
+    std::vector<ShortcutItem> nameExactMatches;
+    std::vector<ShortcutItem> nameSubMatches;
+    std::vector<ShortcutItem> commentMatches;
+    std::vector<ShortcutItem> pathMatches;
+
+    size_t queryLen = wcslen(query);
+
+    // Helper to check if str contains query (case-insensitive)
+    auto containsQuery = [&](const WCHAR* str) -> bool {
+        if (!str) return false;
+        size_t strLen = wcslen(str);
+        if (queryLen > strLen) return false;
+        
+        for (size_t j = 0; j <= strLen - queryLen; j++)
+        {
+            if (_wcsnicmp(&str[j], query, queryLen) == 0)
+                return true;
+        }
+        return false;
+    };
+
     for (size_t i = 0; i < g_shortcuts.size(); i++)
     {
         // 记录当前检查的项目
         char itemNameLog[1024] = {0};
         WideCharToMultiByte(CP_UTF8, 0, g_shortcuts[i].name, -1, itemNameLog, sizeof(itemNameLog), NULL, NULL);
         
-        bool match = false;
-        size_t queryLen = wcslen(query);
-
-        // Helper to check if str contains query (case-insensitive)
-        auto containsQuery = [&](const WCHAR* str) -> bool {
-            if (!str) return false;
-            size_t strLen = wcslen(str);
-            if (queryLen > strLen) return false;
-            
-            for (size_t j = 0; j <= strLen - queryLen; j++)
-            {
-                if (_wcsnicmp(&str[j], query, queryLen) == 0)
-                    return true;
-            }
-            return false;
-        };
+        bool matched = false;
         
-        // Check for exact match (already case-insensitive)
+        // Priority 1: Exact Name Match
         if (_wcsicmp(g_shortcuts[i].name, query) == 0)
         {
-            match = true;
+            nameExactMatches.push_back(g_shortcuts[i]);
             sprintf(logMsg, "HandleShortcutSearch: 找到精确匹配 '%s'", itemNameLog);
             LogToFile(logMsg);
+            matched = true;
         }
-        // Check name substring
+        // Priority 2: Name Substring Match
         else if (containsQuery(g_shortcuts[i].name))
         {
-            match = true;
+            nameSubMatches.push_back(g_shortcuts[i]);
             sprintf(logMsg, "HandleShortcutSearch: 找到名称匹配 '%s'", itemNameLog);
             LogToFile(logMsg);
+            matched = true;
         }
-        // Check path/URL substring
-        else if (containsQuery(g_shortcuts[i].path))
-        {
-            match = true;
-            sprintf(logMsg, "HandleShortcutSearch: 找到路径/URL匹配 '%s'", itemNameLog);
-            LogToFile(logMsg);
-        }
-        // Check comment substring
+        // Priority 3: Comment/Description Match (用户要求描述在路径之前)
         else if (containsQuery(g_shortcuts[i].comment))
         {
-            match = true;
+            commentMatches.push_back(g_shortcuts[i]);
             sprintf(logMsg, "HandleShortcutSearch: 找到备注匹配 '%s'", itemNameLog);
             LogToFile(logMsg);
+            matched = true;
         }
-        
-        if (match)
+        // Priority 4: Path/URL Match
+        else if (containsQuery(g_shortcuts[i].path))
         {
-            g_searchResults.push_back(g_shortcuts[i]);
+            pathMatches.push_back(g_shortcuts[i]);
+            sprintf(logMsg, "HandleShortcutSearch: 找到路径/URL匹配 '%s'", itemNameLog);
+            LogToFile(logMsg);
+            matched = true;
         }
     }
+
+    // Combine results in order: Exact Name -> Sub Name -> Comment -> Path
+    g_searchResults.clear();
+    g_searchResults.insert(g_searchResults.end(), nameExactMatches.begin(), nameExactMatches.end());
+    g_searchResults.insert(g_searchResults.end(), nameSubMatches.begin(), nameSubMatches.end());
+    g_searchResults.insert(g_searchResults.end(), commentMatches.begin(), commentMatches.end());
+    g_searchResults.insert(g_searchResults.end(), pathMatches.begin(), pathMatches.end());
 }
 
 // 显示搜索结果到ListView
@@ -1071,8 +1387,63 @@ void ExecuteSelectedItem(INT_PTR index)
             adjustedIndex, itemNameLog, itemPathLog, item.type, item.usageCount);
     LogToFile(logMsg);
     
+    // 在执行前对路径进行HTML实体解码
+    std::wstring decodedPath = DecodeHtmlEntities(item.path);
+    
+    // 添加路径解码日志
+    char decodedPathLog[1024] = {0};
+    WideCharToMultiByte(CP_UTF8, 0, decodedPath.c_str(), -1, decodedPathLog, sizeof(decodedPathLog), NULL, NULL);
+    sprintf(logMsg, "ExecuteSelectedItem: 解码后的路径: '%s'", decodedPathLog);
+    LogToFile(logMsg);
+    
+    // 添加路径长度和字符编码信息
+    char pathInfo[512] = {0};
+    sprintf(pathInfo, "ExecuteSelectedItem: 路径长度=%zu字符, 字节数=%zu字节", decodedPath.length(), decodedPath.size() * sizeof(wchar_t));
+    LogToFile(pathInfo);
+    
+    // 输出路径中的每个字符的编码（调试用）
+    std::string charCodes = "ExecuteSelectedItem: 路径字符编码: ";
+    size_t maxChars = (decodedPath.length() < 50) ? decodedPath.length() : 50;
+    for (size_t i = 0; i < maxChars; i++) {
+        char code[32];
+        sprintf(code, "%04X ", (unsigned int)decodedPath[i]);
+        charCodes += code;
+    }
+    if (decodedPath.length() > 50) {
+        charCodes += "...";
+    }
+    LogToFile(charCodes.c_str());
+    
+    // 检查路径是否存在
+    LogToFile("ExecuteSelectedItem: 检查路径是否存在");
+    DWORD fileAttributes = GetFileAttributesW(decodedPath.c_str());
+    if (fileAttributes == INVALID_FILE_ATTRIBUTES) {
+        DWORD error = GetLastError();
+        char errorLog[256];
+        sprintf(errorLog, "ExecuteSelectedItem: 路径不存在，错误代码: %lu", error);
+        LogToFile(errorLog);
+        
+        // 尝试从快捷方式文件获取实际路径
+        if (decodedPath.find(L".lnk") != std::wstring::npos) {
+            LogToFile("ExecuteSelectedItem: 检测到lnk文件，尝试解析快捷方式");
+            
+            // 尝试解析快捷方式
+            HANDLE hLink = CreateFileW(decodedPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+            if (hLink != INVALID_HANDLE_VALUE) {
+                CloseHandle(hLink);
+                LogToFile("ExecuteSelectedItem: 成功访问lnk文件");
+            } else {
+                char createFileError[256];
+                sprintf(createFileError, "ExecuteSelectedItem: 无法访问lnk文件，错误代码: %lu", GetLastError());
+                LogToFile(createFileError);
+            }
+        }
+    } else {
+        LogToFile("ExecuteSelectedItem: 路径存在，继续执行");
+    }
+    
     // 检查是否是计算模式
-    if (item.type == 3 && wcscmp(item.path, L"calculator_mode") == 0)
+    if (item.type == 3 && wcscmp(decodedPath.c_str(), L"calculator_mode") == 0)
     {
         LogToFile("ExecuteSelectedItem: 进入计算模式");
         EnterCalculatorMode();
@@ -1084,32 +1455,81 @@ void ExecuteSelectedItem(INT_PTR index)
     if (item.type == 0) // Directory
     {
         LogToFile("ExecuteSelectedItem: 执行目录");
-        result = ShellExecuteW(NULL, L"open", item.path, NULL, NULL, SW_SHOWNORMAL);
+        result = ShellExecuteW(NULL, L"open", decodedPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
     }
     else if (item.type == 1) // URL
     {
         LogToFile("ExecuteSelectedItem: 执行URL");
         // 其他URL，添加http://前缀
         WCHAR fullUrl[1024] = {0};
-        if (wcsstr(item.path, L"://") == NULL)
+        if (wcsstr(decodedPath.c_str(), L"://") == NULL)
         {
-            wsprintfW(fullUrl, L"http://%s", item.path);
+            wsprintfW(fullUrl, L"http://%s", decodedPath.c_str());
             result = ShellExecuteW(NULL, L"open", fullUrl, NULL, NULL, SW_SHOWNORMAL);
         }
         else
         {
-            result = ShellExecuteW(NULL, L"open", item.path, NULL, NULL, SW_SHOWNORMAL);
+            result = ShellExecuteW(NULL, L"open", decodedPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
         }
     }
     else // Application
     {
         LogToFile("ExecuteSelectedItem: 执行应用程序");
-        result = ShellExecuteW(NULL, L"open", item.path, NULL, NULL, SW_SHOWNORMAL);
+        result = ShellExecuteW(NULL, L"open", decodedPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
     }
     
     // 记录执行结果
     sprintf(logMsg, "ExecuteSelectedItem: ShellExecuteW 返回值: %Id", (INT_PTR)result);
     LogToFile(logMsg);
+    
+    // 增强错误处理
+    if ((INT_PTR)result <= 32)
+    {
+        // 错误代码
+        char errorLog[256];
+        sprintf(errorLog, "ExecuteSelectedItem: ShellExecuteW错误代码: %Id", (INT_PTR)result);
+        LogToFile(errorLog);
+        
+        // 尝试获取错误详细信息
+        LPVOID lpMsgBuf;
+        DWORD errorCode = (DWORD)(INT_PTR)result;
+        
+        // 如果错误代码小于32，可能是标准的Windows错误代码
+        if (errorCode < 32) {
+            FormatMessageW(
+                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPWSTR)&lpMsgBuf, 0, NULL);
+            
+            if (lpMsgBuf) {
+                char errorMsg[512];
+                WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)lpMsgBuf, -1, errorMsg, sizeof(errorMsg), NULL, NULL);
+                sprintf(errorLog, "ExecuteSelectedItem: 错误详细信息: %s", errorMsg);
+                LogToFile(errorLog);
+                LocalFree(lpMsgBuf);
+            }
+        } else {
+            // 如果错误代码大于等于32，但ShellExecuteW认为这是错误，可能是SE_ERR_DLLNOTFOUND等特殊情况
+            char specialError[256];
+            sprintf(specialError, "ExecuteSelectedItem: 特殊错误代码: %lu", errorCode);
+            LogToFile(specialError);
+        }
+        
+        WCHAR feedback[1024] = {0};
+        wsprintfW(feedback, L"Failed to execute: error code %Id", (INT_PTR)result);
+        ListView_DeleteAllItems(g_hListView);
+        
+        LVITEMW lvi = {0};
+        lvi.mask = LVIF_TEXT;
+        lvi.iItem = 0;
+        lvi.iSubItem = 0;
+        lvi.pszText = feedback;
+        ListView_InsertItem(g_hListView, &lvi);
+    }
+    else
+    {
+        LogToFile("ExecuteSelectedItem: ShellExecuteW成功执行");
+    }
     
     // Update usage count in both search results and original shortcuts list
     item.usageCount++;
@@ -1125,27 +1545,6 @@ void ExecuteSelectedItem(INT_PTR index)
             LogToFile(logMsg);
             break;
         }
-    }
-    
-    // Only show error message if execution failed
-    if ((INT_PTR)result <= 32)
-    {
-        sprintf(logMsg, "ExecuteSelectedItem: 执行失败，错误代码 %Id", (INT_PTR)result);
-        LogToFile(logMsg);
-        WCHAR feedback[1024] = {0};
-        wsprintfW(feedback, L"Failed to execute: error code %Id", (INT_PTR)result);
-        ListView_DeleteAllItems(g_hListView);
-        
-        LVITEMW lvi = {0};
-        lvi.mask = LVIF_TEXT;
-        lvi.iItem = 0;
-        lvi.iSubItem = 0;
-        lvi.pszText = feedback;
-        ListView_InsertItem(g_hListView, &lvi);
-    }
-    else
-    {
-        LogToFile("ExecuteSelectedItem: 执行成功");
     }
 }
 
@@ -1210,28 +1609,77 @@ void ExecuteFileModeItem(INT_PTR index)
             adjustedIndex, fileNameLog, filePathLog, file.isFile ? "文件" : "非文件", file.isFolder ? "是" : "否");
     LogToFile(logMsg);
     
+    // 在执行前对路径进行HTML实体解码
+    std::wstring decodedPath = DecodeHtmlEntities(file.fullPath);
+    
+    // 添加路径解码日志
+    char decodedPathLog[1024] = {0};
+    WideCharToMultiByte(CP_UTF8, 0, decodedPath.c_str(), -1, decodedPathLog, sizeof(decodedPathLog), NULL, NULL);
+    sprintf(logMsg, "ExecuteFileModeItem: 解码后的路径: '%s'", decodedPathLog);
+    LogToFile(logMsg);
+    
+    // 检查路径是否存在
+    LogToFile("ExecuteFileModeItem: 检查路径是否存在");
+    DWORD fileAttributes = GetFileAttributesW(decodedPath.c_str());
+    if (fileAttributes == INVALID_FILE_ATTRIBUTES) {
+        DWORD error = GetLastError();
+        char errorLog[256];
+        sprintf(errorLog, "ExecuteFileModeItem: 路径不存在，错误代码: %lu", error);
+        LogToFile(errorLog);
+    } else {
+        LogToFile("ExecuteFileModeItem: 路径存在，继续执行");
+    }
+    
     // 执行文件或打开文件夹
     HINSTANCE result;
     if (file.isFolder)
     {
         LogToFile("ExecuteFileModeItem: 打开文件夹");
-        result = ShellExecuteW(NULL, L"open", file.fullPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        result = ShellExecuteW(NULL, L"open", decodedPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
     }
     else
     {
         LogToFile("ExecuteFileModeItem: 打开文件");
-        result = ShellExecuteW(NULL, L"open", file.fullPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        result = ShellExecuteW(NULL, L"open", decodedPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
     }
     
     // 记录执行结果
     sprintf(logMsg, "ExecuteFileModeItem: ShellExecuteW 返回值: %Id", (INT_PTR)result);
     LogToFile(logMsg);
     
-    // Only show error message if execution failed
+    // 增强错误处理
     if ((INT_PTR)result <= 32)
     {
-        sprintf(logMsg, "ExecuteFileModeItem: 执行失败，错误代码 %Id", (INT_PTR)result);
-        LogToFile(logMsg);
+        // 错误代码
+        char errorLog[256];
+        sprintf(errorLog, "ExecuteFileModeItem: ShellExecuteW错误代码: %Id", (INT_PTR)result);
+        LogToFile(errorLog);
+        
+        // 尝试获取错误详细信息
+        LPVOID lpMsgBuf;
+        DWORD errorCode = (DWORD)(INT_PTR)result;
+        
+        // 如果错误代码小于32，可能是标准的Windows错误代码
+        if (errorCode < 32) {
+            FormatMessageW(
+                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPWSTR)&lpMsgBuf, 0, NULL);
+            
+            if (lpMsgBuf) {
+                char errorMsg[512];
+                WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)lpMsgBuf, -1, errorMsg, sizeof(errorMsg), NULL, NULL);
+                sprintf(errorLog, "ExecuteFileModeItem: 错误详细信息: %s", errorMsg);
+                LogToFile(errorLog);
+                LocalFree(lpMsgBuf);
+            }
+        } else {
+            // 如果错误代码大于等于32，但ShellExecuteW认为这是错误，可能是SE_ERR_DLLNOTFOUND等特殊情况
+            char specialError[256];
+            sprintf(specialError, "ExecuteFileModeItem: 特殊错误代码: %lu", errorCode);
+            LogToFile(specialError);
+        }
+        
         WCHAR feedback[1024] = {0};
         wsprintfW(feedback, L"Failed to execute: error code %Id", (INT_PTR)result);
         ListView_DeleteAllItems(g_hListView);
@@ -1245,6 +1693,6 @@ void ExecuteFileModeItem(INT_PTR index)
     }
     else
     {
-        LogToFile("ExecuteFileModeItem: 执行成功");
+        LogToFile("ExecuteFileModeItem: ShellExecuteW成功执行");
     }
 }

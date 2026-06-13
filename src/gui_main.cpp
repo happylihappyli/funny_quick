@@ -4,17 +4,18 @@
 #include <tchar.h>
 #include <vector>
 #include <algorithm>
-//#include <set>
+#include <set>
 #include <shellapi.h>
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <shlobj.h>
 #include <strsafe.h>
-//#include <functional>
+#include <functional>
 #include <commctrl.h>  // ListView控件相关API
 #include <basetsd.h>   // For INT_PTR definition
-//#include "resource.h"
+#include <commdlg.h>   // 通用对话框
+#include "resource.h"
 #include "logger.h"
 #include "common.h"  // 公共定义和声明
 #include "calculator.h"  // 计算器功能定义
@@ -27,8 +28,6 @@
 #include "tray_icon_manager.h" // 托盘图标管理功能
 #include "ui_helpers.h" // UI辅助功能
 #include "command_processor.h" // 命令处理功能
-
-// WebView2 相关头文件
 #include <WebView2.h>
 #include <wrl.h>  // 用于 Microsoft::WRL::Callback
 #include <wrl/event.h>  // 用于事件处理器
@@ -37,6 +36,9 @@ using namespace Microsoft::WRL;
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "oleaut32.lib")
 #pragma comment(lib, "imm32.lib") // 链接输入法库
+
+// Enable Visual Styles
+#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 // Define notification codes if not defined
 // EN_RETURN 定义已移至 common.h，避免与 EN_SETFOCUS 冲突
@@ -56,6 +58,10 @@ HWND g_hHomeBtn = NULL;
 HWND g_hBookmarkBtn = NULL;
 HWND g_hCalculatorBtn = NULL;
 HWND g_hDirBtn = NULL;
+HWND g_hFileBtn = NULL;      // 文件搜索模式按钮
+HWND g_hShortcutBtn = NULL;  // 快捷方式管理模式按钮
+// HIMAGELIST g_hImageList = NULL; // 全局图像列表 (已废弃，改为每按钮一个)
+std::vector<HIMAGELIST> g_toolbarImageLists; // 存储每个按钮的图像列表
 
 // Flag to ignore EN_RETURN notifications triggered by focus changes
 bool g_ignoreNextReturn = false;
@@ -86,6 +92,8 @@ std::wstring g_cachedFormulaManagerHtml;  // 缓存的公式管理模板HTML
 bool g_formulaManagerHtmlCached = false;  // 公式管理模板是否已缓存
 bool g_formulaManagerMode = false; // 公式管理模式标志
 bool g_windowInitializing = false;  // 窗口是否正在初始化，防止自动执行
+bool g_minimizeToTray = true;  // 是否在最小化时隐藏到托盘
+bool g_showStartPageOnLaunch = true;  // 显示窗口时是否优先展示开始页
 
 // Subclassing procedure pointer for edit control
 WNDPROC g_originalEditProc = NULL;
@@ -194,6 +202,8 @@ void ClearListView();
 // 窗口大小记忆功能函数声明
 void SaveWindowSettings();
 void LoadWindowSettings(int& x, int& y, int& width, int& height);
+void SaveAppSettings();
+void LoadAppSettings();
 
 // HTML模板读取辅助函数声明
 
@@ -215,6 +225,7 @@ void UpdateSettingsMenuWebView();  // 刷新设置菜单的 WebView2 显示
 void UpdateHelpInfoWebView();  // 刷新帮助信息的 WebView2 显示
 void UpdateFileModeWebView();  // 刷新文件模式的 WebView2 显示
 void ShowBasicUsage();  // 显示基本用法界面
+void RefreshCurrentView();  // 恢复当前页面显示
 
 
 
@@ -246,9 +257,25 @@ void ShowLauncherWindow()
     LogToFile("Setting focus to edit control");
     SetFocus(g_hEdit);
     
-    // 显示基本用法界面（包含文件模式提示）
-    LogToFile("Displaying basic usage interface with file mode hints");
-    ShowBasicUsage();
+    // 普通模式下优先显示开始页，其他模式恢复当前内容
+    if (!g_calculatorMode && !g_dirMode && !g_bookmarkMode && !g_fileMode)
+    {
+        if (g_showStartPageOnLaunch)
+        {
+            LogToFile("ShowLauncherWindow: 显示开始页");
+            UpdateInitialWebViewContent();
+        }
+        else
+        {
+            LogToFile("ShowLauncherWindow: 显示基础说明页");
+            ShowBasicUsage();
+        }
+    }
+    else
+    {
+        LogToFile("ShowLauncherWindow: 恢复当前模式页面");
+        RefreshCurrentView();
+    }
     
     // 处理所有待处理的消息，确保初始化消息都已处理
     MSG msg;
@@ -319,9 +346,120 @@ void SetEnglishInputMethod()
  * @param lpCreateStruct 创建结构体指针
  * @return 成功返回0，失败返回-1
  */
+// 设置按钮图标的函数
+/**
+ * @brief 为工具栏按钮设置图标
+ * @param hwnd 窗口句柄
+ */
+void SetupToolbarButtonIcons(HWND hwnd)
+{
+    // 清理旧的 ImageLists
+    for (auto himl : g_toolbarImageLists) {
+        ImageList_Destroy(himl);
+    }
+    g_toolbarImageLists.clear();
+
+    // 获取系统目录路径
+    WCHAR systemDir[MAX_PATH];
+    GetSystemDirectoryW(systemDir, MAX_PATH);
+    
+    // 组合完整路径
+    WCHAR iconPath[MAX_PATH];
+    wcscpy_s(iconPath, systemDir);
+    wcscat_s(iconPath, L"\\shell32.dll");
+
+    WCHAR calcPath[MAX_PATH];
+    wcscpy_s(calcPath, systemDir);
+    wcscat_s(calcPath, L"\\calc.exe");
+    
+    HICON hIconLarge = NULL;
+    HICON hIconSmall = NULL;
+
+    // 辅助lambda：从指定路径获取图标并添加到新创建的ImageList中
+    auto CreateListWithIcon = [&](const WCHAR* path, int index) -> HIMAGELIST {
+        HIMAGELIST hList = ImageList_Create(32, 32, ILC_COLOR32 | ILC_MASK, 1, 0);
+        if (!hList) return NULL;
+
+        if (ExtractIconExW(path, index, &hIconLarge, &hIconSmall, 1) > 0) {
+            if (hIconLarge) {
+                ImageList_AddIcon(hList, hIconLarge);
+                DestroyIcon(hIconLarge);
+            } else if (hIconSmall) {
+                // Fallback to small if large not available (unlikely for 32x32 request but safe)
+                ImageList_AddIcon(hList, hIconSmall);
+            }
+            if (hIconSmall) DestroyIcon(hIconSmall);
+        } else {
+            // Fallback: try default icon if extraction fails
+            // Just return empty list or list with system default?
+            // For now, if fail, the list is empty and button won't show icon.
+        }
+        return hList;
+    };
+
+    // 定义按钮配置
+    struct ButtonConfig {
+        HWND hBtn;
+        const WCHAR* path;
+        int iconIndex;
+    } configs[] = {
+        { g_hHomeBtn, iconPath, 238 },      // 首页
+        { g_hBookmarkBtn, iconPath, 43 },   // 收藏
+        { g_hCalculatorBtn, calcPath, 0 },  // 计算器
+        { g_hDirBtn, iconPath, 3 },         // 目录
+        { g_hFileBtn, iconPath, 22 },       // 文件
+        { g_hShortcutBtn, iconPath, 25 }    // 快捷
+    };
+
+    // 为每个按钮创建独立的 ImageList
+    for (const auto& cfg : configs) {
+        HIMAGELIST hList = NULL;
+        
+        // 特殊处理计算器：先试 calc.exe，失败试 shell32
+        if (cfg.hBtn == g_hCalculatorBtn) {
+            hList = CreateListWithIcon(cfg.path, cfg.iconIndex);
+            if (ImageList_GetImageCount(hList) == 0) {
+                ImageList_Destroy(hList);
+                hList = CreateListWithIcon(iconPath, 24); // Fallback
+            }
+        } else {
+            hList = CreateListWithIcon(cfg.path, cfg.iconIndex);
+        }
+
+        if (hList && ImageList_GetImageCount(hList) > 0) {
+            g_toolbarImageLists.push_back(hList); // 存入全局列表以便清理
+
+            BUTTON_IMAGELIST bil = {0};
+            bil.himl = hList;
+            bil.uAlign = BUTTON_IMAGELIST_ALIGN_TOP;
+            bil.margin = {0, 2, 0, 0};
+            
+            SendMessage(cfg.hBtn, BCM_SETIMAGELIST, 0, (LPARAM)&bil);
+            
+            // 尝试设置 Explorer 主题以修复可能的绘制问题
+            // 需要 uxtheme.h, 但如果不想引入依赖，可以尝试 SetWindowTheme
+            // 这里假设 SetWindowTheme 可用 (user32.dll / uxtheme.dll)
+            // 实际上 SetWindowTheme 需要链接 uxtheme.lib 并包含 uxtheme.h
+            // 为了避免编译错误，先不加 SetWindowTheme，因为独立的 ImageList 应该能解决索引混淆问题。
+            
+            InvalidateRect(cfg.hBtn, NULL, TRUE);
+            UpdateWindow(cfg.hBtn);
+        } else {
+            if (hList) ImageList_Destroy(hList);
+        }
+    }
+    
+    LogToFile("Toolbar icons setup complete using separate ImageLists");
+}
+
+/**
+ * @brief 处理WM_CREATE消息，创建窗口控件
+ * @param hwnd 窗口句柄
+ * @param lpCreateStruct 创建结构体指针
+ * @return 成功返回0，失败返回-1
+ */
 LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
 {
-    // Create edit control without ES_WANTRETURN to receive WM_KEYDOWN messages
     // 文本框位置调整：移除左边标签，文本框靠左显示
     g_hEdit = CreateWindowExW(
           0,
@@ -364,29 +502,36 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
           L"STATIC",
           L"",
           WS_CHILD | WS_VISIBLE | WS_BORDER,
-          10, 300, 360, 200,  // 向下移动225像素，进一步增加间距避免遮挡工具栏
+          10, 120, 360, 200,  // 初始位置与 LayoutControls 保持一致 (10 + 50 + 10 + 50)
           hwnd, NULL,
           g_hInstance, NULL);
     
     LogToFile("WebView2 占位窗口已创建");
     
     // 创建工具栏（确保在 WebView2 之后创建，这样工具栏会显示在顶部）
+    // 增加高度以容纳更大的按钮 (30 -> 80)
     HWND hToolBar = CreateWindowExW(
         0,
         L"BUTTON",
         L"",
         WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        10, 40, 360, 30,
+        10, 40, 360, 80,
         hwnd, NULL,
         g_hInstance, NULL);
+    
+    // 按钮参数调整：
+    // 宽度 50 -> 55
+    // 高度 25 -> 60
+    // Y坐标 45 -> 55 (Groupbox从40开始，内部留边距)
+    // 移除 BS_ICON 样式，以便同时显示文字 (将使用 ImageList 关联图标)
     
     // 创建首页按钮
     g_hHomeBtn = CreateWindowExW(
         0,
         L"BUTTON",
-        L"🏠 首页",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        15, 45, 70, 23,
+        L"首页",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        15, 55, 55, 60,
         hwnd, (HMENU)IDC_HOME_BTN,
         g_hInstance, NULL);
     
@@ -394,9 +539,9 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
     g_hBookmarkBtn = CreateWindowExW(
         0,
         L"BUTTON",
-        L"⭐ 收藏",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        90, 45, 70, 23,
+        L"收藏",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        75, 55, 55, 60,
         hwnd, (HMENU)IDC_BOOKMARK_BTN,
         g_hInstance, NULL);
     
@@ -404,9 +549,9 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
     g_hCalculatorBtn = CreateWindowExW(
         0,
         L"BUTTON",
-        L"🧮 计算",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        165, 45, 70, 23,
+        L"计算器",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        135, 55, 55, 60,
         hwnd, (HMENU)IDC_CALCULATOR_BTN,
         g_hInstance, NULL);
     
@@ -414,10 +559,30 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
     g_hDirBtn = CreateWindowExW(
         0,
         L"BUTTON",
-        L"📁 目录",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        240, 45, 70, 23,
+        L"目录",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        195, 55, 55, 60,
         hwnd, (HMENU)IDC_DIR_BTN,
+        g_hInstance, NULL);
+    
+    // 创建文件按钮
+    g_hFileBtn = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"文件",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        255, 55, 55, 60,
+        hwnd, (HMENU)IDC_FILE_BTN,
+        g_hInstance, NULL);
+    
+    // 创建快捷方式管理按钮
+    g_hShortcutBtn = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"快捷",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        315, 55, 55, 60,
+        hwnd, (HMENU)IDC_SHORTCUT_BTN,
         g_hInstance, NULL);
     
     // 确保工具栏按钮始终显示在所有控件之上（Z 顺序的顶部）
@@ -425,9 +590,14 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
     SetWindowPos(g_hBookmarkBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
     SetWindowPos(g_hCalculatorBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
     SetWindowPos(g_hDirBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(g_hFileBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(g_hShortcutBtn, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
     
     // 初始化 WebView2（异步创建，需要时间）
     InitializeWebView2(hwnd);
+    
+    // 设置工具栏按钮图标
+    SetupToolbarButtonIcons(hwnd);
     
     // 保留 ListView 用于兼容（暂时隐藏）
     g_hListView = CreateWindowExW(
@@ -497,6 +667,12 @@ LRESULT HandleWMCreate(HWND hwnd, LPCREATESTRUCTW lpCreateStruct)
         ApplyFontToControl(g_hExitCalcButton);
         ApplyFontToControl(g_hExitFileButton);
         ApplyFontToControl(g_hCalcMenuButton);
+        ApplyFontToControl(g_hHomeBtn);
+        ApplyFontToControl(g_hBookmarkBtn);
+        ApplyFontToControl(g_hCalculatorBtn);
+        ApplyFontToControl(g_hDirBtn);
+        ApplyFontToControl(g_hFileBtn);
+        ApplyFontToControl(g_hShortcutBtn);
         LogToFile("字体已应用到所有控件");
     }
     else
@@ -591,6 +767,7 @@ LRESULT HandleWMDestroy(HWND hwnd)
     
     // 保存窗口大小和位置设置
     SaveWindowSettings();
+    SaveAppSettings();
     
     UnregisterHotKey(hwnd, HOTKEY_ID);
     UnregisterHotKey(hwnd, HOTKEY_ID_CTRL_F1);
@@ -604,6 +781,13 @@ LRESULT HandleWMDestroy(HWND hwnd)
         g_trayMenu = NULL;
     }
     
+    // 销毁所有工具栏图像列表
+    for (auto himl : g_toolbarImageLists)
+    {
+        ImageList_Destroy(himl);
+    }
+    g_toolbarImageLists.clear();
+
     g_shortcuts.clear();
     
     // 记录退出信息并关闭日志文件
@@ -676,8 +860,8 @@ LRESULT HandleWMSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
     sprintf(sizeLog, "WM_SIZE: 窗口大小改变为 %dx%d", newWidth, newHeight);
     LogToFile(sizeLog);
     
-    // 当窗口最小化时自动隐藏窗口到托盘
-    if (wParam == SIZE_MINIMIZED)
+    // 当窗口最小化时按设置决定是否隐藏到托盘
+    if (wParam == SIZE_MINIMIZED && g_minimizeToTray)
     {
         LogToFile("WM_SIZE: 窗口最小化，隐藏到托盘");
         ShowWindow(hwnd, SW_HIDE);
@@ -688,6 +872,10 @@ LRESULT HandleWMSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
             AddTrayIcon();
             CreateTrayMenu();
         }
+    }
+    else if (wParam == SIZE_MINIMIZED)
+    {
+        LogToFile("WM_SIZE: 窗口最小化，保留任务栏窗口");
     }
     else
     {
@@ -978,6 +1166,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     
     // 从注册表加载窗口设置
     LoadWindowSettings(x, y, windowWidth, windowHeight);
+    LoadAppSettings();
     
     // Create window with resizable style (removed the resizing restrictions)
     g_hMainWindow = CreateWindowExW(
@@ -1021,22 +1210,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         LogToFile("Set focus to edit control after window creation");
     }
     
-    // 先显示帮助信息
+    // 先显示默认页面，避免启动时空白
     if (g_hListView)
     {
-        LogToFile("显示启动帮助信息");
-        ShowHelpInfo();
+        if (g_showStartPageOnLaunch)
+        {
+            LogToFile("显示启动开始页占位");
+            ShowBasicUsage();
+        }
+        else
+        {
+            LogToFile("显示启动帮助信息");
+            ShowHelpInfo();
+        }
     }
     
     // 然后初始化快捷方式（延迟初始化，确保WebView2已准备好）
     LogToFile("初始化快捷方式");
     InitializeCommonShortcuts();
     
-    // 初始化完成后，显示默认搜索结果
+    // 初始化完成后，显示首页快捷方式（如果存在）
     if (g_hListView)
     {
-        SearchAndDisplayResults(L"");
-        LogToFile("Displayed default search results after initialization");
+        LogToFile("显示首页快捷方式");
+        UpdateInitialWebViewContent();
     }
     
     // 处理所有待处理的消息，确保初始化消息都已处理
@@ -1461,19 +1658,27 @@ void ShowSettingsMenu() {
     // 添加菜单项
     lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.iSubItem = 0;
-    lvi.pszText = (WCHAR*)L"退出程序";
-    ListView_InsertItem(g_hListView, &lvi);
-    
-    lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"快捷方式管理";
     ListView_InsertItem(g_hListView, &lvi);
     
+    lvi.iItem = ListView_GetItemCount(g_hListView);
+    lvi.pszText = (WCHAR*)L"导入桌面快捷方式";
+    ListView_InsertItem(g_hListView, &lvi);
+
+    lvi.iItem = ListView_GetItemCount(g_hListView);
+    lvi.pszText = (WCHAR*)L"同步开始菜单快捷方式";
+    ListView_InsertItem(g_hListView, &lvi);
+
     lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"系统设置";
     ListView_InsertItem(g_hListView, &lvi);
     
     lvi.iItem = ListView_GetItemCount(g_hListView);
     lvi.pszText = (WCHAR*)L"关于软件";
+    ListView_InsertItem(g_hListView, &lvi);
+
+    lvi.iItem = ListView_GetItemCount(g_hListView);
+    lvi.pszText = (WCHAR*)L"退出程序";
     ListView_InsertItem(g_hListView, &lvi);
     
     // 记录菜单项数量
@@ -1489,13 +1694,524 @@ void ShowSettingsMenu() {
 // 显示快捷方式管理对话框
 void ShowShortcutManagementDialog() {
     LogToFile("ShowShortcutManagementDialog: 显示快捷方式管理对话框");
-    MessageBoxW(g_hMainWindow, L"快捷方式管理功能开发中...", L"快捷方式管理", MB_OK | MB_ICONINFORMATION);
+    
+    if (g_shortcuts.empty())
+    {
+        MessageBoxW(g_hMainWindow, L"没有可管理的快捷方式\n\n请先添加一些快捷方式！", L"快捷方式管理", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+    
+    // 创建管理对话框
+    WCHAR dialogTitle[] = L"快捷方式管理";
+    int dialogWidth = 600;
+    int dialogHeight = 500;
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int dialogX = (screenWidth - dialogWidth) / 2;
+    int dialogY = (screenHeight - dialogHeight) / 2;
+    
+    HWND hDlg = CreateWindowExW(0, L"#32770", dialogTitle,
+                               WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
+                               dialogX, dialogY, dialogWidth, dialogHeight,
+                               g_hMainWindow, NULL, GetModuleHandle(NULL), NULL);
+    
+    if (!hDlg)
+    {
+        MessageBoxW(g_hMainWindow, L"无法创建管理窗口", L"错误", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // 创建字体
+    HFONT hFont = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                             DEFAULT_PITCH | FF_SWISS, L"微软雅黑");
+    SendMessageW(hDlg, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    // 创建标题
+    HWND hTitle = CreateWindowExW(0, L"STATIC", L"快捷方式管理 - 选择要编辑的快捷方式:",
+                                 WS_VISIBLE | WS_CHILD,
+                                 15, 10, 560, 25,
+                                 hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 为标题设置字体
+    SendMessageW(hTitle, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    // 创建ListView用于显示快捷方式列表
+    HWND hListView = CreateWindowExW(WS_EX_CLIENTEDGE, L"SysListView32", NULL,
+                                    WS_VISIBLE | WS_CHILD | WS_BORDER | LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_EX_FULLROWSELECT,
+                                    15, 40, 560, 350,
+                                    hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 为ListView设置字体
+    SendMessageW(hListView, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    // 确保ListView使用Unicode
+    ListView_SetUnicodeFormat(hListView, TRUE);
+    
+    // 设置ListView样式
+    ListView_SetExtendedListViewStyle(hListView, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+    
+    // 添加列
+    LVCOLUMNW lvc = {0};
+    lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+    
+    lvc.pszText = (LPWSTR)L"名称";
+    lvc.cx = 150;
+    lvc.iSubItem = 0;
+    ListView_InsertColumn(hListView, 0, &lvc);
+    
+    lvc.pszText = (LPWSTR)L"路径";
+    lvc.cx = 200;
+    lvc.iSubItem = 1;
+    ListView_InsertColumn(hListView, 1, &lvc);
+    
+    lvc.pszText = (LPWSTR)L"首页显示";
+    lvc.cx = 80;
+    lvc.iSubItem = 2;
+    ListView_InsertColumn(hListView, 2, &lvc);
+    
+    lvc.pszText = (LPWSTR)L"类型";
+    lvc.cx = 80;
+    lvc.iSubItem = 3;
+    ListView_InsertColumn(hListView, 3, &lvc);
+    
+    // 填充数据
+    LVITEMW lvItem = {0};
+    for (int i = 0; i < (int)g_shortcuts.size(); i++)
+    {
+        const ShortcutItem& shortcut = g_shortcuts[i];
+        
+        // 名称
+        lvItem.mask = LVIF_TEXT;
+        lvItem.iItem = i;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = (LPWSTR)shortcut.name;
+        ListView_InsertItem(hListView, &lvItem);
+        
+        // 路径
+        lvItem.iSubItem = 1;
+        lvItem.pszText = (LPWSTR)shortcut.path;
+        ListView_SetItem(hListView, &lvItem);
+        
+        // 首页显示状态
+        lvItem.iSubItem = 2;
+        lvItem.pszText = (LPWSTR)(shortcut.showOnHome ? L"✓" : L"✗");
+        ListView_SetItem(hListView, &lvItem);
+        
+        // 类型
+        lvItem.iSubItem = 3;
+        WCHAR typeText[20] = {0};
+        if (shortcut.type == 0)
+            wcscpy_s(typeText, L"文件夹");
+        else if (shortcut.type == 1)
+            wcscpy_s(typeText, L"URL");
+        else
+            wcscpy_s(typeText, L"程序");
+        lvItem.pszText = typeText;
+        ListView_SetItem(hListView, &lvItem);
+    }
+    
+    // 创建按钮框架
+    HWND hButtonGroup = CreateWindowExW(0, L"BUTTON", NULL,
+                                       WS_VISIBLE | WS_CHILD | BS_GROUPBOX,
+                                       15, 400, 560, 80,
+                                       hDlg, NULL, GetModuleHandle(NULL), NULL);
+    
+    // 为分组框设置字体
+    SendMessageW(hButtonGroup, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    // 创建按钮
+    HWND hEditBtn = CreateWindowExW(0, L"BUTTON", L"编辑",
+                                   WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                   50, 420, 80, 30,
+                                   hDlg, (HMENU)1001, GetModuleHandle(NULL), NULL);
+    
+    // 为按钮设置字体
+    SendMessageW(hEditBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    HWND hAddBtn = CreateWindowExW(0, L"BUTTON", L"添加",
+                                  WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                  140, 420, 80, 30,
+                                  hDlg, (HMENU)1002, GetModuleHandle(NULL), NULL);
+    
+    // 为按钮设置字体
+    SendMessageW(hAddBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    HWND hDeleteBtn = CreateWindowExW(0, L"BUTTON", L"删除",
+                                     WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                     230, 420, 80, 30,
+                                     hDlg, (HMENU)1003, GetModuleHandle(NULL), NULL);
+    
+    // 为按钮设置字体
+    SendMessageW(hDeleteBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    HWND hCloseBtn = CreateWindowExW(0, L"BUTTON", L"关闭",
+                                    WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                    450, 420, 80, 30,
+                                    hDlg, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
+    
+    // 为按钮设置字体
+    SendMessageW(hCloseBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+    
+    // 显示窗口
+    ShowWindow(hDlg, SW_SHOW);
+    SetFocus(hListView);
+    
+    // 设置对话框为模态窗口
+    EnableWindow(g_hMainWindow, FALSE);
+    
+    // 消息循环
+    MSG msg;
+    BOOL bRunning = TRUE;
+    BOOL bResult = FALSE;
+    
+    while (bRunning && GetMessage(&msg, NULL, 0, 0))
+    {
+        if (msg.message == WM_COMMAND)
+        {
+            if (LOWORD(msg.wParam) == 1001) // 编辑按钮
+            {
+                int selectedIndex = ListView_GetNextItem(hListView, -1, LVNI_SELECTED);
+                if (selectedIndex >= 0)
+                {
+                    ShowEditShortcutDialog(selectedIndex);
+                    // 刷新列表
+                    ListView_DeleteAllItems(hListView);
+                    for (int i = 0; i < (int)g_shortcuts.size(); i++)
+                    {
+                        const ShortcutItem& shortcut = g_shortcuts[i];
+                        
+                        lvItem.mask = LVIF_TEXT;
+                        lvItem.iItem = i;
+                        lvItem.iSubItem = 0;
+                        lvItem.pszText = (LPWSTR)shortcut.name;
+                        ListView_InsertItem(hListView, &lvItem);
+                        
+                        lvItem.iSubItem = 1;
+                        lvItem.pszText = (LPWSTR)shortcut.path;
+                        ListView_SetItem(hListView, &lvItem);
+                        
+                        lvItem.iSubItem = 2;
+                        lvItem.pszText = (LPWSTR)(shortcut.showOnHome ? L"✓" : L"✗");
+                        ListView_SetItem(hListView, &lvItem);
+                        
+                        lvItem.iSubItem = 3;
+                        WCHAR typeText[20] = {0};
+                        if (shortcut.type == 0)
+                            wcscpy_s(typeText, L"文件夹");
+                        else if (shortcut.type == 1)
+                            wcscpy_s(typeText, L"URL");
+                        else
+                            wcscpy_s(typeText, L"程序");
+                        lvItem.pszText = typeText;
+                        ListView_SetItem(hListView, &lvItem);
+                    }
+                }
+            }
+            else if (LOWORD(msg.wParam) == 1002) // 添加按钮
+            {
+                ShowAddShortcutDialog();
+                // 刷新列表
+                ListView_DeleteAllItems(hListView);
+                for (int i = 0; i < (int)g_shortcuts.size(); i++)
+                {
+                    const ShortcutItem& shortcut = g_shortcuts[i];
+                    
+                    lvItem.mask = LVIF_TEXT;
+                    lvItem.iItem = i;
+                    lvItem.iSubItem = 0;
+                    lvItem.pszText = (LPWSTR)shortcut.name;
+                    ListView_InsertItem(hListView, &lvItem);
+                    
+                    lvItem.iSubItem = 1;
+                    lvItem.pszText = (LPWSTR)shortcut.path;
+                    ListView_SetItem(hListView, &lvItem);
+                    
+                    lvItem.iSubItem = 2;
+                    lvItem.pszText = (LPWSTR)(shortcut.showOnHome ? L"✓" : L"✗");
+                    ListView_SetItem(hListView, &lvItem);
+                    
+                    lvItem.iSubItem = 3;
+                    WCHAR typeText[20] = {0};
+                    if (shortcut.type == 0)
+                        wcscpy_s(typeText, L"文件夹");
+                    else if (shortcut.type == 1)
+                        wcscpy_s(typeText, L"URL");
+                    else
+                        wcscpy_s(typeText, L"程序");
+                    lvItem.pszText = typeText;
+                    ListView_SetItem(hListView, &lvItem);
+                }
+            }
+            else if (LOWORD(msg.wParam) == 1003) // 删除按钮
+            {
+                int selectedIndex = ListView_GetNextItem(hListView, -1, LVNI_SELECTED);
+                if (selectedIndex >= 0)
+                {
+                    WCHAR msgText[256];
+                    wsprintfW(msgText, L"确定要删除快捷方式 '%s' 吗？", g_shortcuts[selectedIndex].name);
+                    if (MessageBoxW(hDlg, msgText, L"确认删除", MB_YESNO | MB_ICONQUESTION) == IDYES)
+                    {
+                        // 删除快捷方式
+                        g_shortcuts.erase(g_shortcuts.begin() + selectedIndex);
+                        SaveShortcuts();
+                        
+                        // 刷新列表
+                        ListView_DeleteAllItems(hListView);
+                        for (int i = 0; i < (int)g_shortcuts.size(); i++)
+                        {
+                            const ShortcutItem& shortcut = g_shortcuts[i];
+                            
+                            lvItem.mask = LVIF_TEXT;
+                            lvItem.iItem = i;
+                            lvItem.iSubItem = 0;
+                            lvItem.pszText = (LPWSTR)shortcut.name;
+                            ListView_InsertItem(hListView, &lvItem);
+                            
+                            lvItem.iSubItem = 1;
+                            lvItem.pszText = (LPWSTR)shortcut.path;
+                            ListView_SetItem(hListView, &lvItem);
+                            
+                            lvItem.iSubItem = 2;
+                            lvItem.pszText = (LPWSTR)(shortcut.showOnHome ? L"✓" : L"✗");
+                            ListView_SetItem(hListView, &lvItem);
+                            
+                            lvItem.iSubItem = 3;
+                            WCHAR typeText[20] = {0};
+                            if (shortcut.type == 0)
+                                wcscpy_s(typeText, L"文件夹");
+                            else if (shortcut.type == 1)
+                                wcscpy_s(typeText, L"URL");
+                            else
+                                wcscpy_s(typeText, L"程序");
+                            lvItem.pszText = typeText;
+                            ListView_SetItem(hListView, &lvItem);
+                        }
+                    }
+                }
+            }
+            else if (LOWORD(msg.wParam) == IDCANCEL) // 关闭按钮
+            {
+                bRunning = FALSE;
+            }
+        }
+        else if (msg.message == WM_CLOSE)
+        {
+            bRunning = FALSE;
+        }
+        
+        if (!IsDialogMessage(hDlg, &msg))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+    }
+    
+    // 恢复主窗口
+    EnableWindow(g_hMainWindow, TRUE);
+    SetFocus(g_hMainWindow);
+    
+    // 清理资源
+    DeleteObject(hFont);  // 删除创建的字体对象
+    DestroyWindow(hDlg);
 }
 
-// 显示系统设置对话框
+struct SystemSettingsDialogState
+{
+    HFONT font;
+    HWND chkMinimizeToTray;
+    HWND chkShowStartPage;
+    bool* saved;
+};
+
+static LRESULT CALLBACK SystemSettingsDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg == WM_NCCREATE)
+    {
+        CREATESTRUCTW* cs = reinterpret_cast<CREATESTRUCTW*>(lParam);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(cs->lpCreateParams));
+        return TRUE;
+    }
+
+    auto* state = reinterpret_cast<SystemSettingsDialogState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    switch (msg)
+    {
+    case WM_CREATE:
+    {
+        if (!state) return -1;
+
+        state->font = CreateFontW(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                  OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                                  DEFAULT_PITCH | FF_SWISS, L"微软雅黑");
+
+        HWND hTitle = CreateWindowExW(0, L"STATIC", L"界面与启动设置",
+                                      WS_VISIBLE | WS_CHILD,
+                                      20, 20, 300, 28,
+                                      hwnd, NULL, GetModuleHandle(NULL), NULL);
+        SendMessageW(hTitle, WM_SETFONT, (WPARAM)state->font, TRUE);
+
+        HWND hDesc = CreateWindowExW(0, L"STATIC",
+                                     L"参考 Win11 开始菜单体验，控制窗口最小化行为和默认打开页面。",
+                                     WS_VISIBLE | WS_CHILD,
+                                     20, 55, 460, 24,
+                                     hwnd, NULL, GetModuleHandle(NULL), NULL);
+        SendMessageW(hDesc, WM_SETFONT, (WPARAM)state->font, TRUE);
+
+        state->chkMinimizeToTray = CreateWindowExW(0, L"BUTTON",
+                                                   L"最小化时隐藏到托盘",
+                                                   WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+                                                   20, 95, 260, 28,
+                                                   hwnd, (HMENU)2001, GetModuleHandle(NULL), NULL);
+        SendMessageW(state->chkMinimizeToTray, WM_SETFONT, (WPARAM)state->font, TRUE);
+        SendMessageW(state->chkMinimizeToTray, BM_SETCHECK, g_minimizeToTray ? BST_CHECKED : BST_UNCHECKED, 0);
+
+        state->chkShowStartPage = CreateWindowExW(0, L"BUTTON",
+                                                  L"显示窗口时优先打开开始页",
+                                                  WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+                                                  20, 130, 280, 28,
+                                                  hwnd, (HMENU)2002, GetModuleHandle(NULL), NULL);
+        SendMessageW(state->chkShowStartPage, WM_SETFONT, (WPARAM)state->font, TRUE);
+        SendMessageW(state->chkShowStartPage, BM_SETCHECK, g_showStartPageOnLaunch ? BST_CHECKED : BST_UNCHECKED, 0);
+
+        HWND hTip = CreateWindowExW(0, L"STATIC",
+                                    L"开始页会展示固定快捷方式、推荐项目和开始菜单程序。",
+                                    WS_VISIBLE | WS_CHILD,
+                                    40, 165, 420, 24,
+                                    hwnd, NULL, GetModuleHandle(NULL), NULL);
+        SendMessageW(hTip, WM_SETFONT, (WPARAM)state->font, TRUE);
+
+        HWND hOkBtn = CreateWindowExW(0, L"BUTTON", L"保存",
+                                      WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                                      300, 205, 90, 32,
+                                      hwnd, (HMENU)IDOK, GetModuleHandle(NULL), NULL);
+        SendMessageW(hOkBtn, WM_SETFONT, (WPARAM)state->font, TRUE);
+
+        HWND hCancelBtn = CreateWindowExW(0, L"BUTTON", L"取消",
+                                          WS_VISIBLE | WS_CHILD,
+                                          400, 205, 90, 32,
+                                          hwnd, (HMENU)IDCANCEL, GetModuleHandle(NULL), NULL);
+        SendMessageW(hCancelBtn, WM_SETFONT, (WPARAM)state->font, TRUE);
+
+        SetFocus(state->chkMinimizeToTray);
+        return 0;
+    }
+    case WM_COMMAND:
+    {
+        int id = LOWORD(wParam);
+        int code = HIWORD(wParam);
+        if (code != BN_CLICKED && id != IDOK && id != IDCANCEL)
+        {
+            break;
+        }
+
+        if (id == IDOK)
+        {
+            g_minimizeToTray = (SendMessageW(state->chkMinimizeToTray, BM_GETCHECK, 0, 0) == BST_CHECKED);
+            g_showStartPageOnLaunch = (SendMessageW(state->chkShowStartPage, BM_GETCHECK, 0, 0) == BST_CHECKED);
+            SaveAppSettings();
+            if (state->saved) *state->saved = true;
+            DestroyWindow(hwnd);
+            return 0;
+        }
+        if (id == IDCANCEL)
+        {
+            DestroyWindow(hwnd);
+            return 0;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        DestroyWindow(hwnd);
+        return 0;
+    case WM_NCDESTROY:
+        if (state)
+        {
+            if (state->font) DeleteObject(state->font);
+            delete state;
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+        }
+        return 0;
+    default:
+        break;
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
 void ShowSystemSettingsDialog() {
     LogToFile("ShowSystemSettingsDialog: 显示系统设置对话框");
-    MessageBoxW(g_hMainWindow, L"系统设置功能开发中...", L"系统设置", MB_OK | MB_ICONINFORMATION);
+
+    static bool s_registered = false;
+    if (!s_registered)
+    {
+        WNDCLASSEXW wc = {0};
+        wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.lpfnWndProc = SystemSettingsDialogProc;
+        wc.hInstance = GetModuleHandle(NULL);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+        wc.lpszClassName = L"BVSystemSettingsDialog";
+        RegisterClassExW(&wc);
+        s_registered = true;
+    }
+
+    bool saved = false;
+    auto* state = new SystemSettingsDialogState();
+    state->font = NULL;
+    state->chkMinimizeToTray = NULL;
+    state->chkShowStartPage = NULL;
+    state->saved = &saved;
+
+    const int dialogWidth = 520;
+    const int dialogHeight = 280;
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int dialogX = (screenWidth - dialogWidth) / 2;
+    int dialogY = (screenHeight - dialogHeight) / 2;
+
+    HWND hDlg = CreateWindowExW(
+        WS_EX_DLGMODALFRAME,
+        L"BVSystemSettingsDialog",
+        L"系统设置",
+        WS_POPUP | WS_CAPTION | WS_SYSMENU,
+        dialogX, dialogY, dialogWidth, dialogHeight,
+        g_hMainWindow, NULL, GetModuleHandle(NULL), state);
+
+    if (!hDlg)
+    {
+        delete state;
+        MessageBoxW(g_hMainWindow, L"无法创建系统设置窗口", L"错误", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    EnableWindow(g_hMainWindow, FALSE);
+    ShowWindow(hDlg, SW_SHOW);
+    UpdateWindow(hDlg);
+
+    MSG msg;
+    while (IsWindow(hDlg) && GetMessageW(&msg, NULL, 0, 0))
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    EnableWindow(g_hMainWindow, TRUE);
+    SetFocus(g_hMainWindow);
+
+    if (saved)
+    {
+        if (!g_calculatorMode && !g_dirMode && !g_bookmarkMode && !g_fileMode)
+        {
+            if (g_showStartPageOnLaunch)
+            {
+                UpdateInitialWebViewContent();
+            }
+            else
+            {
+                ShowBasicUsage();
+            }
+        }
+        MessageBoxW(g_hMainWindow, L"系统设置已保存。", L"系统设置", MB_OK | MB_ICONINFORMATION);
+    }
 }
 
 // 显示关于对话框
@@ -1569,6 +2285,13 @@ void HandleSettingsMenuItemClick(INT_PTR itemIndex) {
         WCHAR msg[256];
         wsprintfW(msg, L"成功导入 %d 个桌面快捷方式！", count);
         MessageBoxW(g_hMainWindow, msg, L"导入完成", MB_OK | MB_ICONINFORMATION);
+    }
+    else if (wcscmp(itemText, L"同步开始菜单快捷方式") == 0) {
+        LogToFile("HandleSettingsMenuItemClick: 用户选择同步开始菜单快捷方式");
+        int count = ImportStartMenuShortcuts();
+        WCHAR msg[256];
+        wsprintfW(msg, L"成功同步 %d 个开始菜单快捷方式！", count);
+        MessageBoxW(g_hMainWindow, msg, L"同步完成", MB_OK | MB_ICONINFORMATION);
     }
     else if (wcscmp(itemText, L"系统设置") == 0) {
         // 系统设置
@@ -1653,6 +2376,57 @@ void SaveWindowSettings() {
             LogToFile("窗口大小和位置已保存");
         }
     }
+}
+
+/**
+ * @brief 保存应用设置到注册表
+ */
+void SaveAppSettings()
+{
+    HKEY hKey;
+    DWORD disposition = 0;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\BVQuickLauncher", 0, NULL, 0,
+                        KEY_SET_VALUE, NULL, &hKey, &disposition) == ERROR_SUCCESS)
+    {
+        DWORD minimizeToTray = g_minimizeToTray ? 1 : 0;
+        DWORD showStartPage = g_showStartPageOnLaunch ? 1 : 0;
+        RegSetValueExW(hKey, L"MinimizeToTray", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&minimizeToTray), sizeof(DWORD));
+        RegSetValueExW(hKey, L"ShowStartPageOnLaunch", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&showStartPage), sizeof(DWORD));
+        RegCloseKey(hKey);
+        LogToFile("SaveAppSettings: 应用设置已保存");
+    }
+}
+
+/**
+ * @brief 从注册表加载应用设置
+ */
+void LoadAppSettings()
+{
+    g_minimizeToTray = true;
+    g_showStartPageOnLaunch = true;
+
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\BVQuickLauncher", 0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+    {
+        DWORD value = 0;
+        DWORD valueSize = sizeof(DWORD);
+        if (RegQueryValueExW(hKey, L"MinimizeToTray", 0, NULL, reinterpret_cast<LPBYTE>(&value), &valueSize) == ERROR_SUCCESS)
+        {
+            g_minimizeToTray = (value != 0);
+        }
+
+        value = 0;
+        valueSize = sizeof(DWORD);
+        if (RegQueryValueExW(hKey, L"ShowStartPageOnLaunch", 0, NULL, reinterpret_cast<LPBYTE>(&value), &valueSize) == ERROR_SUCCESS)
+        {
+            g_showStartPageOnLaunch = (value != 0);
+        }
+
+        RegCloseKey(hKey);
+    }
+
+    LogToFile(g_minimizeToTray ? "LoadAppSettings: 最小化到托盘已启用" : "LoadAppSettings: 最小化到托盘已关闭");
+    LogToFile(g_showStartPageOnLaunch ? "LoadAppSettings: 启动开始页已启用" : "LoadAppSettings: 启动开始页已关闭");
 }
 
 // 从注册表加载窗口大小和位置
@@ -1818,36 +2592,32 @@ void CreateWebView2HTML(const std::vector<ShortcutItem>& items, const std::vecto
             // 名称列：显示图标和名称
             itemsHtml += L"<td><div class='item-name'>";
             
-            // 提取并显示图标
-            WCHAR iconPath[512] = {0};
-            if (ExtractShortcutIcon(items[i], iconPath, 512))
+            // 提取并显示图标（优先显示真实程序图标）
+            if (wcsncmp(items[i].iconPath, L"emoji:", 6) == 0)
             {
-                if (wcsncmp(iconPath, L"emoji:", 6) == 0)
-                {
-                    itemsHtml += L"<span class='item-icon' style='font-size:20px; display:inline-block; width:24px; height:24px; text-align:center; vertical-align:middle; line-height:24px; margin-right:8px;'>";
-                    itemsHtml += (iconPath + 6);
-                    itemsHtml += L"</span>";
-                }
-                else if (wcsstr(iconPath, L".dll,") != NULL)
-                {
-                    itemsHtml += L"<img src=\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'><rect x='3' y='3' width='18' height='18' rx='4' ry='4' fill='%23e9f0ff' stroke='%23008cff' stroke-width='2'/><path d='M9 9h6v6' fill='none' stroke='%23008cff' stroke-width='2'/><path d='M9 15l6-6' fill='none' stroke='%23008cff' stroke-width='2'/></svg>\" class='item-icon' alt='图标'>";
-                }
-                else if (wcsstr(iconPath, L"http") != NULL)
+                itemsHtml += L"<span class='item-icon' style='font-size:20px; display:inline-block; width:24px; height:24px; text-align:center; vertical-align:middle; line-height:24px; margin-right:8px;'>";
+                itemsHtml += (items[i].iconPath + 6);
+                itemsHtml += L"</span>";
+            }
+            else
+            {
+                std::wstring iconDataUri = GetShortcutIconDataUri(items[i], 24);
+                if (!iconDataUri.empty())
                 {
                     itemsHtml += L"<img src='";
-                    itemsHtml += iconPath;
+                    itemsHtml += iconDataUri;
+                    itemsHtml += L"' class='item-icon' alt='图标'>";
+                }
+                else if (items[i].type == 1 && wcsstr(items[i].iconPath, L"http") != NULL)
+                {
+                    itemsHtml += L"<img src='";
+                    itemsHtml += items[i].iconPath;
                     itemsHtml += L"' class='item-icon' alt='图标'>";
                 }
                 else
                 {
-                    itemsHtml += L"<img src='";
-                    itemsHtml += iconPath;
-                    itemsHtml += L"' class='item-icon' alt='图标'>";
+                    itemsHtml += L"<img src=\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'><rect x='3' y='3' width='18' height='18' rx='4' ry='4' fill='%23e9f0ff' stroke='%23008cff' stroke-width='2'/><path d='M9 9h6v6' fill='none' stroke='%23008cff' stroke-width='2'/><path d='M9 15l6-6' fill='none' stroke='%23008cff' stroke-width='2'/></svg>\" class='item-icon' alt='图标'>";
                 }
-            }
-            else
-            {
-                itemsHtml += L"<img src=\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'><rect x='3' y='3' width='18' height='18' rx='4' ry='4' fill='%23e9f0ff' stroke='%23008cff' stroke-width='2'/><path d='M9 9h6v6' fill='none' stroke='%23008cff' stroke-width='2'/><path d='M9 15l6-6' fill='none' stroke='%23008cff' stroke-width='2'/></svg>\" class='item-icon' alt='图标'>";
             }
             
             itemsHtml += items[i].name;
@@ -2026,22 +2796,24 @@ void UpdateSettingsMenuWebView()
         
         // 菜单项列表
         const WCHAR* menuItems[] = {
-            L"退出程序",
             L"快捷方式管理",
             L"导入桌面快捷方式",
+            L"同步开始菜单快捷方式",
             L"系统设置",
-            L"关于软件"
+            L"关于软件",
+            L"退出程序"
         };
         
         const WCHAR* menuIcons[] = {
-            L"🚪",
             L"📁",
             L"⬇️",
+            L"🪟",
             L"⚙️",
-            L"ℹ️"
+            L"ℹ️",
+            L"🚪"
         };
         
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
         {
             menuItemsHtml += L"<div class='menu-item' onclick='onMenuItemClick(";
             menuItemsHtml += std::to_wstring(i);
@@ -2257,11 +3029,28 @@ void ShowBasicUsage()
     }
     else
     {
-        LogToFile("ShowBasicUsage: WebView2 未初始化，无法显示HTML内容");
+        if (g_webViewInitInProgress && !g_webViewInitFailed)
+        {
+            LogToFile("ShowBasicUsage: WebView2 正在初始化，暂不弹窗提示");
+            return;
+        }
         
-        // 如果没有WebView2，我们可以尝试使用其他方式显示信息
-        // 这里可以添加一个MessageBox来提示用户
-        MessageBoxW(NULL, L"WebView2 运行时未安装或初始化失败！\n\n请下载安装 Microsoft Edge WebView2 运行时后再使用。\n\n下载地址: https://developer.microsoft.com/microsoft-edge/webview2/\n\n基本功能仍然可用，详情请查看日志文件。", L"Funny Quick - 基本用法", MB_OK | MB_ICONINFORMATION);
+        LogToFile("ShowBasicUsage: WebView2 初始化失败或不可用");
+        
+        if (!g_webViewInitErrorNotified)
+        {
+            g_webViewInitErrorNotified = true;
+            
+            WCHAR msg[512] = {0};
+            wsprintfW(msg,
+                      L"WebView2 运行时未安装或初始化失败！\n\n"
+                      L"请下载安装 Microsoft Edge WebView2 运行时后再使用。\n"
+                      L"下载地址: https://developer.microsoft.com/microsoft-edge/webview2/\n\n"
+                      L"错误码: 0x%08lX\n\n"
+                      L"基本功能仍然可用，详情请查看日志文件。",
+                      (unsigned long)g_webViewInitHr);
+            MessageBoxW(g_hMainWindow ? g_hMainWindow : NULL, msg, L"Funny Quick", MB_OK | MB_ICONINFORMATION);
+        }
     }
 }
 

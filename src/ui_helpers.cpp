@@ -98,7 +98,8 @@ void LayoutControls(int windowWidth, int windowHeight)
     
     // ListView：文本框下方，占据中间大部分空间
     int listViewX = margin;
-    int listViewY = editY + editHeight*2 + spacing;
+    // 往下移动50像素，避免覆盖工具栏 (之前是100，用户要求再上移50)
+    int listViewY = editY + editHeight*2 + spacing + 50;
     int listViewWidth = windowWidth - (margin * 2);
     int listViewHeight = windowHeight - listViewY - margin - buttonHeight - margin; // 为底部按钮和边距留空间
     

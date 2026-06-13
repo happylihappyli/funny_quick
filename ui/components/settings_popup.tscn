@@ -1,0 +1,41 @@
+[gd_scene format=3]
+
+[node name="SettingsWindowRoot" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Desktop" type="Panel" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="SettingsVBox" type="VBoxContainer" parent="Desktop"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 10
+
+[node name="SettingsTitle" type="Label" parent="Desktop/SettingsVBox"]
+text = "系统设置"
+
+[node name="SettingsHint" type="Label" parent="Desktop/SettingsVBox"]
+text = "保存后写入注册表，和旧版 WebView 设置共用。"
+
+[node name="SettingsMinimizeCheck" type="CheckBox" parent="Desktop/SettingsVBox"]
+text = "最小化到托盘"
+
+[node name="SettingsStartPageCheck" type="CheckBox" parent="Desktop/SettingsVBox"]
+text = "启动时显示首页"
+
+[node name="SettingsBtnRow" type="HBoxContainer" parent="Desktop/SettingsVBox"]
+theme_override_constants/separation = 8
+
+[node name="SettingsSaveButton" type="Button" parent="Desktop/SettingsVBox/SettingsBtnRow"]
+custom_minimum_size = Vector2(96, 36)
+text = "保存"
+
+[node name="SettingsCancelButton" type="Button" parent="Desktop/SettingsVBox/SettingsBtnRow"]
+custom_minimum_size = Vector2(96, 36)
+text = "取消"

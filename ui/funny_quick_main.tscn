@@ -1,0 +1,198 @@
+[gd_scene format=3]
+
+[node name="FunnyQuickRoot" type="Control"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+
+[node name="Desktop" type="Panel" parent="."]
+anchor_bottom = 1.0
+anchor_right = 1.0
+
+[node name="MainVBox" type="VBoxContainer" parent="Desktop"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = -18.0
+offset_left = 18.0
+offset_right = -18.0
+offset_top = 18.0
+theme_override_constants/separation = 10
+
+[node name="Toolbar" type="HBoxContainer" parent="Desktop/MainVBox"]
+custom_minimum_size = Vector2(0, 46)
+theme_override_constants/separation = 8
+
+[node name="SearchBox" type="LineEdit" parent="Desktop/MainVBox/Toolbar"]
+custom_minimum_size = Vector2(420, 40)
+placeholder_text = "输入名称搜索，例如 cloud"
+size_flags_horizontal = 3
+
+[node name="SyncButton" type="Button" parent="Desktop/MainVBox/Toolbar"]
+custom_minimum_size = Vector2(140, 40)
+text = "同步开始菜单"
+
+[node name="AddButton" type="Button" parent="Desktop/MainVBox/Toolbar"]
+custom_minimum_size = Vector2(88, 40)
+text = "新增"
+
+[node name="SettingsButton" type="Button" parent="Desktop/MainVBox/Toolbar"]
+custom_minimum_size = Vector2(88, 40)
+text = "设置"
+
+[node name="EditModeButton" type="Button" parent="Desktop/MainVBox/Toolbar"]
+custom_minimum_size = Vector2(110, 40)
+text = "编辑模式"
+
+[node name="MainSplit" type="HSplitContainer" parent="Desktop/MainVBox"]
+custom_minimum_size = Vector2(0, 680)
+size_flags_vertical = 3
+split_offset = 340.0
+
+[node name="LeftScroll" type="ScrollContainer" parent="Desktop/MainVBox/MainSplit"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = 8.0
+offset_left = 10.0
+offset_right = -10.0
+offset_top = 28.0
+
+[node name="LeftVBox" type="VBoxContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll"]
+custom_minimum_size = Vector2(312, 0)
+theme_override_constants/separation = 5
+
+[node name="HomeSection" type="PanelContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox"]
+size_flags_horizontal = 3
+
+[node name="HomeVBox" type="VBoxContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/HomeSection"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="HomeSummary" type="Label" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/HomeSection/HomeVBox"]
+custom_minimum_size = Vector2(0, 22)
+text = "首页固定: 0 项"
+
+[node name="HomeHint" type="Label" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/HomeSection/HomeVBox"]
+custom_minimum_size = Vector2(0, 20)
+text = "单击选中，双击立即打开。"
+
+[node name="HomeGridHost" type="Panel" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/HomeSection/HomeVBox"]
+custom_minimum_size = Vector2(0, 220)
+
+[node name="HomeGridHint" type="RichTextLabel" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/HomeSection/HomeVBox/HomeGridHost"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = -12.0
+offset_left = 12.0
+offset_right = -12.0
+offset_top = 12.0
+text = "[b]固定磁贴区[/b]\n这里是 Win11 风格固定应用网格的占位区域。\n后续程序会把真实图标和点击行为绑定到这里。"
+
+[node name="RecommendedSection" type="PanelContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox"]
+size_flags_horizontal = 3
+
+[node name="RecommendedVBox" type="VBoxContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/RecommendedSection"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="RecommendedSummary" type="Label" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/RecommendedSection/RecommendedVBox"]
+custom_minimum_size = Vector2(0, 22)
+text = "推荐: 0 项"
+
+[node name="RecommendedHost" type="Panel" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/RecommendedSection/RecommendedVBox"]
+custom_minimum_size = Vector2(0, 140)
+
+[node name="RecommendedHint" type="RichTextLabel" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/RecommendedSection/RecommendedVBox/RecommendedHost"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = -12.0
+offset_left = 12.0
+offset_right = -12.0
+offset_top = 12.0
+text = "推荐区目前仍接列表逻辑，后续可继续改成磁贴或两行卡片。"
+
+[node name="StartMenuSection" type="PanelContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox"]
+size_flags_horizontal = 3
+
+[node name="StartMenuVBox" type="VBoxContainer" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/StartMenuSection"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="StartMenuSummary" type="Label" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/StartMenuSection/StartMenuVBox"]
+custom_minimum_size = Vector2(0, 22)
+text = "开始菜单: 0 项"
+
+[node name="StartMenuHost" type="Panel" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/StartMenuSection/StartMenuVBox"]
+custom_minimum_size = Vector2(0, 220)
+
+[node name="StartMenuHint" type="RichTextLabel" parent="Desktop/MainVBox/MainSplit/LeftScroll/LeftVBox/StartMenuSection/StartMenuVBox/StartMenuHost"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = -12.0
+offset_left = 12.0
+offset_right = -12.0
+offset_top = 12.0
+text = "这里用于展示开始菜单同步结果。"
+
+[node name="RightPanel" type="Panel" parent="Desktop/MainVBox/MainSplit"]
+
+[node name="RightVBox" type="VBoxContainer" parent="Desktop/MainVBox/MainSplit/RightPanel"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = 17.0
+offset_left = 5.0
+offset_right = -15.0
+offset_top = 37.0
+theme_override_constants/separation = 8
+
+[node name="ResultsTitle" type="Label" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox"]
+text = "搜索结果 / 全部快捷方式"
+
+[node name="SearchSummary" type="Label" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox"]
+text = "结果: 0 项"
+
+[node name="SearchListHost" type="Panel" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox"]
+custom_minimum_size = Vector2(0, 320)
+size_flags_vertical = 3
+
+[node name="SearchListHint" type="RichTextLabel" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox/SearchListHost"]
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_bottom = -12.0
+offset_left = 12.0
+offset_right = -12.0
+offset_top = 12.0
+text = "这里预留给搜索结果列表。当前主要用于可视化调整右侧比例和间距。"
+
+[node name="ActionRow" type="HBoxContainer" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox"]
+custom_minimum_size = Vector2(0, 40)
+theme_override_constants/separation = 8
+visible = false
+
+[node name="OpenButton" type="Button" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox/ActionRow"]
+custom_minimum_size = Vector2(88, 38)
+text = "打开"
+
+[node name="EditButton" type="Button" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox/ActionRow"]
+custom_minimum_size = Vector2(88, 38)
+text = "修改"
+
+[node name="DeleteButton" type="Button" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox/ActionRow"]
+custom_minimum_size = Vector2(88, 38)
+text = "删除"
+
+[node name="HomeButton" type="Button" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox/ActionRow"]
+custom_minimum_size = Vector2(110, 38)
+text = "加入首页"
+
+[node name="DetailsTitle" type="Label" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox"]
+text = "详情"
+
+[node name="DetailsText" type="RichTextLabel" parent="Desktop/MainVBox/MainSplit/RightPanel/RightVBox"]
+custom_minimum_size = Vector2(0, 180)
+text = "未选中快捷方式。\n\n左侧是已固定和开始菜单区域，右侧是搜索/全部结果。\n双击任意列表项可直接启动。"
+
+[node name="StatusLabel" type="Label" parent="Desktop/MainVBox"]
+custom_minimum_size = Vector2(0, 24)
+text = "就绪。"

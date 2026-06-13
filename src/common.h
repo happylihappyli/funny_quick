@@ -28,6 +28,8 @@ extern HWND g_hHomeBtn;
 extern HWND g_hBookmarkBtn;
 extern HWND g_hCalculatorBtn;
 extern HWND g_hDirBtn;
+extern HWND g_hFileBtn;      // 文件搜索模式按钮
+extern HWND g_hShortcutBtn;  // 快捷方式管理模式按钮
 extern HFONT g_hFont;
 
 extern bool g_ignoreNextReturn;
@@ -36,6 +38,12 @@ extern bool g_calculatorMode;
 extern bool g_dirMode;
 extern bool g_updatingEditBox;
 extern bool g_settingsMenuMode;
+extern bool g_minimizeToTray;
+extern bool g_showStartPageOnLaunch;
+extern bool g_webViewInitFailed;
+extern bool g_webViewInitInProgress;
+extern HRESULT g_webViewInitHr;
+extern bool g_webViewInitErrorNotified;
 
 extern std::vector<ShortcutItem> g_shortcuts;
 extern std::vector<ShortcutItem> g_searchResults;
@@ -85,6 +93,8 @@ extern WCHAR g_pendingFileSearchQuery[1024];  // 待处理的文件搜索查询
 #define IDC_BOOKMARK_BTN 1005
 #define IDC_CALCULATOR_BTN 1006
 #define IDC_DIR_BTN 1007
+#define IDC_FILE_BTN 1008      // 文件搜索模式按钮ID
+#define IDC_SHORTCUT_BTN 1009  // 快捷方式管理模式按钮ID
 #define IDC_SETTINGS_BUTTON 1004
 #define IDC_EXIT_FILE_BUTTON 1017   // 退出文件模式按钮ID
 #define HOTKEY_ID 1
@@ -138,6 +148,9 @@ void UpdateDirModeWebView();  // 更新目录浏览模式的 WebView2 显示
 std::wstring ReadHtmlTemplate(const std::wstring& filePath);  // 读取HTML模板文件内容
 void SaveWindowSettings();  // 保存窗口设置
 void LoadWindowSettings(int& x, int& y, int& width, int& height);  // 加载窗口设置
+void SaveAppSettings();  // 保存应用设置
+void LoadAppSettings();  // 加载应用设置
+void ShowSystemSettingsDialog();  // 显示系统设置对话框
 
 // 新增函数声明（在gui_main.cpp中实现）
 void ShowHelpInfo();  // 显示使用帮助信息
@@ -178,7 +191,7 @@ LRESULT HandleWMContextMenu(HWND hwnd, WPARAM wParam);  // 处理WM_CONTEXTMENU�
 // 类型定义
 struct ShortcutItem {
     WCHAR name[256];
-    WCHAR path[256];
+    WCHAR path[1024];
     WCHAR comment[512]; // 备注信息
     WCHAR iconPath[512]; // 图标路径
     int type; // 0 = directory, 1 = URL, 2 = application

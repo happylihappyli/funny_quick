@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[node name="EditWindowRoot" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Desktop" type="Panel" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="EditVBox" type="VBoxContainer" parent="Desktop"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 10
+
+[node name="EditPopupTitle" type="Label" parent="Desktop/EditVBox"]
+text = "编辑快捷方式"
+
+[node name="EditName" type="LineEdit" parent="Desktop/EditVBox"]
+custom_minimum_size = Vector2(0, 38)
+placeholder_text = "名称"
+
+[node name="EditPath" type="LineEdit" parent="Desktop/EditVBox"]
+custom_minimum_size = Vector2(0, 38)
+placeholder_text = "路径或网址"
+
+[node name="EditComment" type="LineEdit" parent="Desktop/EditVBox"]
+custom_minimum_size = Vector2(0, 38)
+placeholder_text = "备注"
+
+[node name="EditShowOnHome" type="CheckBox" parent="Desktop/EditVBox"]
+text = "显示到首页"
+
+[node name="EditBtnRow" type="HBoxContainer" parent="Desktop/EditVBox"]
+theme_override_constants/separation = 8
+
+[node name="EditSaveButton" type="Button" parent="Desktop/EditVBox/EditBtnRow"]
+custom_minimum_size = Vector2(96, 36)
+text = "保存"
+
+[node name="EditCancelButton" type="Button" parent="Desktop/EditVBox/EditBtnRow"]
+custom_minimum_size = Vector2(96, 36)
+text = "取消"

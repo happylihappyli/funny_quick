@@ -2,6 +2,9 @@ import os
 import subprocess
 import datetime
 
+# 导入SCons环境
+from SCons.Environment import Environment
+
 # 创建基本环境，确保包含所有必要的工具
 env = Environment(
     tools=['clang', 'clang++', 'ar', 'link'],
@@ -49,13 +52,13 @@ show_compilation_time("编译开始")
 def kill_running_processes():
     if os.name == 'nt':
         try:
-            # 使用PowerShell命令终止所有funny_quick进程
+            # 使用PowerShell命令终止所有 funny_quick 相关进程
             subprocess.run([
                 'powershell.exe', 
                 '-Command', 
-                'Get-Process funny_quick -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'
+                'Get-Process funny_quick,funny_quick_webview -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'
             ], check=False, shell=True)
-            print("已终止所有正在运行的funny_quick进程")
+            print("已终止所有正在运行的 funny_quick 相关进程")
         except Exception as e:
             print(f"尝试终止进程时出错: {str(e)}")
 
@@ -81,17 +84,45 @@ if os.name == 'nt':
     webview2_sdk_path = os.path.abspath(r'packages\microsoft.web.webview2\1.0.3405.78')
     webview2_include = os.path.join(webview2_sdk_path, 'build', 'native', 'include')
     webview2_lib_x64 = os.path.join(webview2_sdk_path, 'build', 'native', 'x64')
+    godot_ui_root = os.path.abspath(r'..\godot_ui\godot-ui-standalone-direct2d')
+    godot_ui_include = os.path.join(godot_ui_root, 'include')
 
     # Clang 环境特殊设置
-    env.Append(CXXFLAGS=['-std=c++2b', '-Wall', '-Wextra', '-g', '-D_CRT_SECURE_NO_WARNINGS', '-DIDI_APP_ICON=1001'])
+    env.Append(CXXFLAGS=['-std=c++2b', '-Wall', '-Wextra', '-g', '-D_CRT_SECURE_NO_WARNINGS', '-DNOMINMAX', '-DIDI_APP_ICON=1001'])
     env.Append(LINKFLAGS=['-mwindows'])
-    env.Append(CPPPATH=['src', '.', webview2_include])
+    env.Append(CPPPATH=['src', '.', webview2_include, godot_ui_include])
     env.Append(LIBPATH=[webview2_lib_x64])
-    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32', 'comdlg32', 'WebView2LoaderStatic'])
+    env.Append(LIBS=['user32', 'gdi32', 'comctl32', 'shell32', 'advapi32', 'ole32', 'oleaut32', 'uuid', 'imm32', 'comdlg32', 'windowscodecs', 'd2d1', 'dwrite', 'dxguid', 'dbghelp', 'WebView2LoaderStatic'])
     print("Clang 编译器配置成功")
 
-# 源文件
-sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp', 'src/file_manager.cpp', 'src/file_search_manager.cpp', 'src/ui_helpers.cpp', 'src/tray_icon_manager.cpp', 'src/command_processor.cpp']
+# WebView 旧版源文件
+webview_sources = ['src/gui_main.cpp', 'src/command_handler.cpp', 'src/logger.cpp', 'src/webview_manager.cpp', 'src/dir_mode_manager.cpp', 'src/window_size_handler.cpp', 'src/message_handlers.cpp', 'src/calculator.cpp', 'src/bookmark_manager.cpp', 'src/file_manager.cpp', 'src/file_search_manager.cpp', 'src/ui_helpers.cpp', 'src/tray_icon_manager.cpp', 'src/command_processor.cpp']
+
+# Godot UI 新版源文件
+godot_core_sources = [
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_layout_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_editor_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_editor_view_model.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_menu_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_scene_canvas.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_scroll_list_tree.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_text_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_visual_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'ui_window_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'backend_win32_d2d.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_document.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_build_tree.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_common.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_parse.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_props_controls.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_shared_parsers.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_specific_dispatch.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_type_routing.cpp'),
+    os.path.join('..', 'godot_ui', 'godot-ui-standalone-direct2d', 'src', 'tscn_loader_visual_window.cpp'),
+]
+godot_sources = ['src/godot_ui_main.cpp', 'src/godot_launcher_backend.cpp', 'src/godot_launcher_icon.cpp', 'src/logger.cpp'] + godot_core_sources
 
 # 资源文件
 if os.name == 'nt':
@@ -129,19 +160,15 @@ env['OBJDIR'] = obj_dir
 env['OBJSUFFIX'] = '.obj'
 env['PROGSUFFIX'] = '.exe'
 
-# 构建可执行文件到bin目录
-target_path = os.path.join(bin_dir, 'funny_quick')
-
-# 为每个源文件创建对象文件节点
-object_files = []
-for src in sources:
-    # 获取文件名（不含扩展名）
-    base_name = os.path.splitext(os.path.basename(src))[0]
-    # 创建对象文件路径
-    obj_name = os.path.join(obj_dir, base_name + '.obj')
-    # 构建对象文件
-    obj = env.Object(target=obj_name, source=src)
-    object_files.append(obj)
+# 构建对象文件工具函数
+def build_objects(source_list):
+    objects = []
+    for src in source_list:
+        base_name = os.path.splitext(os.path.basename(src))[0]
+        obj_name = os.path.join(obj_dir, base_name + '.obj')
+        obj = env.Object(target=obj_name, source=src)
+        objects.append(obj)
+    return objects
 
 # 为每个资源文件创建资源文件节点
 resource_objects = []
@@ -154,9 +181,15 @@ for rc in resource_files:
     res = env.Resource(target=res_name, source=rc)
     resource_objects.append(res)
 
-# 使用对象文件和资源文件构建可执行文件
-all_objects = object_files + resource_objects
-executable = env.Program(target=target_path, source=all_objects)
+# 使用对象文件和资源文件构建两个可执行文件
+webview_target_path = os.path.join(bin_dir, 'funny_quick_webview')
+godot_target_path = os.path.join(bin_dir, 'funny_quick')
+
+webview_objects = build_objects(webview_sources)
+godot_objects = build_objects(godot_sources)
+
+webview_executable = env.Program(target=webview_target_path, source=webview_objects + resource_objects)
+godot_executable = env.Program(target=godot_target_path, source=godot_objects + resource_objects)
 
 # 复制图标文件到bin目录
 if os.path.exists('app_icon.ico'):
@@ -164,7 +197,8 @@ if os.path.exists('app_icon.ico'):
     # 使用env.Command创建复制任务
     icon_copy = env.Command(icon_target, 'app_icon.ico', Copy('$TARGET', '$SOURCE'))
     # 确保图标复制在构建时执行
-    env.Depends(executable, icon_copy)
+    env.Depends(webview_executable, icon_copy)
+    env.Depends(godot_executable, icon_copy)
     print("将复制图标文件到bin目录")
 else:
     print("警告：未找到app_icon.ico文件")
@@ -186,7 +220,7 @@ def copy_html_templates():
             # 使用env.Command创建复制任务
             html_copy = env.Command(html_target, html_source, Copy('$TARGET', '$SOURCE'))
             # 确保HTML复制在构建时执行
-            env.Depends(executable, html_copy)
+            env.Depends(webview_executable, html_copy)
             print(f"将复制 {html_file} 到bin/data目录")
         else:
             print(f"警告：未找到HTML模板文件: {html_source}")
@@ -195,15 +229,20 @@ def copy_html_templates():
 copy_html_templates()
 
 # 设置清理目标
-Clean(executable, os.path.join(bin_dir, 'funny_quick.exe'))
+Clean(webview_executable, os.path.join(bin_dir, 'funny_quick_webview.exe'))
+Clean(godot_executable, os.path.join(bin_dir, 'funny_quick.exe'))
 # 清理obj目录中的所有对象文件
-for src in sources:
+for src in webview_sources + godot_sources:
     base_name = os.path.splitext(os.path.basename(src))[0]
     obj_name = os.path.join(obj_dir, base_name + '.obj')
-    Clean(executable, obj_name)
+    Clean(webview_executable, obj_name)
+    Clean(godot_executable, obj_name)
 # 清理复制的图标文件
 if os.path.exists('app_icon.ico'):
-    Clean(executable, os.path.join(bin_dir, 'app_icon.ico'))
+    Clean(webview_executable, os.path.join(bin_dir, 'app_icon.ico'))
+    Clean(godot_executable, os.path.join(bin_dir, 'app_icon.ico'))
+
+Default([godot_executable, webview_executable])
 
 print("使用 'scons' 构建项目")
 print("使用 'scons -c' 清理项目")
